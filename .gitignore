@@ -1,0 +1,42 @@
+# Agent / LLM dev context (workspace, not part of the project)
+AGENTS.md
+CONTEXT.md
+.pi/
+.develop/
+
+# Backend (Rust / Cargo)
+backend/target/
+backend/pi-x86_64-unknown-linux-gnu
+backend/pi-sessions-x86_64-unknown-linux-gnu
+backend/.git/        # sub-repo accidental que crea tauri/cargo
+backend/.gitignore   # lo ignora el .gitignore raíz
+
+# Frontend (Node / Vite)
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Editors
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# OS junk
+.DS_Store
+Thumbs.db
+*~
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
