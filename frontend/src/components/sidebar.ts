@@ -109,12 +109,31 @@ function renderSessionsList(): HTMLElement {
   const list = document.createElement('div');
   list.className = 'sidebar-sessions';
 
-  // Placeholder hasta que Etapa 4 (sessions-list) implemente la lista real.
-  const placeholder = document.createElement('div');
-  placeholder.className = 'session-item active';
-  placeholder.textContent = 'Sesión actual';
-  list.append(placeholder);
+  // Muestra el nombre de la sesión activa, o un fallback si no hay.
+  // Se suscribe a `appState.session` para reflejar switches de la página
+  // /sessions o el botón "+ Nuevo".
+  const item = document.createElement('div');
+  item.className = 'session-item active';
 
+  const renderItem = (session: typeof appState.session.value): void => {
+    if (session?.name) {
+      item.textContent = session.name;
+      item.title = session.name;
+    } else if (session?.file) {
+      // Sesión sin nombre (recién creada): mostrar nombre del archivo
+      const basename = session.file.split('/').pop() ?? 'sesión';
+      item.textContent = basename;
+      item.title = session.file;
+    } else {
+      item.textContent = 'Sin sesión activa';
+      item.title = '';
+    }
+  };
+
+  renderItem(appState.session.value);
+  appState.session.subscribe(renderItem);
+
+  list.append(item);
   return list;
 }
 

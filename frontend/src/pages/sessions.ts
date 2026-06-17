@@ -101,7 +101,7 @@ function renderHeader(): HTMLElement {
   const backBtn = document.createElement('button');
   backBtn.className = 'sessions-back';
   backBtn.textContent = '← Volver al chat';
-  backBtn.addEventListener('click', () => navigate('#/'));
+  backBtn.addEventListener('click', () => navigate('#/chat'));
   header.append(backBtn);
 
   return header;
@@ -359,7 +359,7 @@ async function switchToSession(session: SessionInfo): Promise<void> {
       file: session.path,
       messageCount: session.messageCount,
     };
-    navigate('#/');
+    navigate('#/chat');
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {
