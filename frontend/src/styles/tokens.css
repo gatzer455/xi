@@ -799,3 +799,156 @@ code, pre { font-family: var(--font-mono); }
   background: var(--color-surface-2);
   color: var(--color-text);
 }
+
+/* ─── Welcome page (Etapa 5) ─── */
+.welcome-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-8) var(--space-6);
+  gap: var(--space-6);
+  background: var(--color-bg);
+}
+
+.welcome-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-error);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  max-width: 600px;
+  width: 100%;
+}
+
+.welcome-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  max-width: 600px;
+}
+
+.welcome-icon {
+  font-size: 3rem;
+  color: var(--color-accent);
+  line-height: 1;
+  margin-bottom: var(--space-2);
+}
+
+.welcome-title {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.welcome-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.welcome-cta {
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-accent);
+  color: var(--color-text);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.welcome-cta:hover {
+  background: var(--color-accent-hover);
+}
+
+.welcome-cta:active {
+  transform: translateY(1px);
+}
+
+.welcome-recents {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 800px;
+  margin-top: var(--space-4);
+}
+
+.welcome-recents-title {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-weight: 400;
+  margin: 0;
+}
+
+.recents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.recent-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
+  font-family: inherit;
+}
+
+.recent-card:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface-2);
+}
+
+.recent-name {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.recent-path {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-time {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+/* ─── Botón "Cambiar de proyecto" en el sidebar (Etapa 5) ─── */
+.sidebar-switch-project {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  margin-top: var(--space-1);
+}
+.sidebar-switch-project:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}

@@ -28,6 +28,8 @@ fn main() {
             commands::pi_sessions::list_sessions,
             commands::pi_sessions::delete_session,
             commands::pi_sessions::rename_session,
+            commands::recents::get_recents,
+            commands::recents::add_recent,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

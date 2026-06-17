@@ -19,9 +19,11 @@ export {
   listSessions,
   deleteSession,
   renameSession,
+  getRecents,
+  addRecent,
 } from './tauri-commands.ts';
 export type { PiStatus } from './tauri-commands.ts';
-export type { SessionInfo } from './types.ts';
+export type { Recent, SessionInfo } from './types.ts';
 
 export { initPiConnection, destroyPiConnection } from './init.ts';
 

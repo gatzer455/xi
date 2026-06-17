@@ -15,7 +15,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { addEntry } from '../debug-panel.ts';
-import type { SessionInfo } from './types.ts';
+import type { Recent, SessionInfo } from './types.ts';
 
 // Helper: envuelve invoke con logging de éxito y error. Si la llamada
 // falla, loguea el error en el panel antes de propagar la excepción.
@@ -102,4 +102,28 @@ export async function renameSession(path: string, name: string): Promise<void> {
   await loggedInvoke('rename_session', () =>
     invoke('rename_session', { path, name }),
   );
+}
+
+// ───────────────────────────────────────────────────────
+// Proyectos recientes (Etapa 5: welcome-and-recents)
+// ───────────────────────────────────────────────────────
+
+/**
+ * Retorna la lista de proyectos recientes persistidos en
+ * `app_config_dir/recents.json`. Retorna `[]` si el archivo no existe
+ * o está corrupto (Rust loguea el warning).
+ */
+export async function getRecents(): Promise<Recent[]> {
+  return await loggedInvoke('get_recents', () => invoke<Recent[]>('get_recents'));
+}
+
+/**
+ * Agrega (o mueve al tope) un path en la lista de recientes. El path
+ * se canoniza en Rust. Si no existe, falla. Solo llamar DESPUÉS de que
+ * el proyecto se abrió OK — un path que pi rechaza no es un reciente
+ * válido (decisión D4 del design).
+ */
+export async function addRecent(path: string): Promise<void> {
+  addEntry('out', `add_recent path=${path}`);
+  await loggedInvoke('add_recent', () => invoke('add_recent', { path }));
 }

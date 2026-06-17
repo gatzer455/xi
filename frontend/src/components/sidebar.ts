@@ -5,17 +5,14 @@
  * suscripciones a `appState` se registran dentro de la función y se quedan
  * vivas mientras el sidebar esté montado.
  *
- * El callback del botón de carpeta delega en `selectWorkdir`. Esa función
- * existe para aplanar la lógica y mantener el `addEventListener` en un
- * solo nivel. Sin la extracción, el handler tenía cuatro niveles de
- * anidación (try → if selected → if typeof → body) que violaban la regla
- * de code-style sobre profundidad máxima.
+ * El callback del botón de carpeta delega en `pickAndOpenProject` de
+ * `lib/workdir.ts` (Etapa 5). Misma función que usa la welcome.
  */
 
-import { open } from '@tauri-apps/plugin-dialog';
 import { appState } from '../lib/state.ts';
 import { navigate } from '../router.ts';
-import { startPi, stopPi, newPiSession } from '../lib/pi/index.ts';
+import { newPiSession } from '../lib/pi/index.ts';
+import { pickAndOpenProject } from '../lib/workdir.ts';
 
 export function Sidebar(): HTMLElement {
   const sidebar = document.createElement('aside');
@@ -66,6 +63,15 @@ function renderHeader(): HTMLElement {
   viewAllBtn.addEventListener('click', () => navigate('#/sessions'));
   header.append(viewAllBtn);
 
+  // Botón "Cambiar de proyecto" (Etapa 5). Lleva a la welcome, donde
+  // el usuario puede elegir otra carpeta o un reciente. Es la segunda
+  // vía de acceso a la welcome (la primera es cerrar y reabrir xi).
+  const switchProjectBtn = document.createElement('button');
+  switchProjectBtn.className = 'sidebar-switch-project';
+  switchProjectBtn.textContent = '↻ Cambiar de proyecto';
+  switchProjectBtn.addEventListener('click', () => navigate('#/welcome'));
+  header.append(switchProjectBtn);
+
   return header;
 }
 
@@ -96,7 +102,7 @@ function renderWorkdirSection(): HTMLElement {
   });
 
   button.addEventListener('click', () => {
-    selectWorkdir().catch((err) => {
+    pickAndOpenProject().catch((err) => {
       console.error('Error opening folder:', err);
     });
   });
@@ -148,31 +154,4 @@ function renderFooter(): HTMLElement {
   footer.append(settingsBtn);
 
   return footer;
-}
-
-// ───────────────────────────────────────────────────────
-// selectWorkdir — helper privado, no se exporta
-// ───────────────────────────────────────────────────────
-
-/**
- * Abre el diálogo nativo de selección de carpeta y reinicia pi en el
- * directorio elegido.
- *
- * El orden importa: detenemos pi antes de cambiar `appState.workingDir`.
- * pi lee archivos del cwd durante su ejecución, y un cambio brusco lo
- * dejaría con un estado inconsistente. Matar primero, mutar después,
- * arrancar al final.
- */
-async function selectWorkdir(): Promise<void> {
-  const selected = await open({
-    directory: true,
-    multiple: false,
-    title: 'Seleccionar carpeta de trabajo',
-  });
-  if (typeof selected !== 'string') return;
-
-  await stopPi();
-  appState.workingDir.value = selected;
-  appState.messages.value = [];
-  await startPi(selected);
 }

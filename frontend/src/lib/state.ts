@@ -8,6 +8,7 @@
  */
 
 import { signal, type Signal } from './signal.ts';
+import type { Recent } from './pi/types.ts';
 
 // ═══════════════════════════════════════════════════════
 // Tipos — se refinarán cuando implementemos pi-rpc
@@ -78,6 +79,11 @@ export const appState = {
 
   /** Estado de conectividad. */
   online: signal(navigator.onLine),
+
+  /** Proyectos recientes persistidos en app_config_dir/recents.json.
+   *  Se cargan una vez al iniciar (en main.ts antes del primer render)
+   *  y se actualizan cuando el usuario abre un proyecto. */
+  recents: signal<Recent[]>([]),
 };
 
 // Mantener online sincronizado con el navegador

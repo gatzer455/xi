@@ -26,3 +26,16 @@ export interface SessionInfo {
   messageCount: number;
   firstMessage: string;
 }
+
+/**
+ * Proyecto reciente. Persistido en `app_config_dir/recents.json`
+ * (vía `get_recents` / `add_recent` en Rust). El frontend lo lee una
+ * vez al iniciar y lo usa para popular la pantalla `#/welcome`.
+ */
+export interface Recent {
+  path: string;
+  /** Unix ms. */
+  lastOpened: number;
+  /** Basename del path al momento de agregar. */
+  name: string;
+}
