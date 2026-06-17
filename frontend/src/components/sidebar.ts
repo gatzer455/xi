@@ -34,10 +34,16 @@ function renderHeader(): HTMLElement {
   const header = document.createElement('div');
   header.className = 'sidebar-header';
 
+  // Fila 1: logo + botón Nuevo. La sidebar es angosta (280px) y no
+  // entran los 4 elementos en una sola línea horizontal, así que los
+  // separamos en dos filas. El header padre es flex column.
+  const topRow = document.createElement('div');
+  topRow.className = 'sidebar-header-row';
+
   const logo = document.createElement('span');
   logo.className = 'sidebar-logo';
   logo.textContent = 'xi';
-  header.append(logo);
+  topRow.append(logo);
 
   // El botón "Nuevo" llama a `newPiSession` de Tauri. Si la sesión
   // anterior tenía estado, lo limpiamos antes de navegar.
@@ -53,7 +59,14 @@ function renderHeader(): HTMLElement {
       console.error('Error creating new session:', err);
     }
   });
-  header.append(newChatBtn);
+  topRow.append(newChatBtn);
+
+  header.append(topRow);
+
+  // Fila 2: links secundarios de gestión. Juntos porque son acciones
+  // de navegación similares, no acciones primarias.
+  const bottomRow = document.createElement('div');
+  bottomRow.className = 'sidebar-header-row';
 
   // Link a la lista completa de sesiones (Etapa 4). Es secundario
   // respecto a "+ Nuevo" — solo abre la página de gestión.
@@ -61,16 +74,18 @@ function renderHeader(): HTMLElement {
   viewAllBtn.className = 'sidebar-view-all';
   viewAllBtn.textContent = 'Ver todas';
   viewAllBtn.addEventListener('click', () => navigate('#/sessions'));
-  header.append(viewAllBtn);
+  bottomRow.append(viewAllBtn);
 
   // Botón "Cambiar de proyecto" (Etapa 5). Lleva a la welcome, donde
   // el usuario puede elegir otra carpeta o un reciente. Es la segunda
   // vía de acceso a la welcome (la primera es cerrar y reabrir xi).
   const switchProjectBtn = document.createElement('button');
   switchProjectBtn.className = 'sidebar-switch-project';
-  switchProjectBtn.textContent = '↻ Cambiar de proyecto';
+  switchProjectBtn.textContent = '↻ Cambiar';
   switchProjectBtn.addEventListener('click', () => navigate('#/welcome'));
-  header.append(switchProjectBtn);
+  bottomRow.append(switchProjectBtn);
+
+  header.append(bottomRow);
 
   return header;
 }

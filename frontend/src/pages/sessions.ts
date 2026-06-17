@@ -186,7 +186,7 @@ function renderFooter(): HTMLElement {
 
 function renderItem(session: SessionInfo): HTMLElement {
   const item = document.createElement('article');
-  item.className = 'session-item';
+  item.className = 'session-card';
 
   const isActive = session.path === appState.session.value?.file;
   if (isActive) item.classList.add('is-active');

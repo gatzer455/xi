@@ -70,6 +70,22 @@ code, pre { font-family: var(--font-mono); }
   overflow: hidden;
 }
 
+/* El sidebar (aside) se monta dentro de #nav-header. El outlet
+   (main) contiene la página activa. Sin estas reglas, los dos
+   flex children no se reparten el ancho y el layout queda frágil. */
+#nav-header {
+  display: flex;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+#outlet {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* ═══════════════════════════════════════════════════════
    SIDEBAR
    ═══════════════════════════════════════════════════════ */
@@ -87,14 +103,23 @@ code, pre { font-family: var(--font-mono); }
   padding: var(--space-4);
   border-bottom: 1px solid var(--color-border);
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+
+.sidebar-header-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .sidebar-logo {
   font-size: var(--text-lg);
   font-weight: 700;
   color: var(--color-accent);
+  flex-shrink: 0;
 }
 
 .sidebar-new-chat {
@@ -468,12 +493,15 @@ code, pre { font-family: var(--font-mono); }
 .settings-label {
   font-size: var(--text-sm);
   font-weight: 500;
+  color: var(--color-text);
 }
 
 .settings-value {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-family: var(--font-mono);
+  text-align: right;
+  margin-left: var(--space-4);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -645,7 +673,7 @@ code, pre { font-family: var(--font-mono); }
   font-weight: 500;
 }
 
-.session-item {
+.session-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -656,11 +684,11 @@ code, pre { font-family: var(--font-mono); }
   flex-direction: column;
   gap: var(--space-2);
 }
-.session-item:hover {
+.session-card:hover {
   background: var(--color-surface-2);
   border-color: var(--color-accent);
 }
-.session-item.is-active {
+.session-card.is-active {
   border-color: var(--color-accent);
   background: rgba(124, 58, 237, 0.05);
 }
@@ -832,6 +860,7 @@ code, pre { font-family: var(--font-mono); }
   align-items: center;
   text-align: center;
   gap: var(--space-2);
+  width: 100%;
   max-width: 600px;
 }
 
@@ -858,6 +887,8 @@ code, pre { font-family: var(--font-mono); }
 
 .welcome-cta {
   padding: var(--space-3) var(--space-6);
+  min-width: 280px;
+  text-align: center;
   background: var(--color-accent);
   color: var(--color-text);
   border: none;
