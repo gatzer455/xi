@@ -16,6 +16,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { addEntry } from '../debug-panel.ts';
 import type { Recent, SessionInfo } from './types.ts';
+import type { ThinkingLevel } from '../state.ts';
 
 // Helper: envuelve invoke con logging de éxito y error. Si la llamada
 // falla, loguea el error en el panel antes de propagar la excepción.
@@ -126,4 +127,49 @@ export async function getRecents(): Promise<Recent[]> {
 export async function addRecent(path: string): Promise<void> {
   addEntry('out', `add_recent path=${path}`);
   await loggedInvoke('add_recent', () => invoke('add_recent', { path }));
+}
+
+// ───────────────────────────────────────────────────────
+// Settings (Etapa 6: settings-real)
+// ───────────────────────────────────────────────────────
+
+/**
+ * Pide a pi la lista de modelos disponibles. La respuesta llega via
+ * eventos al state-sync (caso `get_available_models` en handleResponse),
+ * que popula `appState.availableModels`. Este wrapper solo manda el
+ * comando — NO espera la respuesta. La signal es la fuente de verdad
+ * para el dropdown de settings.
+ *
+ * Si pi no está corriendo, el comando se manda igual pero no llega
+ * respuesta: la signal queda vacía. El dropdown muestra el estado de
+ * "loading" indefinidamente (mejor que mostrar error si el problema
+ * es transitorio, según R20 del design).
+ */
+export function getAvailableModels(): void {
+  const cmd = JSON.stringify({ type: 'get_available_models' });
+  addEntry('out', cmd);
+  void invoke('send_pi_command', { json: cmd }).catch(err => {
+    addEntry('system', `[getAvailableModels] FAILED: ${err instanceof Error ? err.message : String(err)}`);
+  });
+}
+
+/**
+ * Cambia el modelo de pi. Pi responde con un `response` que el
+ * state-sync procesa (caso `set_model`), actualizando
+ * appState.currentModel automáticamente.
+ */
+export async function setModel(provider: string, modelId: string): Promise<void> {
+  const cmd = JSON.stringify({ type: 'set_model', provider, modelId });
+  addEntry('out', cmd);
+  await loggedInvoke('setModel', () => invoke('send_pi_command', { json: cmd }));
+}
+
+/**
+ * Cambia el nivel de thinking. Acepta ThinkingLevel (tipo discriminado)
+ * en vez de string suelto: TypeScript rechaza typos en compilación.
+ */
+export async function setThinkingLevel(level: ThinkingLevel): Promise<void> {
+  const cmd = JSON.stringify({ type: 'set_thinking_level', level });
+  addEntry('out', cmd);
+  await loggedInvoke('setThinkingLevel', () => invoke('send_pi_command', { json: cmd }));
 }

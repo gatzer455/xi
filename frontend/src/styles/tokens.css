@@ -21,11 +21,18 @@
   /* Tipografía */
   --font-sans:  'Inter', system-ui, -apple-system, sans-serif;
   --font-mono:  'JetBrains Mono', 'Fira Code', monospace;
-  --text-xs:    0.75rem;
-  --text-sm:    0.875rem;
-  --text-base:  1rem;
-  --text-lg:    1.125rem;
-  --text-xl:    1.25rem;
+  /* --font-size-base es la raíz del font-size. Cambia con
+     :root[data-font-size='small|medium|large'] (Etapa 6). Default
+     1rem = 16px. */
+  --font-size-base: 1rem;
+  /* --text-* en 'em' (no 'rem'): se reescalan automáticamente cuando
+     --font-size-base cambia. 'em' es relativo al font-size del parent,
+     que hereda del root. */
+  --text-xs:    0.75em;
+  --text-sm:    0.875em;
+  --text-base:  1em;
+  --text-lg:    1.125em;
+  --text-xl:    1.25em;
 
   /* Espaciado */
   --space-1:  0.25rem;
@@ -52,7 +59,14 @@
 
 /* ─── Reset ─── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 100%; }
+html { font-size: var(--font-size-base); }
+
+/* ─── Font size: scale (Etapa 6: settings-real) ───
+   Cambia --font-size-base. Los text-* están en 'em' así que
+   se reescalan automáticamente. */
+:root[data-font-size='small']  { --font-size-base: 0.875rem; }  /* 14px */
+:root[data-font-size='medium'] { --font-size-base: 1rem; }      /* 16px (default) */
+:root[data-font-size='large']  { --font-size-base: 1.125rem; }  /* 18px */
 body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
@@ -572,7 +586,7 @@ code, pre { font-family: var(--font-mono); }
 .settings-section-title {
   font-size: var(--text-lg);
   font-weight: 600;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -598,6 +612,147 @@ code, pre { font-family: var(--font-mono); }
   font-family: var(--font-mono);
   text-align: right;
   margin-left: var(--space-4);
+}
+
+/* ═══════════════════════════════════════════════════════
+   SETTINGS (Etapa 6: settings-real)
+   Reorganización: cada sección tiene título + descripción + control.
+   El control es un wrapper que contiene el sub-control específico.
+   ═══════════════════════════════════════════════════════ */
+
+.settings-back {
+  display: inline-block;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-4);
+  padding: 0;
+  font-family: var(--font-mono);
+  text-align: left;
+}
+.settings-back:hover {
+  color: var(--color-accent);
+}
+
+.settings-section-desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+  line-height: 1.5;
+}
+
+.settings-section--stacked {
+  /* Apariencia: el control contiene múltiples sub-controles */
+}
+
+.settings-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings-appearance-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.settings-sublabel {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  margin-top: var(--space-2);
+}
+
+/* Segmented control (theme y font, también thinking) */
+.settings-segmented {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-card-bg);
+  width: fit-content;
+}
+
+.settings-segmented-btn {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.settings-segmented-btn:last-child {
+  border-right: none;
+}
+.settings-segmented-btn:hover {
+  background: var(--color-user-msg-bg);
+  color: var(--color-text);
+}
+.settings-segmented-btn--active {
+  background: var(--color-accent);
+  color: var(--color-page-bg);
+}
+.settings-segmented-btn--active:hover {
+  background: var(--color-accent);
+  color: var(--color-page-bg);
+  filter: brightness(0.9);
+}
+
+/* Select dropdown (modelo) */
+.settings-select {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  min-width: 280px;
+}
+.settings-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.settings-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+/* Error state del modelo */
+.settings-error {
+  font-size: var(--text-sm);
+  color: var(--color-error);
+  font-family: var(--font-mono);
+  flex: 1;
+}
+
+/* Empty state: pi respondío pero no hay providers configurados.
+   Diferente del error — no es un fallo, es config. */
+.settings-empty {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  flex: 1;
+}
+
+.settings-button {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-page-bg);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  margin-left: var(--space-3);
+}
+.settings-button:hover {
+  filter: brightness(0.9);
 }
 
 /* ═══════════════════════════════════════════════════════

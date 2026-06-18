@@ -63,9 +63,13 @@
 
 /* ───────────────────────────────────────────────────────────────
    AUTO-SWITCH: si el sistema está en light, usar pi-light
+   El selector :not([data-theme]) hace que el media query SOLO
+   aplique cuando el usuario NO eligió un tema explícito en
+   settings. Si data-theme='dark' o 'light' está seteado, los
+   selectores de abajo ganan.
    ─────────────────────────────────────────────────────────────── */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme]) {
     /* ── Base ── */
     --color-text: #1f2328;
     --color-text-muted: #6c6c6c;
@@ -120,4 +124,115 @@
     --hljs-operator: #000000;
     --hljs-punctuation: #000000;
   }
+}
+
+/* ───────────────────────────────────────────────────────────────
+   OVERRIDE EXPLÍCITO: data-theme='dark' o 'light' (settings)
+   Mayor especificidad que :root sin atributo y que el media query.
+   ─────────────────────────────────────────────────────────────── */
+:root[data-theme='light'] {
+  /* ── Base ── */
+  --color-text: #1f2328;
+  --color-text-muted: #6c6c6c;
+  --color-text-dim: #767676;
+  --color-text-light: #b0b0b0;
+  --color-accent: #5a8080;
+  --color-warning: #9a7326;
+
+  /* ── Surfaces ── */
+  --color-page-bg: #f8f8f8;
+  --color-card-bg: #ffffff;
+  --color-user-msg-bg: #e8e8e8;
+  --color-info-bg: #fffae6;
+
+  /* ── Tool backgrounds ── */
+  --color-tool-pending-bg: #e8e8f0;
+  --color-tool-success-bg: #e8f0e8;
+  --color-tool-error-bg: #f0e8e8;
+
+  /* ── Tool text ── */
+  --color-tool-title: #1f2328;
+  --color-tool-output: #6c6c6c;
+
+  /* ── Markdown ── */
+  --color-md-heading: #9a7326;
+  --color-md-link: #547da7;
+  --color-md-link-url: #767676;
+  --color-md-code: #5a8080;
+  --color-md-code-block: #588458;
+  --color-md-code-block-border: #6c6c6c;
+  --color-md-quote: #6c6c6c;
+  --color-md-quote-border: #6c6c6c;
+  --color-md-hr: #6c6c6c;
+  --color-md-list-bullet: #588458;
+
+  /* ── Diff ── */
+  --color-diff-added: #588458;
+  --color-diff-removed: #aa5555;
+  --color-diff-context: #6c6c6c;
+
+  /* ── Borders ── */
+  --color-border-muted: #b0b0b0;
+
+  /* ── Highlight.js ── */
+  --hljs-comment: #008000;
+  --hljs-keyword: #0000ff;
+  --hljs-function: #795e26;
+  --hljs-variable: #001080;
+  --hljs-string: #a31515;
+  --hljs-number: #098658;
+  --hljs-type: #267f99;
+  --hljs-operator: #000000;
+  --hljs-punctuation: #000000;
+}
+
+:root[data-theme='dark'] {
+  /* Mismo set que :root (default), explicitado para que data-theme='dark'
+     sea auto-suficiente. Si en el futuro default cambia a light, este
+     bloque sigue siendo la fuente de verdad de dark. */
+  --color-text: #d4d4d4;
+  --color-text-muted: #808080;
+  --color-text-dim: #666666;
+  --color-text-light: #505050;
+  --color-accent: #8abeb7;
+  --color-warning: #ffff00;
+
+  --color-page-bg: #18181e;
+  --color-card-bg: #1e1e24;
+  --color-user-msg-bg: #343541;
+  --color-info-bg: #3c3728;
+
+  --color-tool-pending-bg: #282832;
+  --color-tool-success-bg: #283228;
+  --color-tool-error-bg: #3c2828;
+
+  --color-tool-title: #d4d4d4;
+  --color-tool-output: #808080;
+
+  --color-md-heading: #f0c674;
+  --color-md-link: #81a2be;
+  --color-md-link-url: #666666;
+  --color-md-code: #8abeb7;
+  --color-md-code-block: #b5bd68;
+  --color-md-code-block-border: #808080;
+  --color-md-quote: #808080;
+  --color-md-quote-border: #808080;
+  --color-md-hr: #808080;
+  --color-md-list-bullet: #b5bd68;
+
+  --color-diff-added: #b5bd68;
+  --color-diff-removed: #cc6666;
+  --color-diff-context: #808080;
+
+  --color-border-muted: #505050;
+
+  --hljs-comment: #6a9955;
+  --hljs-keyword: #569cd6;
+  --hljs-function: #dcdcaa;
+  --hljs-variable: #9cdcfe;
+  --hljs-string: #ce9178;
+  --hljs-number: #b5cea8;
+  --hljs-type: #4ec9b0;
+  --hljs-operator: #d4d4d4;
+  --hljs-punctuation: #d4d4d4;
 }

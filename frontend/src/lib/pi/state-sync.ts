@@ -14,7 +14,7 @@
  * todos los eventos siguientes.
  */
 
-import { appState, type ChatMessage, type ToolCall, type PiModel, type ThinkingBlock } from '../state.ts';
+import { appState, type ChatMessage, type ToolCall, type PiModel, type ThinkingBlock, type ThinkingLevel } from '../state.ts';
 import { addEntry } from '../debug-panel.ts';
 import type {
   PiEvent,
@@ -62,9 +62,10 @@ function handleResponse(response: PiResponseEvent): void {
     return;
   }
 
-  // Distinguimos commands por su `data` shape. Hoy solo dos nos importan:
-  // `get_state` (carga estado) y `get_messages` (carga historial).
-  // Las otras respuestas son confirmaciones sin payload útil.
+  // Distinguimos commands por su `data` shape. Hoy nos importan:
+  // `get_state` (carga estado), `get_messages` (carga historial), y
+  // `get_available_models` (carga la lista de modelos para el dropdown
+  // de settings). Las otras respuestas son confirmaciones sin payload.
   switch (response.command) {
     case 'get_state':
       applyGetState(response.data as Record<string, unknown> | undefined);
@@ -72,16 +73,58 @@ function handleResponse(response: PiResponseEvent): void {
     case 'get_messages':
       applyGetMessages(response.data as { messages?: unknown[] } | undefined);
       return;
+    case 'get_available_models':
+      applyAvailableModels(response.data as { models?: unknown[] } | undefined);
+      return;
+    case 'set_model':
+      // Pi responde con el modelo nuevo; refrescamos el state para que
+      // currentModel quede sincronizado sin esperar al próximo get_state.
+      if (response.data) {
+        appState.currentModel.value = response.data as PiModel;
+      }
+      return;
+    case 'set_thinking_level':
+      // Pi responde confirmando; get_state (al cambiar de sesión o al
+      // iniciar) traerá el nivel nuevo. No hacemos nada acá.
+      return;
     default:
-      // Otros commands (set_model, new_session, etc.) son no-op para el state.
+      // Otros commands (new_session, abort, etc.) son no-op para el state.
       return;
   }
+}
+
+/** Maneja la respuesta de `get_available_models`. Pi retorna
+ *  `data.models` con un array de modelos. Si la lista está vacía
+ *  (no hay providers configurados) o el shape es inválido, lo
+ *  dejamos como [] — el dropdown de settings mostrará un mensaje
+ *  útil. */
+function applyAvailableModels(data: { models?: unknown[] } | undefined): void {
+  if (!data || !Array.isArray(data.models)) {
+    appState.availableModels.value = [];
+    return;
+  }
+  // Filtramos: solo aceptamos items que parezcan un PiModel válido.
+  // (Defensa contra shape inválido o parcial.)
+  const valid: PiModel[] = [];
+  for (const m of data.models) {
+    if (isPiModel(m)) valid.push(m);
+  }
+  appState.availableModels.value = valid;
+}
+
+function isPiModel(value: unknown): value is PiModel {
+  if (typeof value !== 'object' || value === null) return false;
+  const m = value as Record<string, unknown>;
+  return (
+    typeof m.provider === 'string' &&
+    typeof m.id === 'string'
+  );
 }
 
 function applyGetState(data: Record<string, unknown> | undefined): void {
   if (!data) return;
   if (data.model) appState.currentModel.value = data.model as PiModel;
-  if (data.thinkingLevel) appState.thinkingLevel.value = data.thinkingLevel as string;
+  if (data.thinkingLevel) appState.thinkingLevel.value = data.thinkingLevel as ThinkingLevel;
   if (data.sessionFile) {
     appState.session.value = {
       id: (data.sessionId as string) ?? '',

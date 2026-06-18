@@ -22,6 +22,13 @@ import { Header } from './components/header.ts';
 import { OutputBoard } from './components/output.ts';
 import { InputBar } from './components/input.ts';
 import { initDebugPanel, addEntry } from './lib/debug-panel.ts';
+import {
+  loadTheme,
+  loadFontSize,
+  applyThemeToDOM,
+  applyFontToDOM,
+} from './lib/settings-storage.ts';
+import { getAvailableModels } from './lib/pi/tauri-commands.ts';
 
 // ═══════════════════════════════════════════════════════
 // Inicializar
@@ -29,6 +36,17 @@ import { initDebugPanel, addEntry } from './lib/debug-panel.ts';
 
 async function main(): Promise<void> {
   addEntry('system', 'xi starting...');
+
+  // 0. ANTES del primer render: cargar tema y font de localStorage
+  //    y aplicarlos al <html>. Sin esto hay FOUC (flash of unstyled
+  //    content) cuando el OS y la preferencia del usuario no coinciden.
+  const initialTheme = loadTheme();
+  const initialFont = loadFontSize();
+  applyThemeToDOM(initialTheme);
+  applyFontToDOM(initialFont);
+  appState.theme.value = initialTheme;
+  appState.fontSize.value = initialFont;
+  addEntry('system', `theme=${initialTheme} fontSize=${initialFont}`);
 
   // 1. Inicializar conexión con pi (escuchar eventos)
   await initPiConnection();
@@ -59,16 +77,31 @@ async function main(): Promise<void> {
     addEntry('system', `Could not load recents: ${err}`);
   }
 
-  // 4. Montar los 3 componentes del shell.
+  // 4. Carga lazy de modelos disponibles. Solo si pi está corriendo
+  //    (si no, el comando no llega respuesta: la signal queda en []).
+  //    El dropdown de settings muestra "Cargando modelos…" hasta que
+  //    llegue la respuesta. Si nunca llega (pi caído), el usuario
+  //    ve el estado de loading indefinidamente — mejor que mostrar
+  //    error si el problema es transitorio (R20 del design).
+  //
+  //    NOTA: getAvailableModels NO espera la respuesta. El sidecar
+  //    de pi responde via eventos, que state-sync procesa y popula
+  //    `appState.availableModels`. Por eso este paso no tiene `await`.
+  if (hasWorkingDir) {
+    getAvailableModels();
+    addEntry('system', 'requested available models');
+  }
+
+  // 5. Montar los 3 componentes del shell.
   document.getElementById('top-bar')!.append(Header());
   document.getElementById('output-board')!.append(OutputBoard());
   document.getElementById('input-bar')!.append(InputBar());
 
-  // 5. Montar debug panel
+  // 6. Montar debug panel
   const debugContainer = initDebugPanel();
   document.body.append(debugContainer);
 
-  // 6. Decidir vista inicial: si pi está corriendo con cwd, chat;
+  // 7. Decidir vista inicial: si pi está corriendo con cwd, chat;
   //    si no, welcome. El default de currentView es 'welcome'.
   if (hasWorkingDir) {
     navigate('chat');

@@ -76,8 +76,10 @@ export const appState = {
   /** Modelo actual de pi. */
   currentModel: signal<PiModel | null>(null),
 
-  /** Nivel de thinking actual. */
-  thinkingLevel: signal<string>('medium'),
+  /** Nivel de thinking actual. Tipo discriminado para que setThinkingLevel
+   *  rechace typos en compilación. El state-sync castea el string de pi
+   *  a ThinkingLevel (es uno de los 6 valores del union). */
+  thinkingLevel: signal<ThinkingLevel>('medium'),
 
   /** true = pi está compactando contexto. */
   isCompacting: signal(false),
@@ -107,7 +109,34 @@ export const appState = {
   /** Mensajes de cada tab, indexados por sessionId. Permite que
    *  cada tab mantenga su historial al switchear. */
   tabMessages: signal<Record<string, ChatMessage[]>>({}),
+
+  /** Lista de modelos disponibles retornada por get_available_models.
+   *  Se popula lazy en main.ts después de initPiConnection. */
+  availableModels: signal<PiModel[]>([]),
+
+  /** Tema de la UI. Persistido en localStorage (xi.theme).
+   *  'system' = respeta prefers-color-scheme. */
+  theme: signal<ThemeMode>('dark'),
+
+  /** Tamaño de fuente de la UI. Persistido en localStorage (xi.fontSize).
+   *  Se aplica via --font-size-base en tokens.css. */
+  fontSize: signal<FontSize>('medium'),
 };
+
+/** Tema de la UI. 'system' delega al media query del CSS. */
+export type ThemeMode = 'dark' | 'light' | 'system';
+
+/** Tamaño de fuente de la UI. Default 'medium' (16px). */
+export type FontSize = 'small' | 'medium' | 'large';
+
+/** Nivel de thinking que pi acepta. Mapeo 1:1 con los valores de pi. */
+export type ThinkingLevel =
+  | 'off'
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh';
 
 /** Vistas posibles del output-board (browser-shaped, sin router). */
 export type ViewName = 'welcome' | 'chat' | 'sessions' | 'settings';

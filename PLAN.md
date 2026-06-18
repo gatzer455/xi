@@ -365,10 +365,20 @@ Verificado empíricamente: 3 sesiones del proyecto xi se listan correctamente co
 4. Aplicar settings al iniciar la app
 
 **Validación:**
-- [ ] Cambiar de modelo funciona (la siguiente respuesta usa el nuevo modelo)
-- [ ] Cambiar thinking level funciona
-- [ ] El tema se aplica correctamente
-- [ ] Los settings persisten entre reinicios
+- [x] Cambiar de modelo funciona (la siguiente respuesta usa el nuevo modelo)
+- [x] Cambiar thinking level funciona
+- [x] El tema se aplica correctamente
+- [x] Los settings persisten entre reinicios
+
+**Implementación (84d81c5 → siguiente commit):**
+- Persistencia híbrida: modelo/thinking via RPC de pi (escribe a `<cwd>/.pi/settings.json` / `~/.pi/agent/settings.json`); tema/font via localStorage (`xi.theme` / `xi.fontSize`).
+- `data-theme` en `<html>` con override de tokens CSS: `:root:not([data-theme])` en el media query + selectores explícitos `[data-theme='dark'|'light']` que ganan sobre el OS.
+- `--font-size-base` con `data-font-size` en `<html>`, text-* en `em` para reescalar proporcionalmente.
+- 5 secciones en `pages/settings.ts`: Modelo, Razonamiento, Apariencia, Sesión, Acerca de.
+- Dropdown de modelo con 4 estados: cargando, error, vacío (sin providers), listo.
+- `get_available_models` se maneja en `state-sync.ts` (no en el wrapper — la respuesta llega via eventos).
+- Type guards en `lib/settings-storage.ts` (Parse, don't validate).
+- `ThinkingLevel` como string union discriminado.
 
 ---
 
