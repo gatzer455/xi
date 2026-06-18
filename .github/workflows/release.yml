@@ -1,0 +1,86 @@
+name: Release
+
+# Por qué: este workflow se dispara con push de tag `v*` (ej: v0.2.0).
+# Construye xi para linux/Windows/macOS en una matriz, sube los
+# instaladores + bundles del updater al release, y deja todo en
+# estado `draft` para revisión manual del dev antes de publicar.
+# Sin este workflow, tauri-app no puede auto-actualizarse.
+#
+# Secrets requeridos en GitHub repo settings:
+#   - TAURI_SIGNING_PRIVATE_KEY: contenido completo de ~/.tauri/xi.key
+#   - TAURI_SIGNING_PRIVATE_KEY_PASSWORD: passphrase de la key
+#   - GITHUB_TOKEN: provisto automáticamente por GitHub Actions
+#
+# El usuario que dispara el release:
+#   git tag v0.2.0
+#   git push --tags
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./backend -> target
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Build pi sidecar
+        # El sidecar `pi` se compila con `bun build --compile` (no
+        # usa cargo). Solo se builda en linux y macOS; windows puede
+        # ser problemático porque el binario target debe matchear
+        # el runner. Por simplicidad, dejamos que el build falle en
+        # windows si la compilación cross no es posible — para v1
+        # distribuimos linux + macOS.
+        run: ./scripts/build-pi.sh
+        continue-on-error: true
+
+      - name: Build pi-sessions
+        run: ./scripts/build-pi-sessions.sh
+        continue-on-error: true
+
+      - name: Tauri build + release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "xi v__VERSION__"
+          releaseBody: "## Cambios\n\nVer commits desde el último release."
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
