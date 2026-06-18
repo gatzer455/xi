@@ -6,17 +6,29 @@
  *
  * Estructura del assistant bubble (orden visual, ver D8 del design):
  *   1. Thinking blocks (si hay) — colapsable
- *   2. Tool calls (si hay) — colapsable con args y result
- *   3. Texto del assistant
+ *   2. Tool calls (si hay) — colapsable, header con format legible
+ *   3. Texto del assistant — RENDERIZADO COMO MARKDOWN
  *   4. Cursor streaming (si isStreaming=true)
+ *
+ * El markdown usa `lib/markdown.ts` (markdown-it + highlight.js). El
+ * header de los tool calls usa `lib/format-tool-call.ts` (fiel a pi TUI:
+ * `bash` → `$ cmd`, `read` → `read path:lines`, etc).
  */
 
 import type { ChatMessage, ToolCall } from '../lib/state.ts';
 import { ThinkingBlockUI } from './thinking-block.ts';
+import { renderMarkdown } from '../lib/markdown.ts';
+import { formatToolCallHeader } from '../lib/format-tool-call.ts';
 
 export function ChatBubble(message: ChatMessage): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = `message ${message.role}`;
+
+  // toolResult no tiene avatar — es un resultado anidado, no un turno.
+  if (message.role === 'toolResult') {
+    wrapper.append(renderToolResultCard(message));
+    return wrapper;
+  }
 
   // ═══ Avatar ═══
   const avatar = document.createElement('div');
@@ -40,35 +52,41 @@ export function ChatBubble(message: ChatMessage): HTMLElement {
     }
   }
 
-  // 3. Texto del mensaje — común a user y assistant
-  const bubble = document.createElement('div');
-  bubble.className = 'message-bubble' + (message.isStreaming ? ' streaming' : '');
-  bubble.textContent = message.content;
+  // 3. Texto del mensaje
+  //    - user: texto plano (no markdown — los user prompts no son markdown)
+  //    - assistant: RENDERIZADO COMO MARKDOWN
+  const textContainer = document.createElement('div');
+  textContainer.className = 'message-text';
+  if (message.role === 'user') {
+    textContainer.textContent = message.content;
+  } else {
+    textContainer.innerHTML = renderMarkdown(message.content);
+  }
 
   // 4. Cursor streaming — solo assistant, solo si isStreaming=true
-  //    Ver R4: glifo ▍ (U+258D), aria-hidden porque es decorativo
   if (message.role === 'assistant' && message.isStreaming) {
     const cursor = document.createElement('span');
     cursor.className = 'streaming-cursor';
     cursor.textContent = '\u258D';
     cursor.setAttribute('aria-hidden', 'true');
-    bubble.append(cursor);
+    textContainer.append(cursor);
   }
 
-  content.append(bubble);
+  content.append(textContainer);
   wrapper.append(content);
 
   return wrapper;
 }
 
-// ───────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────
 // Helpers privados — guard clauses, sin anidación > 2
-// ───────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────
 
 /**
  * Renderiza un mensaje de tipo toolResult como una mini-card colapsable
  * (hermana del tool call que la produjo). Fiel al JSONL: el tool result
- * es un mensaje aparte, no se acopla al assistant message.
+ * es un mensaje aparte, no se acopla al assistant message. Background
+ * usa los tokens pi-light (toolSuccessBg/toolErrorBg).
  */
 function renderToolResultCard(message: ChatMessage): HTMLElement {
   const details = document.createElement('details');
@@ -99,106 +117,128 @@ function renderToolResultCard(message: ChatMessage): HTMLElement {
 }
 
 /**
- * Renderiza un tool call como card colapsable. Helper privado extraído
- * del monolítico original. Status se calcula de `result` + `isError`.
+ * Renderiza un tool call como card colapsable con formato legible
+ * (fiel a pi TUI). El header usa `formatToolCallHeader`:
+ *   - `bash` → `$ <command>`
+ *   - `read` → `read <path>:<lineRange>`
+ *   - `write` → `write <path>`
+ *   - etc.
+ *
+ * El background cambia según el estado (pending/success/error),
+ * usando los tokens de pi-light.
  */
 function renderToolCall(tc: ToolCall): HTMLElement {
+  const state = computeStatus(tc);
   const details = document.createElement('details');
-  details.className = 'tool-call';
-  details.open = true; // El card entero arranca expandido (args visibles)
+  details.className = `tool-call tool-call--${state}`;
+  details.open = false; // Colapsado por default (background ya da info)
 
-  // ── Header: icono + nombre + status badge ──
-  const header = document.createElement('summary');
-  header.className = 'tool-call-header';
+  const summary = document.createElement('summary');
+  summary.className = 'tool-call-header';
 
   const icon = document.createElement('span');
   icon.className = 'tool-call-icon';
-  icon.textContent = '⚡';
-  header.append(icon);
+  icon.textContent = TOOL_ICONS[tc.name] ?? '⚡';
+  summary.append(icon);
 
   const name = document.createElement('span');
   name.className = 'tool-call-name';
-  name.textContent = tc.name;
-  header.append(name);
+  name.textContent = formatToolCallHeader(tc);
+  summary.append(name);
 
-  const state = computeStatus(tc);
   const status = document.createElement('span');
   status.className = `tool-call-status tool-call-status--${state}`;
   status.setAttribute('aria-label', statusLabel(state));
   status.textContent = statusGlyph(state);
-  header.append(status);
+  summary.append(status);
 
-  details.append(header);
+  details.append(summary);
 
-  // ── Args (expandido por default — info clave para entender la tool) ──
-  details.append(renderToolSection('Argumentos', tc.arguments, 'tool-call-args', true));
-
-  // ── Result (colapsado por default — puede ser muy largo) ──
+  // Body = el output de la tool (result). Solo si hay result.
   if (tc.result !== undefined) {
-    details.append(renderToolSection('Output', tc.result, 'tool-call-result', false));
+    const body = document.createElement('pre');
+    body.className = 'tool-call-body';
+    body.textContent = extractToolOutput(tc.result);
+    details.append(body);
   }
 
   return details;
 }
 
 /**
- * Renderiza una sub-sección colapsable del tool call (args o result).
- * Reutilizada para evitar duplicación entre args y result.
+ * Extrae el output textual de un tool result. El result puede ser:
+ *   - string (output crudo)
+ *   - array de bloques (formato pi: `[{type: "text", text: "..."}]`)
+ *   - objeto con `content` (formato pi AgentMessage ToolResultMessage)
+ *
+ * Devuelve un string plano para mostrar en el `<pre>` del body.
  */
-function renderToolSection(
-  label: string,
-  content: unknown,
-  preClass: string,
-  openByDefault: boolean,
-): HTMLElement {
-  const section = document.createElement('details');
-  section.className = 'tool-call-section';
-  section.open = openByDefault;
-
-  const summary = document.createElement('summary');
-  summary.textContent = label;
-  section.append(summary);
-
-  const pre = document.createElement('pre');
-  pre.className = preClass;
-  pre.textContent = formatContent(content);
-  section.append(pre);
-
-  return section;
-}
-
-/**
- * Formatea el contenido del tool section. Strings se pasan tal cual;
- * objetos se serializan con `JSON.stringify` pretty-print de 2 espacios.
- */
-function formatContent(content: unknown): string {
-  if (typeof content === 'string') return content;
-  return JSON.stringify(content, null, 2);
+function extractToolOutput(result: unknown): string {
+  if (typeof result === 'string') return result;
+  if (Array.isArray(result)) {
+    return result
+      .filter((b): b is { type: 'text'; text: string } =>
+        b && typeof b === 'object' && (b as { type?: unknown }).type === 'text'
+        && typeof (b as { text?: unknown }).text === 'string')
+      .map(b => b.text)
+      .join('\n');
+  }
+  if (result && typeof result === 'object') {
+    const obj = result as { content?: unknown; output?: unknown };
+    if (Array.isArray(obj.content)) {
+      return obj.content
+        .filter((b): b is { type: 'text'; text: string } =>
+          b && typeof b === 'object' && (b as { type?: unknown }).type === 'text'
+          && typeof (b as { text?: unknown }).text === 'string')
+        .map(b => b.text)
+        .join('\n');
+    }
+    if (typeof obj.output === 'string') return obj.output;
+  }
+  return JSON.stringify(result, null, 2);
 }
 
 /**
  * Calcula el estado del tool call a partir de result + isError.
  *   - Sin result → running
  *   - Con result + isError → error
- *   - Con result sin isError → done
+ *   - Con result sin isError → success
  */
-function computeStatus(tc: ToolCall): 'running' | 'done' | 'error' {
-  if (tc.result === undefined) return 'running';
-  return tc.isError ? 'error' : 'done';
+function computeStatus(tc: ToolCall): 'pending' | 'success' | 'error' {
+  if (tc.result === undefined) return 'pending';
+  return tc.isError ? 'error' : 'success';
 }
 
-function statusGlyph(state: 'running' | 'done' | 'error'): string {
+function statusGlyph(state: 'pending' | 'success' | 'error'): string {
   switch (state) {
-    case 'running': return '●';
-    case 'done': return '✓';
+    case 'pending': return '●';
+    case 'success': return '✓';
     case 'error': return '✗';
   }
 }
 
-function statusLabel(state: 'running' | 'done' | 'error'): string {
+function statusLabel(state: 'pending' | 'success' | 'error'): string {
   switch (state) {
-    case 'running': return 'Ejecutando';
-    case 'done': return 'Completado';
+    case 'pending': return 'Ejecutando';
+    case 'success': return 'Completado';
     case 'error': return 'Error';
   }
 }
+
+/**
+ * Iconos por tool (1 char o emoji corto). Siguen la convención de pi TUI:
+ * - bash: `$` (terminal)
+ * - read: `→` (leer archivo)
+ * - write/edit: `✎` (escribir)
+ * - find/grep: `⌕` (buscar)
+ * - ls: `≡` (listar)
+ */
+const TOOL_ICONS: Record<string, string> = {
+  bash: '$',
+  read: '→',
+  write: '✎',
+  edit: '✎',
+  find: '⌕',
+  grep: '⌕',
+  ls: '≡',
+};

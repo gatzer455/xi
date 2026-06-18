@@ -1,0 +1,174 @@
+/* ═══════════════════════════════════════════════════════════════
+   MARKDOWN (pi-light theme)
+   Estilos para HTML generado por `lib/markdown.ts`. Las CSS classes
+   matchean los tokens `md*` del theme de pi TUI:
+   `~/.nvm/.../pi-coding-agent/dist/modes/interactive/theme/light.json`
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Headings ── */
+.md-h1, .md-h2, .md-h3, .md-h4, .md-h5, .md-h6 {
+  color: var(--color-md-heading);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0.7em 0 0.3em;
+}
+.md-h1 { font-size: 1.5em; }
+.md-h2 { font-size: 1.3em; }
+.md-h3 { font-size: 1.15em; }
+.md-h4 { font-size: 1.05em; }
+.md-h5, .md-h6 { font-size: 1em; }
+
+.md-h1:first-child,
+.md-h2:first-child,
+.md-h3:first-child,
+.md-h4:first-child,
+.md-h5:first-child,
+.md-h6:first-child {
+  margin-top: 0;
+}
+
+/* ── Paragraphs ── */
+.md-p {
+  margin: 0.4em 0;
+  line-height: 1.55;
+}
+.md-p:first-child { margin-top: 0; }
+.md-p:last-child { margin-bottom: 0; }
+
+/* ── Inline formatting ── */
+.md-strong { font-weight: 600; }
+.md-em { font-style: italic; }
+.md-del { text-decoration: line-through; }
+
+/* ── Inline code ── */
+.md-code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  color: var(--color-md-code);
+  background: var(--color-tool-pending-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+
+/* ── Code block (con o sin highlight.js) ── */
+.md-code-block {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--color-md-code-block);
+  background: var(--color-tool-pending-bg);
+  border: 1px solid var(--color-md-code-block-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  overflow-x: auto;
+  margin: var(--space-2) 0;
+  line-height: 1.45;
+}
+.md-code-block code {
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  white-space: pre;
+}
+
+/* ── Links ── */
+.md-link {
+  color: var(--color-md-link);
+  text-decoration: none;
+}
+.md-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Lists ── */
+.md-list {
+  padding-left: 1.5em;
+  margin: 0.4em 0;
+}
+.md-list li {
+  list-style: none;
+  position: relative;
+  margin: 0.2em 0;
+}
+.md-list li::before {
+  content: '•';
+  color: var(--color-md-list-bullet);
+  position: absolute;
+  left: -1em;
+  font-weight: 600;
+}
+
+/* ── Ordered list ── */
+.md-ol {
+  padding-left: 1.8em;
+  margin: 0.4em 0;
+}
+.md-ol li {
+  list-style: decimal;
+  margin: 0.2em 0;
+}
+
+/* ── Blockquote ── */
+.md-quote {
+  color: var(--color-md-quote);
+  border-left: 3px solid var(--color-md-quote-border);
+  padding-left: var(--space-3);
+  margin: var(--space-2) 0;
+  font-style: italic;
+}
+.md-quote p { margin: 0.2em 0; }
+
+/* ── Horizontal rule ── */
+.md-hr {
+  border: 0;
+  border-top: 1px solid var(--color-md-hr);
+  margin: var(--space-3) 0;
+}
+
+/* ── Tables (GFM) ── */
+.md-table {
+  border-collapse: collapse;
+  margin: var(--space-2) 0;
+  font-size: 0.95em;
+}
+.md-table th,
+.md-table td {
+  border: 1px solid var(--color-border-muted);
+  padding: 0.3em 0.6em;
+  text-align: left;
+}
+.md-table th {
+  background: var(--color-tool-pending-bg);
+  font-weight: 600;
+}
+.md-table tr:nth-child(even) td {
+  background: var(--color-card-bg);
+}
+
+/* ── Highlight.js (overrides para matchear pi-light) ── */
+.hljs { color: var(--color-text); background: transparent; }
+.hljs-comment,
+.hljs-quote { color: var(--hljs-comment); font-style: italic; }
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section { color: var(--hljs-keyword); }
+.hljs-function .hljs-keyword { color: var(--hljs-keyword); }
+.hljs-subst { color: var(--color-text); }
+.hljs-string,
+.hljs-title,
+.hljs-name,
+.hljs-type,
+.hljs-attribute,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition,
+.hljs-variable .hljs-template-variable { color: var(--hljs-string); }
+.hljs-built_in,
+.hljs-builtin-name { color: var(--hljs-type); }
+.hljs-number,
+.hljs-meta { color: var(--hljs-number); }
+.hljs-deletion { color: var(--color-diff-removed); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }

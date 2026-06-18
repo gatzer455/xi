@@ -1,20 +1,22 @@
-/* ═══ tokens.css — Design tokens + reset + estilos base ═══ */
+/* ═══ tokens.css — Design tokens (no-color) + reset + estilos base ═══
+   Los tokens de color viven en theme.css (pi-dark default +
+   auto-switch a pi-light). Este archivo solo define tipografía,
+   espaciado, bordes, y layout. Los tokens de color viejos que
+   siguen en uso se mantienen como alias via `var(--color-*)`. */
 
 :root {
-  /* Colores — tema oscuro por defecto */
-  --color-bg:         #0f0f0f;
-  --color-surface:    #1a1a1a;
-  --color-surface-2:  #242424;
-  --color-text:       #e8e8e8;
-  --color-text-muted: #888;
-  --color-accent:     #7c3aed;
-  --color-accent-hover: #6d28d9;
-  --color-border:     #2a2a2a;
-  --color-user-bubble: #2d1f5e;
-  --color-ai-bubble:   #1a1a1a;
-  --color-error:      #ef4444;
-  --color-success:    #22c55e;
-  --color-warning:    #f59e0b;
+  /* Aliases a los tokens de color de theme.css — para no romper
+     los ~30 archivos que usan --color-bg, --color-surface, etc. */
+  --color-bg:         var(--color-page-bg);
+  --color-surface:    var(--color-card-bg);
+  --color-surface-2:  var(--color-tool-pending-bg);
+  --color-border:     var(--color-border-muted);
+  --color-user-bubble: var(--color-user-msg-bg);
+  --color-ai-bubble:  var(--color-page-bg);
+  --color-accent-hover: color-mix(in srgb, var(--color-accent) 80%, transparent);
+  --color-error:      var(--color-diff-removed);
+  --color-success:    var(--color-diff-added);
+  --color-warning:    var(--color-warning);
 
   /* Tipografía */
   --font-sans:  'Inter', system-ui, -apple-system, sans-serif;
@@ -42,7 +44,10 @@
 
   /* Layout */
   --sidebar-width: 280px;
-  --chat-max-width: 768px;
+  /* Chat ocupa el espacio disponible hasta 1100px (más generoso
+     que el 768px anterior, sin llegar a líneas ilegibles en
+     ventanas ultra-anchas). */
+  --chat-max-width: 1100px;
 }
 
 /* ─── Reset ─── */
@@ -1031,18 +1036,30 @@ details[open] > .thinking-summary::before {
 }
 
 /* ═══════════════════════════════════════════════════════
-   TOOL CALL (Etapa 5)
+   TOOL CALL (Etapa 5 + rediseño pi-light)
    Card colapsable para herramientas de pi. Header con
-   nombre + status badge. Args (expandido) y result
-   (colapsado) son sub-<details> anidados.
+   nombre (formateado por format-tool-call.ts) + status badge.
+   El body muestra el result (output de la tool). Fiel a pi TUI:
+   background cambia según estado (pending/success/error).
    ═══════════════════════════════════════════════════════ */
 .tool-call {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
   margin: var(--space-2) 0;
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   overflow: hidden;
+  border: 1px solid transparent;
+  transition: background 0.15s ease;
+}
+.tool-call--pending {
+  background: var(--color-tool-pending-bg);
+  border-color: var(--color-border-muted);
+}
+.tool-call--success {
+  background: var(--color-tool-success-bg);
+}
+.tool-call--error {
+  background: var(--color-tool-error-bg);
+  border-color: var(--color-warning);
 }
 .tool-call-header {
   padding: var(--space-2) var(--space-3);
@@ -1052,6 +1069,7 @@ details[open] > .thinking-summary::before {
   gap: var(--space-2);
   list-style: none;
   font-weight: 500;
+  user-select: none;
 }
 .tool-call-header::-webkit-details-marker {
   display: none;
@@ -1059,12 +1077,15 @@ details[open] > .thinking-summary::before {
 .tool-call-icon {
   color: var(--color-accent);
   flex-shrink: 0;
+  font-weight: bold;
+  font-family: var(--font-mono);
 }
 .tool-call-name {
   flex: 1;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--color-text);
+  color: var(--color-tool-title);
+  word-break: break-all;
 }
 .tool-call-status {
   font-size: var(--text-xs);
@@ -1072,68 +1093,53 @@ details[open] > .thinking-summary::before {
   border-radius: var(--radius-sm);
   font-weight: 600;
   flex-shrink: 0;
+  font-family: var(--font-mono);
 }
-.tool-call-status--running {
-  background: rgba(59, 130, 246, 0.15);
-  color: rgb(59, 130, 246);
+.tool-call-status--pending {
+  background: var(--color-info-bg);
+  color: var(--color-warning);
 }
-.tool-call-status--done {
-  background: rgba(34, 197, 94, 0.15);
-  color: rgb(34, 197, 94);
+.tool-call-status--success {
+  background: var(--color-diff-added);
+  color: var(--color-card-bg);
 }
 .tool-call-status--error {
-  background: rgba(239, 68, 68, 0.15);
-  color: rgb(239, 68, 68);
+  background: var(--color-diff-removed);
+  color: var(--color-card-bg);
 }
-.tool-call-section {
-  border-top: 1px solid var(--color-border);
-}
-.tool-call-section > summary {
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  list-style: none;
-  user-select: none;
-}
-.tool-call-section > summary::-webkit-details-marker {
-  display: none;
-}
-.tool-call-args,
-.tool-call-result {
+.tool-call-body {
   margin: 0;
-  padding: var(--space-2) var(--space-3) var(--space-3);
+  padding: 0 var(--space-3) var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  color: var(--color-tool-output);
   white-space: pre-wrap;
   word-break: break-word;
-  color: var(--color-text);
-  background: var(--color-bg);
-}
-.tool-call-result {
-  max-height: 200px;
+  max-height: 400px;
   overflow-y: auto;
+  border-top: 1px solid var(--color-border-muted);
+  padding-top: var(--space-2);
 }
 
 /* ═══════════════════════════════════════════════════════
    TOOL RESULT CARD (carga de historial)
    Mini-card colapsable para mensajes de tipo toolResult.
    Es hermana del tool call que la produjo — fiel al JSONL
-   de pi, no se acopla al assistant message.
+   de pi, no se acopla al assistant message. Background
+   usa los tokens pi-light (toolSuccessBg/toolErrorBg).
    ═══════════════════════════════════════════════════════ */
 .tool-result-card {
-  background: var(--color-surface-2);
-  border-left: 3px solid var(--color-text-muted);
+  background: var(--color-tool-success-bg);
   border-radius: var(--radius-sm);
   margin: var(--space-1) 0 var(--space-2) var(--space-8);
   font-size: var(--text-xs);
   overflow: hidden;
   max-width: 90%;
+  border: 1px solid var(--color-border-muted);
 }
 .tool-result-card.is-error {
-  border-left-color: rgb(239, 68, 68);
+  background: var(--color-tool-error-bg);
+  border-color: var(--color-warning);
 }
 .tool-result-header {
   padding: var(--space-1) var(--space-2);
@@ -1142,7 +1148,7 @@ details[open] > .thinking-summary::before {
   align-items: center;
   gap: var(--space-2);
   list-style: none;
-  color: var(--color-text-muted);
+  color: var(--color-tool-output);
   font-family: var(--font-mono);
   user-select: none;
 }
@@ -1151,24 +1157,26 @@ details[open] > .thinking-summary::before {
 }
 .tool-result-icon {
   flex-shrink: 0;
-  color: var(--color-text-muted);
+  color: var(--color-diff-added);
 }
 .tool-result-card.is-error .tool-result-icon {
-  color: rgb(239, 68, 68);
+  color: var(--color-diff-removed);
 }
 .tool-result-name {
   flex: 1;
+  font-weight: 500;
 }
 .tool-result-body {
   margin: 0;
-  padding: 0 var(--space-2) var(--space-2) var(--space-6);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--color-text);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 200px;
+  max-height: 300px;
   overflow-y: auto;
+  border-top: 1px solid var(--color-border-muted);
 }
 
 /* ═══════════════════════════════════════════════════════
