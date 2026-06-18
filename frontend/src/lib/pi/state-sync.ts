@@ -14,7 +14,7 @@
  * todos los eventos siguientes.
  */
 
-import { appState, type ChatMessage, type ToolCall, type PiModel } from '../state.ts';
+import { appState, type ChatMessage, type ToolCall, type PiModel, type ThinkingBlock } from '../state.ts';
 import { addEntry } from '../debug-panel.ts';
 import type {
   PiEvent,
@@ -62,11 +62,24 @@ function handleResponse(response: PiResponseEvent): void {
     return;
   }
 
-  // Solo `get_state` devuelve un `data` con campos que nos interesan.
+  // Distinguimos commands por su `data` shape. Hoy solo dos nos importan:
+  // `get_state` (carga estado) y `get_messages` (carga historial).
   // Las otras respuestas son confirmaciones sin payload útil.
-  if (response.command !== 'get_state' || !response.data) return;
+  switch (response.command) {
+    case 'get_state':
+      applyGetState(response.data as Record<string, unknown> | undefined);
+      return;
+    case 'get_messages':
+      applyGetMessages(response.data as { messages?: unknown[] } | undefined);
+      return;
+    default:
+      // Otros commands (set_model, new_session, etc.) son no-op para el state.
+      return;
+  }
+}
 
-  const data = response.data as Record<string, unknown>;
+function applyGetState(data: Record<string, unknown> | undefined): void {
+  if (!data) return;
   if (data.model) appState.currentModel.value = data.model as PiModel;
   if (data.thinkingLevel) appState.thinkingLevel.value = data.thinkingLevel as string;
   if (data.sessionFile) {
@@ -77,6 +90,142 @@ function handleResponse(response: PiResponseEvent): void {
       messageCount: (data.messageCount as number) ?? 0,
     };
   }
+}
+
+/**
+ * Maneja la respuesta de `get_messages`. Pi retorna `data.messages`
+ * con un array de `AgentMessage` (UserMessage, AssistantMessage,
+ * ToolResultMessage, BashExecutionMessage). Mapeamos cada uno a un
+ * `ChatMessage` para popular `appState.messages`. Los tool results se
+ * mantienen como mensajes separados (role: 'toolResult') — fiel al JSONL,
+ * más simple que acoplar al tool call del assistant.
+ */
+function applyGetMessages(data: { messages?: unknown[] } | undefined): void {
+  if (!data || !Array.isArray(data.messages)) return;
+
+  const messages: ChatMessage[] = [];
+  for (const raw of data.messages) {
+    const parsed = parseAgentMessage(raw);
+    if (parsed) messages.push(parsed);
+  }
+  appState.messages.value = messages;
+}
+
+/**
+ * Parsea un `AgentMessage` de pi y lo convierte a `ChatMessage`. Acepta
+ * los 4 tipos conocidos. Si el shape no matchea ninguno, devuelve `null`
+ * y loguea un warning — preferiría fallar visible que tragarmelo.
+ */
+function parseAgentMessage(raw: unknown): ChatMessage | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const msg = raw as Record<string, unknown>;
+  const role = msg.role as string | undefined;
+  const timestamp = (msg.timestamp as number) ?? Date.now();
+
+  switch (role) {
+    case 'user':
+      return parseUserMessage(msg, timestamp);
+    case 'assistant':
+      return parseAssistantMessage(msg, timestamp);
+    case 'toolResult':
+      return parseToolResultMessage(msg, timestamp);
+    case 'bashExecution':
+      // BashExecutionMessage se mapea como toolResult con toolName='bash'.
+      return parseBashExecutionMessage(msg, timestamp);
+    default:
+      addEntry('system', `[state-sync] unknown AgentMessage.role: ${role}`);
+      return null;
+  }
+}
+
+function parseUserMessage(msg: Record<string, unknown>, timestamp: number): ChatMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: 'user',
+    content: stringifyContent(msg.content),
+    timestamp,
+  };
+}
+
+function parseAssistantMessage(msg: Record<string, unknown>, timestamp: number): ChatMessage {
+  const blocks = Array.isArray(msg.content) ? (msg.content as unknown[]) : [];
+  const textParts: string[] = [];
+  const thinking: ThinkingBlock[] = [];
+  const toolCalls: ToolCall[] = [];
+
+  for (const block of blocks) {
+    if (!block || typeof block !== 'object') continue;
+    const b = block as Record<string, unknown>;
+    switch (b.type) {
+      case 'text':
+        if (typeof b.text === 'string') textParts.push(b.text);
+        break;
+      case 'thinking':
+        if (typeof b.thinking === 'string') thinking.push({ content: b.thinking });
+        break;
+      case 'toolCall': {
+        const id = (b.id as string) ?? crypto.randomUUID();
+        const name = (b.name as string) ?? 'unknown';
+        const args = (b.arguments as Record<string, unknown>) ?? {};
+        toolCalls.push({ id, name, arguments: args });
+        break;
+      }
+    }
+  }
+
+  return {
+    id: crypto.randomUUID(),
+    role: 'assistant',
+    content: textParts.join('\n\n'),
+    timestamp,
+    thinking: thinking.length > 0 ? thinking : undefined,
+    toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+  };
+}
+
+function parseToolResultMessage(msg: Record<string, unknown>, timestamp: number): ChatMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: 'toolResult',
+    content: stringifyContent(msg.content),
+    timestamp,
+    toolResult: {
+      toolName: (msg.toolName as string) ?? 'unknown',
+      isError: msg.isError === true,
+    },
+  };
+}
+
+function parseBashExecutionMessage(msg: Record<string, unknown>, timestamp: number): ChatMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: 'toolResult',
+    content: typeof msg.output === 'string' ? msg.output : '',
+    timestamp,
+    toolResult: {
+      toolName: 'bash',
+      isError: msg.exitCode !== 0,
+    },
+  };
+}
+
+/**
+ * Convierte el `content` de un AgentMessage a string. El content puede
+ * ser un string (UserMessage) o un array de bloques (AssistantMessage,
+ * ToolResultMessage). En el caso array, concatenamos los bloques de tipo
+ * `text` con `\n\n`.
+ */
+function stringifyContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  const parts: string[] = [];
+  for (const block of content) {
+    if (block && typeof block === 'object') {
+      const b = block as Record<string, unknown>;
+      if (typeof b.text === 'string') parts.push(b.text);
+    }
+  }
+  return parts.join('\n\n');
 }
 
 function handleMessageUpdate(update: PiMessageUpdateEvent): void {

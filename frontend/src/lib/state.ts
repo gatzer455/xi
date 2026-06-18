@@ -36,12 +36,17 @@ export interface ThinkingBlock {
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'toolResult';
   content: string;
   timestamp: number;
   toolCalls?: ToolCall[];
   thinking?: ThinkingBlock[];
   isStreaming?: boolean;
+  /** Solo para role: 'toolResult'. Permite renderizar la card del resultado. */
+  toolResult?: {
+    toolName: string;
+    isError: boolean;
+  };
 }
 
 export interface Session {

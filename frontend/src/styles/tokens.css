@@ -983,3 +983,205 @@ code, pre { font-family: var(--font-mono); }
   background: var(--color-surface-2);
   color: var(--color-text);
 }
+
+/* ═══════════════════════════════════════════════════════
+   THINKING BLOCK (Etapa 5)
+   Bloque colapsable para el razonamiento de pi. Mismo
+   patrón que las cards de la sidebar: surface, border,
+   radius, padding. El triángulo custom (▸/▾) reemplaza
+   el marker nativo de <details>.
+   ═══════════════════════════════════════════════════════ */
+.thinking-block {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+.thinking-summary {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font-weight: 500;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.thinking-summary::-webkit-details-marker {
+  display: none;
+}
+.thinking-summary::before {
+  content: '▸';
+  font-style: normal;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  width: 12px;
+  flex-shrink: 0;
+}
+details[open] > .thinking-summary::before {
+  content: '▾';
+}
+.thinking-body {
+  padding: 0 var(--space-3) var(--space-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-style: normal;
+}
+
+/* ═══════════════════════════════════════════════════════
+   TOOL CALL (Etapa 5)
+   Card colapsable para herramientas de pi. Header con
+   nombre + status badge. Args (expandido) y result
+   (colapsado) son sub-<details> anidados.
+   ═══════════════════════════════════════════════════════ */
+.tool-call {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+  overflow: hidden;
+}
+.tool-call-header {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  list-style: none;
+  font-weight: 500;
+}
+.tool-call-header::-webkit-details-marker {
+  display: none;
+}
+.tool-call-icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+.tool-call-name {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+}
+.tool-call-status {
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.tool-call-status--running {
+  background: rgba(59, 130, 246, 0.15);
+  color: rgb(59, 130, 246);
+}
+.tool-call-status--done {
+  background: rgba(34, 197, 94, 0.15);
+  color: rgb(34, 197, 94);
+}
+.tool-call-status--error {
+  background: rgba(239, 68, 68, 0.15);
+  color: rgb(239, 68, 68);
+}
+.tool-call-section {
+  border-top: 1px solid var(--color-border);
+}
+.tool-call-section > summary {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  list-style: none;
+  user-select: none;
+}
+.tool-call-section > summary::-webkit-details-marker {
+  display: none;
+}
+.tool-call-args,
+.tool-call-result {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+.tool-call-result {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════════════════
+   TOOL RESULT CARD (carga de historial)
+   Mini-card colapsable para mensajes de tipo toolResult.
+   Es hermana del tool call que la produjo — fiel al JSONL
+   de pi, no se acopla al assistant message.
+   ═══════════════════════════════════════════════════════ */
+.tool-result-card {
+  background: var(--color-surface-2);
+  border-left: 3px solid var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  margin: var(--space-1) 0 var(--space-2) var(--space-8);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  max-width: 90%;
+}
+.tool-result-card.is-error {
+  border-left-color: rgb(239, 68, 68);
+}
+.tool-result-header {
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  list-style: none;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  user-select: none;
+}
+.tool-result-header::-webkit-details-marker {
+  display: none;
+}
+.tool-result-icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+.tool-result-card.is-error .tool-result-icon {
+  color: rgb(239, 68, 68);
+}
+.tool-result-name {
+  flex: 1;
+}
+.tool-result-body {
+  margin: 0;
+  padding: 0 var(--space-2) var(--space-2) var(--space-6);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════════════════
+   STREAMING CURSOR (Etapa 5)
+   Bloque parpadeante al final del texto del assistant
+   mientras isStreaming=true. CSS-only, sin JS timer.
+   ═══════════════════════════════════════════════════════ */
+.streaming-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--color-accent);
+  animation: blink 1s steps(2, start) infinite;
+}
+@keyframes blink {
+  to { visibility: hidden; }
+}

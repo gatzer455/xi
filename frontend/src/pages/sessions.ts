@@ -16,6 +16,7 @@ import {
   deleteSession,
   renameSession,
   startPi,
+  getPiMessages,
 } from '../lib/pi/index.ts';
 import type { SessionInfo } from '../lib/pi/types.ts';
 import { navigate } from '../router.ts';
@@ -359,6 +360,12 @@ async function switchToSession(session: SessionInfo): Promise<void> {
       file: session.path,
       messageCount: session.messageCount,
     };
+    // Reset visual: vaciamos mensajes para que la transición sea limpia
+    // y pedimos a pi el historial. Si get_messages falla, la sidebar
+    // sigue marcando la sesión como activa (el switch fue OK); el chat
+    // queda vacío pero navegable.
+    appState.messages.value = [];
+    await getPiMessages();
     navigate('#/chat');
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
