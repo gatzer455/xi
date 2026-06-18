@@ -30,6 +30,10 @@ import {
   saveTheme,
   saveFontSize,
 } from '../lib/settings-storage.ts';
+import {
+  checkForUpdate,
+  installAndRelaunch,
+} from '../lib/updater.ts';
 
 // ═══════════════════════════════════════════════════════
 // Entry point
@@ -70,6 +74,7 @@ export function SettingsPage(): HTMLElement {
   page.append(renderThinkingSection());
   page.append(renderAppearanceSection());
   page.append(renderSessionSection());
+  page.append(renderUpdateSection());
   page.append(renderAboutSection());
 
   return page;
@@ -241,6 +246,93 @@ function renderAboutSection(): HTMLElement {
     description: 'Información de la aplicación.',
     control: row,
   });
+}
+
+// ═══════════════════════════════════════════════════════
+// Sección de update (Etapa 7)
+// ═══════════════════════════════════════════════════════
+
+function renderUpdateSection(): HTMLElement {
+  // El control es un wrapper estable con suscripciones. La signal
+  // updateStatus determina qué se ve (status text + botones).
+  // El resto se actualiza en cada repaint.
+  const row = document.createElement('div');
+  row.className = 'settings-row settings-update-row';
+
+  const statusValue = document.createElement('span');
+  statusValue.className = 'settings-value settings-update-status';
+  row.append(label('Actualización'));
+  row.append(statusValue);
+
+  const actions = document.createElement('div');
+  actions.className = 'settings-update-actions';
+  row.append(actions);
+
+  // Helper: arma la UI de status + botones según el estado.
+  // Extraído para evitar 4 niveles de anidación con if/else anidados.
+  const repaint = (): void => {
+    statusValue.textContent = statusText();
+    statusValue.className = `settings-value settings-update-status settings-update-status--${appState.updateStatus.value}`;
+    actions.replaceChildren();
+    for (const btn of actionButtons()) {
+      actions.append(btn);
+    }
+  };
+
+  // Suscripción a las 3 signals que afectan la UI.
+  // (updateError no se renderiza directo; lo lee statusText).
+  repaint();
+  appState.updateStatus.subscribe(repaint);
+  appState.updateReady.subscribe(repaint);
+  appState.updateError.subscribe(repaint);
+  appState.updateDismissed.subscribe(repaint);
+
+  return createSection({
+    title: 'Actualización',
+    description: 'Versiones nuevas de xi. La app puede actualizarse sola en background.',
+    control: row,
+  });
+}
+
+/** Texto que ve el user en la columna "Actualización". Resume el
+ *  estado de updateStatus en lenguaje natural. */
+function statusText(): string {
+  switch (appState.updateStatus.value) {
+    case 'idle':         return 'Al día';
+    case 'checking':     return 'Buscando...';
+    case 'downloading':  return `Descargando v${appState.updateReady.value?.version ?? ''}...`;
+    case 'ready':        return `v${appState.updateReady.value?.version ?? ''} lista para aplicar`;
+    case 'error':        return `Error: ${appState.updateError.value ?? 'desconocido'}`;
+  }
+}
+
+/** Botones a mostrar en la columna de acciones, según el estado.
+ *  Retorna un array (0, 1 o 2 botones). */
+function actionButtons(): HTMLElement[] {
+  const status = appState.updateStatus.value;
+  const buttons: HTMLElement[] = [];
+
+  // Botón "Buscar actualización": siempre presente excepto durante
+  // checking/downloading (no tiene sentido re-disparar).
+  const busy = status === 'checking' || status === 'downloading';
+  const checkBtn = document.createElement('button');
+  checkBtn.className = 'settings-button';
+  checkBtn.textContent = busy ? 'Buscando...' : 'Buscar actualización';
+  checkBtn.disabled = busy;
+  checkBtn.addEventListener('click', () => { void checkForUpdate(); });
+  buttons.push(checkBtn);
+
+  // Botón "Reiniciar para aplicar": solo si hay update ready y
+  // el user no lo dismissed en el banner.
+  if (status === 'ready' && !appState.updateDismissed.value) {
+    const restartBtn = document.createElement('button');
+    restartBtn.className = 'settings-button settings-button--primary';
+    restartBtn.textContent = 'Reiniciar para aplicar';
+    restartBtn.addEventListener('click', () => { void installAndRelaunch(); });
+    buttons.push(restartBtn);
+  }
+
+  return buttons;
 }
 
 // ═══════════════════════════════════════════════════════

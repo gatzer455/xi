@@ -12,6 +12,8 @@
   --color-text-dim: #666666;
   --color-text-light: #505050;
   --color-accent: #8abeb7;          /* teal/cyan del pi dark */
+  --color-accent-soft: #1e2a2a;     /* fondo del banner de update, tinte del accent */
+  --color-accent-fg: #18181e;       /* texto sobre accent sólido (botón del banner) */
   --color-warning: #ffff00;          /* yellow */
 
   /* ── Surfaces ── */
@@ -76,6 +78,8 @@
     --color-text-dim: #767676;
     --color-text-light: #b0b0b0;
     --color-accent: #5a8080;
+    --color-accent-soft: #e8eef0;
+    --color-accent-fg: #ffffff;
     --color-warning: #9a7326;
 
     /* ── Surfaces ── */
@@ -137,6 +141,8 @@
   --color-text-dim: #767676;
   --color-text-light: #b0b0b0;
   --color-accent: #5a8080;
+  --color-accent-soft: #e8eef0;
+  --color-accent-fg: #ffffff;
   --color-warning: #9a7326;
 
   /* ── Surfaces ── */
@@ -195,6 +201,8 @@
   --color-text-dim: #666666;
   --color-text-light: #505050;
   --color-accent: #8abeb7;
+  --color-accent-soft: #1e2a2a;
+  --color-accent-fg: #18181e;
   --color-warning: #ffff00;
 
   --color-page-bg: #18181e;

@@ -21,6 +21,7 @@ import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';
 import { Header } from './components/header.ts';
 import { OutputBoard } from './components/output.ts';
 import { InputBar } from './components/input.ts';
+import { UpdateBanner } from './components/update-banner.ts';
 import { initDebugPanel, addEntry } from './lib/debug-panel.ts';
 import {
   loadTheme,
@@ -93,8 +94,12 @@ async function main(): Promise<void> {
     addEntry('system', 'requested available models');
   }
 
-  // 5. Montar los 3 componentes del shell.
+  // 5. Montar los 4 componentes del shell. El banner de update se
+  //    monta aunque no haya update — el componente UpdateBanner
+  //    retorna un fragment vacío en ese caso, así que el slot
+  //    queda limpio sin condicionales en main.ts.
   document.getElementById('top-bar')!.append(Header());
+  document.getElementById('update-banner')!.append(UpdateBanner());
   document.getElementById('output-board')!.append(OutputBoard());
   document.getElementById('input-bar')!.append(InputBar());
 
