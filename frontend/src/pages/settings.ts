@@ -294,15 +294,25 @@ function renderUpdateSection(): HTMLElement {
   });
 }
 
+/** Helper de exhaustividad: si llegamos acá, el compilador nos
+ *  está diciendo que `status` tiene un valor que no cubrimos en
+ *  el switch. Mejor explotar con un mensaje claro que devolver
+ *  undefined silencioso. */
+function assertNever(value: never): never {
+  throw new Error(`Undesigned state: ${String(value)}`);
+}
+
 /** Texto que ve el user en la columna "Actualización". Resume el
  *  estado de updateStatus en lenguaje natural. */
 function statusText(): string {
-  switch (appState.updateStatus.value) {
+  const status = appState.updateStatus.value;
+  switch (status) {
     case 'idle':         return 'Al día';
     case 'checking':     return 'Buscando...';
     case 'downloading':  return `Descargando v${appState.updateReady.value?.version ?? ''}...`;
     case 'ready':        return `v${appState.updateReady.value?.version ?? ''} lista para aplicar`;
     case 'error':        return `Error: ${appState.updateError.value ?? 'desconocido'}`;
+    default:             return assertNever(status);
   }
 }
 
