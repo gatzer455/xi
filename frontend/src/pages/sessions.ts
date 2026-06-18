@@ -17,9 +17,12 @@ import {
   renameSession,
   startPi,
   getPiMessages,
+  newPiSession,
+  getPiState,
 } from '../lib/pi/index.ts';
 import type { SessionInfo } from '../lib/pi/types.ts';
-import { navigate } from '../router.ts';
+import { navigate } from '../lib/nav.ts';
+import { setActiveTab, type Session } from '../lib/state.ts';
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -99,10 +102,27 @@ function renderHeader(): HTMLElement {
   title.textContent = 'Sesiones';
   header.append(title);
 
+  // Acción primaria del historial: crear nueva conversación.
+  // Modelo: el id de la tab es un UUID generado en el cliente
+  // (no el sessionId de pi). Esto garantiza que cada tab tenga
+  // identidad única INMEDIATA, sin depender de la respuesta
+  // asíncrona de pi. La sesión de pi se carga después, en background.
+  const newBtn = document.createElement('button');
+  newBtn.className = 'sessions-new';
+  newBtn.textContent = '+ Nueva conversación';
+  newBtn.addEventListener('click', () => {
+    if (!appState.workingDir.value) {
+      error.value = 'Selecciona una carpeta de trabajo primero';
+      return;
+    }
+    void createNewTab();
+  });
+  header.append(newBtn);
+
   const backBtn = document.createElement('button');
   backBtn.className = 'sessions-back';
   backBtn.textContent = '← Volver al chat';
-  backBtn.addEventListener('click', () => navigate('#/chat'));
+  backBtn.addEventListener('click', () => navigate('chat'));
   header.append(backBtn);
 
   return header;
@@ -140,7 +160,7 @@ function renderList(): HTMLElement {
     inner.replaceChildren();
 
     if (!appState.workingDir.value) {
-      inner.append(emptyState('Selecciona una carpeta de trabajo', '#/'));
+      inner.append(emptyState('Selecciona una carpeta de trabajo', null));
       return;
     }
     if (items.length === 0) {
@@ -347,28 +367,107 @@ function attachRenameHandlers(
 // Acciones
 // ═══════════════════════════════════════════════════════
 
+/**
+ * Crea una nueva tab con identidad de cliente (UUID) y pide a pi
+ * una nueva sesión en background. La tab es visible y seleccionable
+ * inmediatamente — no espera a pi. Cuando pi responda con el
+ * sessionId, el listener actualizará los metadatos (name, file)
+ * vía `updateActiveTabFromPiSession`.
+ *
+ * Esto evita que el id del tab dependa de la respuesta asíncrona
+ * de pi. Si pi tarda o falla, la tab sigue siendo seleccionable y
+ * muestra el estado vacío.
+ */
+async function createNewTab(): Promise<void> {
+  // 1. UUID del cliente = identidad de la tab.
+  const tabId = crypto.randomUUID();
+  const newTab: Session = {
+    id: tabId,
+    messageCount: 0,
+  };
+
+  // 2. Guardar mensajes de la tab actual antes de cambiar.
+  //    Reusamos setActiveTab para garantizar el invariante
+  //    "messages siempre refleja el activeTabId".
+  setActiveTab(tabId);
+
+  // 3. Agregar la tab a openTabs DESPUÉS de setActiveTab (si no,
+  //    el find dentro de setActiveTab no la encontraría).
+  appState.openTabs.value = [...appState.openTabs.value, newTab];
+  appState.messages.value = [];
+
+  // 4. Navegar al chat.
+  navigate('chat');
+
+  // 5. Pedir a pi la nueva sesión EN BACKGROUND. No bloqueamos
+  //    la UI. Si falla, la tab queda vacía pero usable.
+  await syncPiSessionInBackground(tabId);
+}
+
+/**
+ * Pide a pi una nueva sesión y, cuando responda, actualiza los
+ * metadatos (name, file) de la tab. No toca el id del tab
+ * (sigue siendo el UUID del cliente).
+ */
+async function syncPiSessionInBackground(tabId: string): Promise<void> {
+  try {
+    await newPiSession();
+    await getPiState();
+    // Aplicar metadatos de pi a la tab correspondiente.
+    const piSession = appState.session.value;
+    if (!piSession) return;
+    appState.openTabs.value = appState.openTabs.value.map(t =>
+      t.id === tabId
+        ? { ...t, name: piSession.name, file: piSession.file, messageCount: piSession.messageCount }
+        : t,
+    );
+    // Refrescar la lista de sesiones del historial.
+    void loadSessions();
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err);
+  }
+}
+
+/**
+ * Abre una sesión existente (de la lista del historial) como tab.
+ * El id de la tab es el sessionId de pi (que viene de la lista
+ * persistida en disco, es estable). Esto es diferente de
+ * `createNewTab` donde el id es un UUID del cliente — en sesiones
+ * existentes, el id de pi ya es único y estable, así que lo
+ * reusamos.
+ */
 async function switchToSession(session: SessionInfo): Promise<void> {
   const cwd = appState.workingDir.value;
   if (!cwd) return;
 
+  const newTab: Session = {
+    id: session.id,
+    name: session.name,
+    file: session.path,
+    messageCount: session.messageCount,
+  };
+
+  // Si la sesión ya está abierta como tab, solo cambiar a ella.
+  const isOpen = appState.openTabs.value.some(t => t.id === session.id);
+  if (isOpen) {
+    setActiveTab(session.id);
+    navigate('chat');
+    return;
+  }
+
+  // Sesión nueva: agregarla a openTabs y cargar mensajes de pi.
+  setActiveTab(session.id);
+  appState.openTabs.value = [...appState.openTabs.value, newTab];
+  appState.messages.value = [];
+
   loading.value = true;
   try {
     await startPi(cwd, session.path);
-    appState.session.value = {
-      id: session.id,
-      name: session.name,
-      file: session.path,
-      messageCount: session.messageCount,
-    };
-    // Reset visual: vaciamos mensajes para que la transición sea limpia
-    // y pedimos a pi el historial. Si get_messages falla, la sidebar
-    // sigue marcando la sesión como activa (el switch fue OK); el chat
-    // queda vacío pero navegable.
-    appState.messages.value = [];
     await getPiMessages();
-    navigate('#/chat');
+    navigate('chat');
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
+    navigate('chat');
   } finally {
     loading.value = false;
   }

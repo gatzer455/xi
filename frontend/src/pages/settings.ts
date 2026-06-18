@@ -3,7 +3,7 @@
  */
 
 import { appState } from '../lib/state.ts';
-import { navigate } from '../router.ts';
+import { navigate } from '../lib/nav.ts';
 
 export function SettingsPage(): HTMLElement {
   const page = document.createElement('div');
@@ -13,7 +13,7 @@ export function SettingsPage(): HTMLElement {
   const back = document.createElement('button');
   back.textContent = '← Volver al chat';
   back.style.cssText = 'color: var(--color-text-muted); font-size: var(--text-sm); margin-bottom: var(--space-6);';
-  back.addEventListener('click', () => navigate('#/chat'));
+  back.addEventListener('click', () => navigate('chat'));
   page.append(back);
 
   // ═══ Title ═══

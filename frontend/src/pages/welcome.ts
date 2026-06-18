@@ -15,8 +15,8 @@
 
 import { signal } from '../lib/signal.ts';
 import { appState } from '../lib/state.ts';
-import { navigate } from '../router.ts';
 import { pickAndOpenProject, openProject } from '../lib/workdir.ts';
+import { navigate } from '../lib/nav.ts';
 import { getRecents } from '../lib/pi/index.ts';
 import type { Recent } from '../lib/pi/index.ts';
 
@@ -39,7 +39,7 @@ export function WelcomePage(): HTMLElement {
   // la welcome está montada. Redirigimos a #/chat.
   appState.workingDir.subscribe((dir) => {
     if (dir) {
-      navigate('#/chat');
+      navigate('chat');
     }
   });
 

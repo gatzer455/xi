@@ -1,30 +1,27 @@
 /**
  * main.ts — Entry point de xi
  *
+ * App shell browser-shaped: 3 filas verticales.
+ *   #top-bar      → Header() (logo, proyecto, tabs, settings)
+ *   #output-board → OutputBoard() (welcome/chat/sessions/settings)
+ *   #input-bar    → InputBar() (textarea + enviar)
+ *
+ * Sin sidebar, sin router hash-based. La navegación se maneja con
+ * `appState.currentView` (ver lib/nav.ts).
+ *
  * 1. Inicializar conexión con pi
- * 2. Montar sidebar y debug panel
- * 3. Registrar rutas
- * 4. Inicializar router
+ * 2. Cargar proyectos recientes
+ * 3. Montar los 3 componentes del shell
+ * 4. Decidir vista inicial (welcome o chat según si pi está corriendo)
  */
 
-import { initRouter, route } from './router.ts';
-import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';
 import { appState } from './lib/state.ts';
-import { Sidebar } from './components/sidebar.ts';
-import { ChatPage } from './pages/chat.ts';
-import { SettingsPage } from './pages/settings.ts';
-import { SessionsPage } from './pages/sessions.ts';
-import { WelcomePage } from './pages/welcome.ts';
+import { navigate } from './lib/nav.ts';
+import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';
+import { Header } from './components/header.ts';
+import { OutputBoard } from './components/output.ts';
+import { InputBar } from './components/input.ts';
 import { initDebugPanel, addEntry } from './lib/debug-panel.ts';
-
-// ═══════════════════════════════════════════════════════
-// Registrar rutas
-// ═══════════════════════════════════════════════════════
-
-route('#/welcome', () => WelcomePage());
-route('#/chat', () => ChatPage());
-route('#/settings', () => SettingsPage());
-route('#/sessions', () => SessionsPage());
 
 // ═══════════════════════════════════════════════════════
 // Inicializar
@@ -38,8 +35,8 @@ async function main(): Promise<void> {
   addEntry('system', 'pi connection initialized');
 
   // 2. Verificar si pi ya está corriendo. Si running, restauramos
-  //    su cwd y vamos directo a #/chat (restore on start).
-  //    Si no, navegamos a #/welcome (xi es opinionated).
+  //    su cwd y vamos directo a chat (restore on start).
+  //    Si no, navegamos a welcome (xi es opinionated).
   let hasWorkingDir = false;
   try {
     const status = await getPiStatus();
@@ -52,9 +49,9 @@ async function main(): Promise<void> {
     addEntry('system', `Could not get pi status: ${err}`);
   }
 
-  // 3. Cargar proyectos recientes. Se hace ANTES de initRouter
-  //    para que cuando la welcome se monte, `appState.recents.value`
-  //    ya esté populado. Si falla, la welcome funciona sin grid.
+  // 3. Cargar proyectos recientes. Se hace ANTES de montar el
+  //    output board para que la welcome ya tenga `appState.recents`
+  //    populado. Si falla, la welcome funciona sin grid.
   try {
     appState.recents.value = await getRecents();
     addEntry('system', `loaded ${appState.recents.value.length} recents`);
@@ -62,23 +59,19 @@ async function main(): Promise<void> {
     addEntry('system', `Could not load recents: ${err}`);
   }
 
-  // 4. Montar sidebar (la welcome la oculta; las otras rutas la muestran)
-  const sidebarContainer = document.getElementById('nav-header')!;
-  sidebarContainer.append(Sidebar());
+  // 4. Montar los 3 componentes del shell.
+  document.getElementById('top-bar')!.append(Header());
+  document.getElementById('output-board')!.append(OutputBoard());
+  document.getElementById('input-bar')!.append(InputBar());
 
   // 5. Montar debug panel
   const debugContainer = initDebugPanel();
   document.body.append(debugContainer);
 
-  // 6. Inicializar router. Pasa el id del sidebar para que el router
-  //    pueda mostrar/ocultarlo según la ruta.
-  initRouter('outlet', 'nav-header');
-
-  // 7. Decidir navegación: si pi está corriendo, vamos a #/chat;
-  //    si no, a #/welcome. El router usa #/welcome como default, así
-  //    que solo necesitamos forzar #/chat cuando hay workingDir.
+  // 6. Decidir vista inicial: si pi está corriendo con cwd, chat;
+  //    si no, welcome. El default de currentView es 'welcome'.
   if (hasWorkingDir) {
-    location.hash = '#/chat';
+    navigate('chat');
   }
 
   addEntry('system', 'xi ready');

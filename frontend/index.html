@@ -11,11 +11,11 @@
 </head>
 <body>
   <div id="app">
-    <!-- Sidebar: se monta desde main.ts -->
-    <div id="nav-header"></div>
-
-    <!-- Página activa: se renderiza desde el router -->
-    <main id="outlet"></main>
+    <!-- App shell browser-shaped: 3 filas verticales.
+         Los contenidos se montan desde main.ts. -->
+    <div id="top-bar"></div>
+    <div id="output-board"></div>
+    <div id="input-bar"></div>
   </div>
   <script type="module" src="/src/main.ts"></script>
 </body>

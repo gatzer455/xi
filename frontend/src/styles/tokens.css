@@ -68,133 +68,266 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 textarea { font-family: inherit; }
 code, pre { font-family: var(--font-mono); }
 
-/* ─── App shell ─── */
+/* ─── App shell (browser-shaped: 3 filas verticales) ───
+   #app es flex-column. 3 hijos: #top-bar (header), #output-board
+   (contenido flexible), #input (barra de input). Sin sidebar. */
 #app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
 }
 
-/* El sidebar (aside) se monta dentro de #nav-header. El outlet
-   (main) contiene la página activa. Sin estas reglas, los dos
-   flex children no se reparten el ancho y el layout queda frágil. */
-#nav-header {
-  display: flex;
+#top-bar {
   flex: 0 0 auto;
-  min-height: 0;
 }
-#outlet {
-  display: flex;
-  flex-direction: column;
+
+#output-board {
   flex: 1;
-  min-width: 0;
   min-height: 0;
+  overflow-y: auto;
+}
+
+#input-bar {
+  flex: 0 0 auto;
 }
 
 /* ═══════════════════════════════════════════════════════
-   SIDEBAR
+   TOP BAR (browser-shaped)
+   Barra horizontal: logo | card proyecto | tabs conversaciones
+   | (espacio) | settings. JetBrains Mono en todo. 48px height.
    ═══════════════════════════════════════════════════════ */
-.sidebar {
-  width: var(--sidebar-width);
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  height: 100vh;
-}
-
-.sidebar-header {
-  padding: var(--space-4);
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-3);
-}
-
-.sidebar-header-row {
+.top-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
-}
-
-.sidebar-logo {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--color-accent);
+  padding: 0 var(--space-3);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  height: 48px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
   flex-shrink: 0;
 }
 
-.sidebar-new-chat {
-  background: var(--color-accent);
-  color: white;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: background 0.15s;
-}
-.sidebar-new-chat:hover {
-  background: var(--color-accent-hover);
+.top-bar-logo {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 
-.sidebar-sessions {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-2);
-}
-
-.session-item {
-  padding: var(--space-3) var(--space-3);
+.top-bar-project {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
   cursor: pointer;
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  transition: background 0.15s, color 0.15s;
+  font-weight: 500;
+  color: var(--color-text);
   white-space: nowrap;
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: border-color 0.15s, background 0.15s;
+  flex-shrink: 0;
 }
-.session-item:hover {
-  background: var(--color-surface-2);
-  color: var(--color-text);
-}
-.session-item.active {
-  background: var(--color-surface-2);
-  color: var(--color-text);
+.top-bar-project:hover {
+  border-color: var(--color-accent);
+  background: var(--color-tool-pending-bg);
 }
 
-.sidebar-footer {
-  padding: var(--space-3);
-  border-top: 1px solid var(--color-border);
+.top-bar-tabs {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  min-width: 0;
+  scrollbar-width: thin;
 }
+.top-bar-tabs::-webkit-scrollbar { height: 3px; }
 
-.sidebar-settings {
+.top-bar-tab {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-1);
+  padding: 0;
   border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
   color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  width: 100%;
-  transition: background 0.15s;
+  border: 1px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  max-width: 220px;
+  overflow: hidden;
 }
-.sidebar-settings:hover {
+.top-bar-tab:hover {
   background: var(--color-surface-2);
   color: var(--color-text);
+}
+.top-bar-tab--active {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border-color: var(--color-border);
+  font-weight: 600;
+}
+.top-bar-tab-label {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+}
+.top-bar-tab-close {
+  background: transparent;
+  border: none;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  padding: 0 var(--space-2);
+  height: 100%;
+  font-size: var(--text-base);
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.top-bar-tab-close:hover {
+  background: var(--color-accent);
+  color: var(--color-card-bg);
+}
+
+.top-bar-new-btn {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  border: 1px solid transparent;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.top-bar-new-btn:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.top-bar-settings {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+}
+.top-bar-settings:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.top-bar-settings--active {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+.top-bar-settings-icon {
+  font-size: var(--text-base);
+  line-height: 1;
 }
 
 /* ═══════════════════════════════════════════════════════
-   CHAT AREA
+   INPUT BAR (browser-shaped)
+   Barra de input fija abajo. Textarea + botón enviar.
+   ═══════════════════════════════════════════════════════ */
+.input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-8);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+.input-bar textarea {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  resize: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  color: var(--color-text);
+  outline: none;
+  max-height: 200px;
+  line-height: 1.5;
+}
+.input-bar textarea:focus {
+  border-color: var(--color-accent);
+}
+.input-bar textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.input-bar textarea::placeholder {
+  color: var(--color-text-dim);
+}
+.input-send-btn {
+  flex-shrink: 0;
+  background: var(--color-accent);
+  color: var(--color-card-bg);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  height: 38px;
+}
+.input-send-btn:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+.input-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ═══════════════════════════════════════════════════════
+   OUTPUT BOARD (browser-shaped)
+   Contenido central. 4 estados: welcome, chat, sessions, settings.
+   Hereda flex:1 + overflow-y:auto de #output-board. El contenido
+   de cada vista se renderiza dentro de .output-content, full-width
+   con padding lateral generoso. Sin max-width — el chat usa todo
+   el espacio disponible, como en apps de chat modernas.
+   ═══════════════════════════════════════════════════════ */
+.output-content {
+  width: 100%;
+  padding: var(--space-6) var(--space-8);
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CHAT AREA (reutilizado dentro del output board)
    ═══════════════════════════════════════════════════════ */
 .chat-area {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100%;
   min-width: 0;
 }
 
@@ -224,6 +357,10 @@ code, pre { font-family: var(--font-mono); }
   flex: 1;
   overflow-y: auto;
   padding: var(--space-6);
+  /* scroll-padding-bottom: el sentinel al final se posiciona
+     considerando este padding. Asegura que el último mensaje
+     no quede pegado al borde inferior del viewport. */
+  scroll-padding-bottom: var(--space-8);
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
@@ -231,11 +368,26 @@ code, pre { font-family: var(--font-mono); }
 
 .chat-messages-inner {
   max-width: var(--chat-max-width);
-  margin: 0 auto;
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+}
+
+/* Sentinel invisible al final de los mensajes. Usado por
+   scrollIntoView como ancla. No tiene dimensiones visibles
+   (height 0, pero participa del flex layout para tener posición).
+   margin-top: calc(var(--space-6) * -1) compensa el gap del flex
+   parent: como el sentinel es el ÚLTIMO hijo, hay un gap de 24px
+   entre él y el mensaje anterior. El margin-top negativo "anula"
+   ese gap, dejando el sentinel PEGADO al último mensaje — así
+   scrollIntoView queda en la posición real del fondo, no 24px
+   más abajo. */
+.chat-end-sentinel {
+  height: 0;
+  flex-shrink: 0;
+  margin: calc(var(--space-6) * -1) 0 0 0;
+  padding: 0;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -397,68 +549,7 @@ code, pre { font-family: var(--font-mono); }
 }
 
 /* ═══════════════════════════════════════════════════════
-   CHAT INPUT
-   ═══════════════════════════════════════════════════════ */
-.chat-input-area {
-  padding: var(--space-4) var(--space-6);
-  border-top: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.chat-input-wrapper {
-  max-width: var(--chat-max-width);
-  margin: 0 auto;
-  position: relative;
-}
-
-.chat-input {
-  width: 100%;
-  min-height: 48px;
-  max-height: 200px;
-  padding: var(--space-3) var(--space-4);
-  padding-right: 48px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  color: var(--color-text);
-  font-size: var(--text-base);
-  line-height: 1.5;
-  resize: none;
-  outline: none;
-  transition: border-color 0.15s;
-}
-.chat-input:focus {
-  border-color: var(--color-accent);
-}
-.chat-input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.chat-send-btn {
-  position: absolute;
-  right: var(--space-2);
-  bottom: var(--space-2);
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-accent);
-  color: white;
-  border-radius: var(--radius-md);
-  font-size: var(--text-lg);
-  transition: background 0.15s;
-}
-.chat-send-btn:hover {
-  background: var(--color-accent-hover);
-}
-.chat-send-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ═══════════════════════════════════════════════════════
-   SETTINGS PAGE
+   SETTINGS PAGE (vista del output board)
    ═══════════════════════════════════════════════════════ */
 .settings-page {
   flex: 1;
@@ -608,7 +699,7 @@ code, pre { font-family: var(--font-mono); }
 .sessions-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
@@ -617,6 +708,21 @@ code, pre { font-family: var(--font-mono); }
 .sessions-header h1 {
   font-size: var(--text-xl);
   font-weight: 700;
+  margin-right: auto;
+}
+
+/* Botón primario: crear nueva conversación */
+.sessions-new {
+  background: var(--color-accent);
+  color: var(--color-card-bg);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+}
+.sessions-new:hover {
+  background: var(--color-accent-hover);
 }
 
 .sessions-back {
