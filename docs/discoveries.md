@@ -315,3 +315,89 @@ const sessionManager = SessionManager.create(this.cwd, sessionDir);
 - [pi RPC docs](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/rpc.md)
 - [Pi Studio](https://github.com/shixin-guo/pi-studio) — referencia de implementación
 - [bun --compile](https://bun.sh/docs/bundler/executables)
+
+## 10. Custodia de claves del updater (Etapa 7)
+
+### El problema
+
+`tauri-plugin-updater` requiere un par de claves (público/privado) generadas con `minisign`. La clave privada firma los bundles en cada release; la pública se embebe en el binario y verifica la firma antes de instalar. Si alguien obtiene la clave privada, puede firmar updates maliciosos que xi instalaría sin chistar.
+
+### Setup local (desarrollo)
+
+```bash
+# Generar el par (una sola vez por máquina dev)
+npx tauri signer generate -w ~/.tauri/xi.key -p "<passphrase>"
+
+# Esto crea:
+#   ~/.tauri/xi.key      ← PRIVATE (nunca commitear, mode 0600)
+#   ~/.tauri/xi.key.pub  ← PUBLIC (se embebe en tauri.conf.json)
+```
+
+La pubkey va como string literal en `backend/tauri.conf.json` bajo `plugins.updater.pubkey`. Es público por diseño — el riesgo está en la private key.
+
+### Custodia
+
+| Dónde | Qué | Notas |
+|-------|-----|-------|
+| `~/.tauri/xi.key` | private key (local) | Solo el dev la tiene. Mode 0600. |
+| Password manager (1Password) | private key + passphrase | Backup. Si perdés ambas, xi se congela. |
+| GitHub Secrets (`TAURI_SIGNING_PRIVATE_KEY`) | private key (CI) | Contenido completo del archivo, incluyendo header. |
+| GitHub Secrets (`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) | passphrase (CI) | Separado de la key, nunca en el mismo secret. |
+| `backend/tauri.conf.json` | public key (público) | Se distribuye con la app. |
+| Repositorio git | nada de la private key | `xi.key` y `xi.key.pub` en `.gitignore` (defensa en profundidad). |
+
+### Rotación (escenario catastrophic: key filtrada)
+
+1. Generar nuevo par: `npx tauri signer generate -w ~/.tauri/xi.key.new -p "..."`.
+2. Actualizar pubkey en `backend/tauri.conf.json`.
+3. Rebuild + release: tag `v0.3.0` con la nueva key.
+4. Update `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` en GitHub Secrets.
+5. Los users con versiones < v0.3.0 no pueden actualizar (la firma con la key vieja no valida con la pubkey nueva en el binario viejo). Tendrían que bajar manualmente la nueva versión.
+
+### Caveats
+
+- Si la passphrase está vacía, hay un bug conocido en tauri-signer entre v0.7.4 y v0.8.0 que genera keys rotas. Usar passphrase de al menos 8 caracteres.
+- La pubkey NO cambia entre versiones. Es un secret de la app, no de la versión.
+- El sidecar `pi` se reemplaza atómicamente con cada update de xi (el updater reemplaza el bundle completo). La Etapa 8 se ocupa del caso "quiero actualizar pi sin esperar release de xi".
+
+## 11. Testing del updater sin release real
+
+### Setup de un mock server local
+
+```bash
+# 1. Crear un directorio con un latest.json fake y un bundle fake
+mkdir -p /tmp/xi-mock-update
+cd /tmp/xi-mock-update
+
+cat > latest.json <<EOF
+{
+  "version": "99.0.0",
+  "notes": "Test update",
+  "pub_date": "2026-06-18T00:00:00Z",
+  "platforms": {
+    "linux-x86_64": {
+      "url": "http://localhost:8787/xi-fake.AppImage",
+      "signature": "fake-sig"
+    }
+  }
+}
+EOF
+
+# 2. Servir con python
+python3 -m http.server 8787
+
+# 3. En otra terminal, apuntar tauri.conf.json al mock
+#    (cambiar endpoints[0] a http://localhost:8787/latest.json)
+
+# 4. npm run tauri dev
+# 5. Esperar 2.5s → checkForUpdate() corre → ve v99.0.0 → "update ready"
+# 6. NO hacer click en Reiniciar (la signature es fake y va a fallar)
+```
+
+El bundle fake no es un AppImage real, así que `downloadAndInstall` va a fallar al verificar la firma. Esto sirve para testear el flow hasta "ready" pero no el apply real. Para testear el apply end-to-end, hay que firmar el bundle con la key local — eso requiere un release real (vía el workflow o manualmente con `tauri build`).
+
+### Referencias
+
+- [tauri-plugin-updater docs](https://v2.tauri.app/plugin/updater/)
+- [tauri-action examples](https://github.com/tauri-apps/tauri-action/tree/dev/examples)
+- [minisign](https://jedisct1.github.io/minisign/)

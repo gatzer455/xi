@@ -54,3 +54,25 @@ cd ../backend && cargo check
 # 5. Ejecutar en modo desarrollo
 cd .. && npm run dev
 ```
+
+## Keygen para auto-update (Etapa 7)
+
+xi usa `tauri-plugin-updater` v2 con claves minisign. Solo hace falta una vez por máquina de desarrollo.
+
+```bash
+# Generar el par de claves
+npx tauri signer generate -w ~/.tauri/xi.key -p "<passphrase>"
+
+# Pegar el contenido de la pubkey en backend/tauri.conf.json
+cat ~/.tauri/xi.key.pub
+# Copiar el string (incluyendo "untrusted comment: ...") a:
+#   plugins.updater.pubkey
+```
+
+**Custodia**:
+- `~/.tauri/xi.key` (private) — mode 0600, nunca commitear
+- Backup de la key + passphrase en 1Password o similar
+- Para CI: configurar como GitHub Secrets `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+
+Más detalles en `docs/discoveries.md` sección 10.
+
