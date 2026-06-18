@@ -29,6 +29,7 @@ import {
   applyFontToDOM,
 } from './lib/settings-storage.ts';
 import { getAvailableModels } from './lib/pi/tauri-commands.ts';
+import { checkForUpdate, isUpdaterAvailable } from './lib/updater.ts';
 
 // ═══════════════════════════════════════════════════════
 // Inicializar
@@ -97,11 +98,21 @@ async function main(): Promise<void> {
   document.getElementById('output-board')!.append(OutputBoard());
   document.getElementById('input-bar')!.append(InputBar());
 
-  // 6. Montar debug panel
+  // 6. Disparar el check de update 2.5s después del mount. El delay
+  //    es para no competir con la carga de pi y del primer render:
+  //    si la red está lenta, queremos que la UI esté usable antes
+  //    de que un request de update la frene. Si el updater no está
+  //    disponible (dev mode o build sin plugin), salimos silencioso.
+  setTimeout(() => {
+    if (!isUpdaterAvailable()) return;
+    void checkForUpdate();
+  }, 2500);
+
+  // 7. Montar debug panel
   const debugContainer = initDebugPanel();
   document.body.append(debugContainer);
 
-  // 7. Decidir vista inicial: si pi está corriendo con cwd, chat;
+  // 8. Decidir vista inicial: si pi está corriendo con cwd, chat;
   //    si no, welcome. El default de currentView es 'welcome'.
   if (hasWorkingDir) {
     navigate('chat');

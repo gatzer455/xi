@@ -121,6 +121,24 @@ export const appState = {
   /** Tamaño de fuente de la UI. Persistido en localStorage (xi.fontSize).
    *  Se aplica via --font-size-base en tokens.css. */
   fontSize: signal<FontSize>('medium'),
+
+  // ── Auto-update (Etapa 7) ─────────────────────────────
+  // El updater es un state machine puro: una signal `updateStatus`
+  // determina qué ve la UI. Las signals restantes son datos
+  // auxiliares que se consultan según el estado. Banner del top bar
+  // y sección de settings leen todos de acá — single source of truth.
+
+  updateStatus: signal<UpdateStatus>('idle'),
+  updateReady: signal<UpdateInfo | null>(null),
+
+  /** Dismiss del banner no persiste: en el próximo launch, el banner
+   *  vuelve a aparecer si hay update ready. Decisión deliberada para
+   *  que el user no sienta que la app le esconde algo. */
+  updateDismissed: signal<boolean>(false),
+
+  /** Mensaje legible solo cuando updateStatus === 'error'. En otros
+   *  estados es null (no muestra error donde no lo hay). */
+  updateError: signal<string | null>(null),
 };
 
 /** Tema de la UI. 'system' delega al media query del CSS. */
@@ -140,6 +158,27 @@ export type ThinkingLevel =
 
 /** Vistas posibles del output-board (browser-shaped, sin router). */
 export type ViewName = 'welcome' | 'chat' | 'sessions' | 'settings';
+
+// ═══════════════════════════════════════════════════════
+// Tipos del updater (Etapa 7)
+// ═══════════════════════════════════════════════════════
+
+/** State machine del updater. Ver `lib/updater.ts` para transiciones. */
+export type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'downloading'
+  | 'ready'
+  | 'error';
+
+/** Datos del update que el banner y settings muestran. Parseamos
+ *  una vez en frontera (en `lib/updater.ts`) y el resto del código
+ *  opera sobre este tipo — sin re-validar. */
+export interface UpdateInfo {
+  version: string;
+  body: string;
+  date: string | null;
+}
 
 // Mantener online sincronizado con el navegador
 window.addEventListener('online', () => {
