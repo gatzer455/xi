@@ -34,6 +34,13 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Tauri updater signing keys (NUNCA commitear la private key)
+# La pubkey (xi.key.pub) va EMBEBIDA en tauri.conf.json como string,
+# no como archivo. La private key (xi.key) queda en ~/.tauri/ y en
+# GitHub Secrets. Si algún día la key se mueve al repo, ignoramos.
+xi.key
+xi.key.pub
+
 # Logs
 *.log
 npm-debug.log*
