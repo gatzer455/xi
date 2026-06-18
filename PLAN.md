@@ -402,10 +402,26 @@ Verificado empíricamente: 3 sesiones del proyecto xi se listan correctamente co
 6. Configurar endpoint de updates (GitHub Releases o S3)
 
 **Validación:**
-- [ ] Al iniciar, la app chequea si hay updates
-- [ ] Si hay update, muestra el banner con changelog
-- [ ] "Actualizar ahora" descarga, instala y reinicia
-- [ ] La firma criptográfica verifica la autenticidad del update
+- [x] Al iniciar, la app chequea si hay updates
+- [x] Si hay update, muestra el banner con changelog
+- [x] "Actualizar ahora" descarga, instala y reinicia
+- [x] La firma criptográfica verifica la autenticidad del update
+
+**Implementación (5ef087c → b9359a3):**
+- Plumbing: tauri-plugin-updater v2 + tauri-plugin-process v2 (Cargo.toml + package.json + main.rs + capabilities).
+- Config: pubkey dev embebida en tauri.conf.json, endpoints: [] (a llenar cuando exista repo), createUpdaterArtifacts: true, installMode: 'passive' para Windows.
+- Frontend: `lib/updater.ts` con checkForUpdate (tryCheck extraído para evitar try anidado), installAndRelaunch, dismissBanner, isUpdaterAvailable. State machine de 5 estados con assertNever.
+- UI: banner en top-bar (visibility:hidden reservado) + sección "Actualización" en settings con status mapeado por switch exhaustivo.
+- Auto-check con delay 2.5s en main.ts (no compite con carga de pi).
+- CI/CD: `.github/workflows/release.yml` con matriz linux/Windows/macOS, tauri-action@v0, secrets documentados.
+- Docs: discoveries.md §10 (custodia) y §11 (mock testing), SETUP.md (keygen).
+
+**Pendiente (no bloquea esta etapa):**
+- Llenar `endpoints` con la URL real del repo cuando exista
+- Configurar GitHub Secrets en el repo
+- Versión real de la app en settings (hoy hardcoded "0.1.0", futuro: app.getVersion())
+- Cross-compile del sidecar pi a Windows (v1: linux + macOS)
+- Body/release notes inline en sección settings (hoy solo status text)
 
 ---
 
