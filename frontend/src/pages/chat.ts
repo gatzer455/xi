@@ -37,14 +37,16 @@
  */
 
 import { appState } from '../lib/state.ts';
+import { createScope, type Page } from '../lib/scope.ts';
 import { ChatBubble } from '../components/chat-bubble.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 const NEAR_BOTTOM_PX = 100;
 
-export function ChatPage(): HTMLElement {
-  const page = document.createElement('div');
-  page.className = 'chat-area';
+export function ChatPage(): Page {
+  const root = document.createElement('div');
+  root.className = 'chat-area';
+  const scope = createScope();
 
   // ═══ Header (modelo actual) ═══
   const header = document.createElement('div');
@@ -58,12 +60,12 @@ export function ChatPage(): HTMLElement {
   const modelBadge = document.createElement('span');
   modelBadge.className = 'chat-header-model';
   modelBadge.textContent = 'sin modelo';
-  appState.currentModel.subscribe(model => {
+  scope.add(appState.currentModel.subscribe(model => {
     modelBadge.textContent = model ? model.name : 'sin modelo';
-  });
+  }));
   header.append(modelBadge);
 
-  page.append(header);
+  root.append(header);
 
   // ═══ Messages ═══
   const messagesContainer = document.createElement('div');
@@ -153,16 +155,19 @@ export function ChatPage(): HTMLElement {
   // ChatBubble terminó de layout-ear async), re-evaluamos.
   resizeObserver.observe(messagesInner);
 
+  // Cleanup: desconectar el observer al desmontar.
+  scope.add(() => resizeObserver.disconnect());
+
   // NOTA: botón "Jump to latest" cuando el usuario está scrolled up
   // (no cerca del fondo) está anotado en NOTAS.md. Cuando lo
   // implementemos, se setea un flag en el scroll listener.
 
-  appState.messages.subscribe(renderMessages);
+  scope.add(appState.messages.subscribe(renderMessages));
 
   messagesContainer.append(messagesInner);
-  page.append(messagesContainer);
+  root.append(messagesContainer);
 
-  return page;
+  return { root, dispose: () => scope.dispose() };
 }
 
 /** Renderiza la pantalla de bienvenida (estado vacío). */

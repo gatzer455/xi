@@ -14,7 +14,11 @@
 export interface Signal<T> {
   get value(): T;
   set value(v: T);
-  subscribe(fn: (v: T) => void): void;
+  /** Suscribe al callback. Retorna una función que, al llamarla,
+   *  des-suscribe este callback. Usar para cleanup en componentes
+   *  que se desmontan (sin cleanup, los callbacks se acumulan
+   *  en el Set interno de la signal — memory leak). */
+  subscribe(fn: (v: T) => void): () => void;
 }
 
 export function signal<T>(initial: T): Signal<T> {
@@ -35,6 +39,7 @@ export function signal<T>(initial: T): Signal<T> {
     subscribe(fn: (v: T) => void) {
       subscribers.add(fn);
       fn(value);
+      return () => { subscribers.delete(fn); };
     },
   };
 }

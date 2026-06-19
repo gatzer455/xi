@@ -10,6 +10,7 @@
  */
 
 import { signal } from '../lib/signal.ts';
+import { createScope, type Page } from '../lib/scope.ts';
 import { appState } from '../lib/state.ts';
 import {
   listSessions,
@@ -33,14 +34,15 @@ const error = signal<string | null>(null);
 /** Path de la sesión cuyo nombre se está editando. null = nadie. */
 const renamingPath = signal<string | null>(null);
 
-export function SessionsPage(): HTMLElement {
-  const page = document.createElement('section');
-  page.className = 'sessions-page';
+export function SessionsPage(): Page {
+  const root = document.createElement('section');
+  root.className = 'sessions-page';
+  const scope = createScope();
 
-  page.append(renderHeader());
-  page.append(renderErrorBanner());
-  page.append(renderList());
-  page.append(renderFooter());
+  root.append(renderHeader());
+  root.append(renderErrorBanner());
+  root.append(renderList());
+  root.append(renderFooter());
 
   // Carga inicial + polling.
   // Guard de re-entrada: si `loadSessions` ya está en vuelo, el segundo
@@ -59,14 +61,16 @@ export function SessionsPage(): HTMLElement {
   };
   document.addEventListener('visibilitychange', visibilityHandler);
 
-  // Cleanup: Tauri no llama esto automáticamente. Sin él, el interval
-  // y el listener siguen vivos después de navegar a otra página.
-  page.addEventListener('page:remove', () => {
+  // Cleanup: el output-board llama a `dispose()` antes de cada
+  // `replaceChildren`, así que el interval y el listener de visibilidad
+  // se limpian al desmontar. Antes del refactor de Page, esto dependía
+  // de un evento custom `page:remove` que Tauri nunca dispara — bug.
+  scope.add(() => {
     clearInterval(interval);
     document.removeEventListener('visibilitychange', visibilityHandler);
   });
 
-  return page;
+  return { root, dispose: () => scope.dispose() };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -133,6 +137,12 @@ function renderErrorBanner(): HTMLElement {
   banner.className = 'sessions-error';
 
   const text = document.createElement('span');
+  // NOTA: la suscripción a `error` (signal module-level) NO se
+  // trackea en el scope porque `error` vive en el módulo, no en
+  // la page. Es un bug preexistente: cada mount agrega una
+  // suscripción que solo se limpia si el scope la trackea. Acepto
+  // el memory leak menor (1 callback extra por mount) hasta que
+  // refactoricemos los signals locales a un scope.signal().
   error.subscribe((e) => {
     text.textContent = e ?? '';
     banner.style.display = e ? 'block' : 'none';
@@ -173,6 +183,10 @@ function renderList(): HTMLElement {
     });
   }
 
+  // TODO: cuando refactoricemos los signals module-level a scope.signal(),
+  // esta suscripción a `sessions` (también module-level) se va a trackear
+  // acá. Por ahora, el bug preexistente es: si el user entra y sale
+  // múltiples veces, se acumulan callbacks de repaint.
   sessions.subscribe(repaint);
   repaint(sessions.value);
 

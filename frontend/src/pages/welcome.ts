@@ -17,6 +17,7 @@
  */
 
 import { signal } from '../lib/signal.ts';
+import { createScope, type Scope, type Page } from '../lib/scope.ts';
 import { appState } from '../lib/state.ts';
 import { pickAndOpenProject, openProject } from '../lib/workdir.ts';
 import { navigate } from '../lib/nav.ts';
@@ -28,16 +29,17 @@ import { loadAuthStatus } from '../lib/auth-status.ts';
 // página está montada. Si `openProject` falla, mostramos el mensaje.
 const error = signal<string | null>(null);
 
-export function WelcomePage(): HTMLElement {
-  const page = document.createElement('div');
-  page.className = 'welcome-page';
+export function WelcomePage(): Page {
+  const root = document.createElement('div');
+  root.className = 'welcome-page';
+  const scope = createScope();
 
-  page.append(renderErrorBanner());
-  page.append(renderHeader());
-  page.append(renderAuthBanner());
-  page.append(renderCta());
-  page.append(renderRecentsSection());
-  page.append(renderHelpLink());
+  root.append(renderErrorBanner(scope));
+  root.append(renderHeader());
+  root.append(renderAuthBanner(scope));
+  root.append(renderCta());
+  root.append(renderRecentsSection(scope));
+  root.append(renderHelpLink());
 
   // Cargar el estado de providers al mount. Fire-and-forget — el
   // render no espera; el banner se actualiza cuando la promesa
@@ -50,32 +52,32 @@ export function WelcomePage(): HTMLElement {
   // cuando el usuario hace click en un card (openProject setea
   // workingDir) o cuando el flujo externo setea workingDir mientras
   // la welcome está montada. Redirigimos a #/chat.
-  appState.workingDir.subscribe((dir) => {
+  scope.add(appState.workingDir.subscribe((dir) => {
     if (dir) {
       navigate('chat');
     }
-  });
+  }));
 
-  return page;
+  return { root, dispose: () => scope.dispose() };
 }
 
 // ───────────────────────────────────────────────────────
 // Secciones
 // ───────────────────────────────────────────────────────
 
-function renderErrorBanner(): HTMLElement {
+function renderErrorBanner(scope: Scope): HTMLElement {
   const banner = document.createElement('div');
   banner.className = 'welcome-error';
   banner.style.display = 'none';
 
-  error.subscribe((msg) => {
+  scope.add(error.subscribe((msg) => {
     if (msg) {
       banner.textContent = msg;
       banner.style.display = 'flex';
     } else {
       banner.style.display = 'none';
     }
-  });
+  }));
 
   return banner;
 }
@@ -109,7 +111,7 @@ function renderHeader(): HTMLElement {
  *  corre, la banderita está oculta (no debe haber flash de "no auth"
  *  cuando sí hay providers). visibility:hidden reserva el espacio
  *  para evitar layout shift. */
-function renderAuthBanner(): HTMLElement {
+function renderAuthBanner(scope: Scope): HTMLElement {
   const banner = document.createElement('div');
   banner.className = 'welcome-auth-banner';
 
@@ -131,9 +133,9 @@ function renderAuthBanner(): HTMLElement {
   // Suscripción: aparece solo si NO hay providers. Si hay 1+, se
   // esconde. La banderita se actualiza también si el user vuelve
   // de settings (loadAuthStatus se re-ejecuta al mount).
-  appState.hasAnyProvider.subscribe((hasAny) => {
+  scope.add(appState.hasAnyProvider.subscribe((hasAny) => {
     banner.style.visibility = hasAny ? 'hidden' : 'visible';
-  });
+  }));
 
   return banner;
 }
@@ -172,7 +174,7 @@ function renderCta(): HTMLElement {
   return button;
 }
 
-function renderRecentsSection(): HTMLElement {
+function renderRecentsSection(scope: Scope): HTMLElement {
   const section = document.createElement('div');
   section.className = 'welcome-recents';
 
@@ -212,7 +214,7 @@ function renderRecentsSection(): HTMLElement {
   }
 
   renderGrid(initial);
-  appState.recents.subscribe(renderGrid);
+  scope.add(appState.recents.subscribe(renderGrid));
 
   section.append(grid);
   return section;

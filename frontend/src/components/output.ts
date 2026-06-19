@@ -17,6 +17,7 @@
  */
 
 import { appState } from '../lib/state.ts';
+import type { Page } from '../lib/scope.ts';
 import { ChatPage } from '../pages/chat.ts';
 import { SessionsPage } from '../pages/sessions.ts';
 import { SettingsPage } from '../pages/settings.ts';
@@ -30,28 +31,42 @@ export function OutputBoard(): HTMLElement {
   content.className = 'output-content';
   board.append(content);
 
+  // Dispose de la vista actualmente montada. Se llama antes de cada
+  // `replaceChildren` para limpiar suscripciones, intervals, event
+  // listeners, ResizeObservers, etc. Si no se llamara, las pages
+  // viejas quedarían vivas en memoria (memory leak) y sus callbacks
+  // se dispararían duplicados en cada cambio de signal.
+  let currentDispose: (() => void) | null = null;
+
   const render = (view: typeof appState.currentView.value): void => {
+    if (currentDispose) {
+      currentDispose();
+      currentDispose = null;
+    }
     content.replaceChildren();
+    let page: Page | null = null;
     switch (view) {
       case 'welcome':
-        content.append(WelcomePage());
+        page = WelcomePage();
         break;
       case 'chat':
-        content.append(ChatPage());
+        page = ChatPage();
         break;
       case 'sessions':
-        content.append(SessionsPage());
+        page = SessionsPage();
         break;
       case 'settings':
-        content.append(SettingsPage());
+        page = SettingsPage();
         break;
       default:
         // Exhaustividad: si se agrega una vista nueva y se olvida
         // el case, mostramos un mensaje visible en vez de fallar
         // silenciosamente.
         content.append(unknownView(view));
-        break;
+        return;
     }
+    content.append(page.root);
+    currentDispose = page.dispose;
   };
 
   render(appState.currentView.value);
