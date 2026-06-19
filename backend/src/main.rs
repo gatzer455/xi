@@ -29,6 +29,8 @@ fn main() {
             commands::pi_sessions::list_sessions,
             commands::pi_sessions::delete_session,
             commands::pi_sessions::rename_session,
+            commands::pi_version::get_pi_version,
+            commands::pi_version::get_pi_upstream_version,
             commands::recents::get_recents,
             commands::recents::add_recent,
         ])
