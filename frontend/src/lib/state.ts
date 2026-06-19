@@ -131,6 +131,12 @@ export const appState = {
   updateStatus: signal<UpdateStatus>('idle'),
   updateReady: signal<UpdateInfo | null>(null),
 
+  /** Versión del sidecar pi (viene del command get_pi_version).
+   *  'unknown' si el sidecar no responde o aún no se cargó. Se
+   *  popula al navegar a Settings (lazy) — el user no necesita
+   *  la versión en otros contextos. */
+  piVersion: signal<string>('unknown'),
+
   /** Dismiss del banner no persiste: en el próximo launch, el banner
    *  vuelve a aparecer si hay update ready. Decisión deliberada para
    *  que el user no sienta que la app le esconde algo. */

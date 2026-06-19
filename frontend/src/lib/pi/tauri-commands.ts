@@ -173,3 +173,33 @@ export async function setThinkingLevel(level: ThinkingLevel): Promise<void> {
   addEntry('out', cmd);
   await loggedInvoke('setThinkingLevel', () => invoke('send_pi_command', { json: cmd }));
 }
+
+/**
+ * Retorna la versión del sidecar pi (ej: '0.79.8'). Si el sidecar
+ * no responde, retorna 'unknown' (no throw). El user ve "pi
+ * desconocida" en settings; el dev ve el error en el debug panel.
+ */
+export async function getPiVersion(): Promise<string> {
+  try {
+    return await invoke<string>('get_pi_version');
+  } catch (err) {
+    addEntry('system', `getPiVersion failed: ${err instanceof Error ? err.message : String(err)}`);
+    return 'unknown';
+  }
+}
+
+/**
+ * Retorna la última versión de pi upstream desde pi.dev. Si el
+ * endpoint falla, retorna null. Usado internamente para el debug
+ * panel; el user nunca ve este valor.
+ */
+export async function getPiUpstreamVersion(): Promise<string | null> {
+  try {
+    const version = await invoke<string>('get_pi_upstream_version');
+    addEntry('system', `pi upstream: ${version}`);
+    return version;
+  } catch (err) {
+    addEntry('system', `getPiUpstreamVersion failed: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}

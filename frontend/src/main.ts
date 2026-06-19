@@ -29,7 +29,7 @@ import {
   applyThemeToDOM,
   applyFontToDOM,
 } from './lib/settings-storage.ts';
-import { getAvailableModels } from './lib/pi/tauri-commands.ts';
+import { getAvailableModels, getPiUpstreamVersion } from './lib/pi/tauri-commands.ts';
 import { checkForUpdate, isUpdaterAvailable } from './lib/updater.ts';
 
 // ═══════════════════════════════════════════════════════
@@ -108,9 +108,12 @@ async function main(): Promise<void> {
   //    si la red está lenta, queremos que la UI esté usable antes
   //    de que un request de update la frene. Si el updater no está
   //    disponible (dev mode o build sin plugin), salimos silencioso.
+  //    El check de pi upstream corre junto con el de xi: ambos son
+  //    GETs chiquitos que no compiten.
   setTimeout(() => {
     if (!isUpdaterAvailable()) return;
     void checkForUpdate();
+    void getPiUpstreamVersion();
   }, 2500);
 
   // 7. Montar debug panel
