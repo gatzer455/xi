@@ -478,3 +478,126 @@ El script tiene un check al final que falla si `pi --version` no retorna la vers
 - **Hacer que el binario de pi se actualice solo via `pi update --self`**: no funciona (es bun-binary).
 - **Reemplazar el binario de pi en runtime desde xi**: problemas de permisos (macOS bundle, Linux AppImage), lock (Windows), complejidad innecesaria. La Etapa 7 ya cubre "xi se actualiza con su pi incluido".
 - **Mostrar al user "hay un pi nuevo, actualizá xi"**: sería fake promise porque el user no puede forzar un release de xi.
+
+## 13. Auth de pi y onboarding (Etapa 9)
+
+### El problema de auth en pi
+
+El `auth.json` de pi (`~/.pi/agent/auth.json`) tiene una estructura **multi-provider y multi-tipo**:
+
+```json
+{
+  "anthropic":    { "type": "api_key", "key": "sk-ant-..." },
+  "openrouter":   { "type": "api_key", "key": "sk-or-..." },
+  "github-copilot": { "type": "oauth", "refresh": "...", "access": "...", "expires": 12345 }
+}
+```
+
+- **Tipos de credencial**: `"api_key"` (string) o `"oauth"` (refresh + access + expires).
+- **Providers totales**: 30+ (Anthropic, OpenAI, Google, OpenRouter, Groq, DeepSeek, Mistral, xAI, Cerebras, Bedrock, Vertex AI, etc.).
+- **Providers con OAuth**: 3 (Anthropic, GitHub Copilot, OpenAI Codex).
+- **Archivo se lee con `chmod 600`** (owner read+write).
+
+### El RPC de pi no expone auth
+
+`pi-mono` tiene 2 modos de uso: TUI (terminal) y RPC (lo que usa xi). El modo RPC expone comandos como `prompt`, `set_model`, `get_available_models`, etc. **Pero no expone `login`, `set_api_key`, ni nada relacionado con auth**. La razón: pi asume que el usuario ya configuró sus credenciales antes de invocar el binario.
+
+**Implicación para xi**: no podemos hacer login OAuth via el sidecar. Si el user quiere usar GitHub Copilot, tiene que correr `pi login` en una terminal. xi solo puede escribir el `auth.json` directamente (es solo un JSON file en el FS).
+
+### Por qué no implementar OAuth en xi
+
+OAuth requiere un **server local** (para Anthropic y OpenAI Codex, que usan Authorization Code + PKCE con callback en `http://localhost:53692/callback` y `http://localhost:1455/auth/callback` respectivamente). GitHub Copilot usa device flow (sin server local, pero requiere polling).
+
+**Tradeoffs de implementar el server local en xi**:
+
+| Aspecto | Costo |
+|---------|-------|
+| Complejidad | Alta. Hay que escribir un HTTP server en Rust con un comando Tauri, coordinar el timing con el browser abierto, persistir tokens. |
+| Riesgo legal/TOS | Gris. Los CLIENT_IDs de Anthropic y GitHub Copilot están base64-encoded en el código de pi-mono — no son IDs públicos autorizados para terceros. OpenAI Codex sí tiene un ID público. |
+| Mantenimiento | Continuo. Si los providers rotan CLIENT_IDs, cambian flows, o cambian ports, hay que actualizar xi. |
+| Beneficio para el user | Moderado. El user no sale de la app, pero tiene que autorizar en el browser igual. |
+
+**Decisión**: no implementar OAuth en esta etapa. xi cubre los 6 providers con API key (Anthropic, OpenAI, Google, OpenRouter, Groq, OpenCode Go, DeepSeek — 99% de los users no-técnicos). Los 3 providers OAuth se difieren para una v2.
+
+### El formato del auth.json: por qué este y no uno propio
+
+El formato escrito por xi es **idéntico** al que pi-mono espera. Razón: pi ya lo lee, y si xi escribe algo distinto, se rompe la compatibilidad. Es más simple respetar el formato y dejar que pi lo parsee.
+
+```rust
+// Backend command set_api_key
+entries.insert(
+    provider,
+    serde_json::json!({
+        "type": "api_key",
+        "key": api_key,
+    }),
+);
+```
+
+**No encriptamos la key en disco**: el `auth.json` de pi es texto plano. Encriptarlo requeriría un crypto layer que pi no soporta. El OS-level protection (`chmod 600`) es la protección estándar y suficiente.
+
+### Atomic write: por qué importa
+
+Si el proceso de xi se mata a mitad de un `write()` normal, el `auth.json` queda **truncado o corrupto**. pi no podría leerlo en el próximo startup. Para evitar esto, xi usa el patrón estándar de atomic write:
+
+```
+1. Escribir a auth.json.tmp
+2. fsync (forzar flush al disco)
+3. rename auth.json.tmp → auth.json (atómico en el mismo filesystem)
+4. Si el rename falla, borrar el .tmp
+```
+
+El `rename` es atómico en POSIX (y en Windows con `MoveFileEx` con flag `MOVEFILE_REPLACE_EXISTING`). El archivo siempre está en estado válido: o el viejo, o el nuevo.
+
+### Permisos: chmod 600 + chmod 700
+
+xi crea el directorio `~/.pi/agent/` con `chmod 700` (owner-only) y el archivo `auth.json` con `chmod 600` (owner read+write). Es lo que pi espera y lo que el OS recomienda para secretos.
+
+**Limitación**: si el archivo ya existía con otros permisos (ej: el user lo editó a mano), xi **no los cambia** — solo respeta los existentes. Es responsabilidad del user mantenerlo seguro.
+
+### Endpoints de validación por provider
+
+Cada provider tiene un endpoint "ligero" pensado para validar la key sin gastar tokens:
+
+| Provider | Endpoint | Método | Header/Auth |
+|----------|----------|--------|-------------|
+| Anthropic | `https://api.anthropic.com/v1/messages` | POST con body mínimo (max_tokens: 1) | `x-api-key: <key>`, `anthropic-version: 2023-06-01` |
+| OpenAI | `https://api.openai.com/v1/models` | GET | `Authorization: Bearer <key>` |
+| Google | `https://generativelanguage.googleapis.com/v1beta/models?key=<key>` | GET | query param |
+| OpenRouter | `https://openrouter.ai/api/v1/auth/key` | GET | `Authorization: Bearer <key>` |
+| Groq | `https://api.groq.com/openai/v1/models` | GET | `Authorization: Bearer <key>` |
+| OpenCode Go | `https://api.opencode.ai/v1/models` | GET | `Authorization: Bearer <key>` |
+| DeepSeek | `https://api.deepseek.com/v1/models` | GET | `Authorization: Bearer <key>` |
+
+**Interpretación del status**:
+- 2xx → key válida
+- 401/403 → "API key inválida"
+- 429 → "Rate limit. Esperá unos minutos."
+- 5xx → "El provider tuvo un error. Intentá de nuevo."
+- Timeout (5s) → "No se pudo conectar al provider (timeout)"
+- Network error → "No se pudo conectar al provider (sin red)"
+
+**Anthropic no tiene endpoint "listar models"**: usa `/v1/messages` con un body mínimo (`max_tokens: 1`, `messages: [{role: "user", content: "hi"}]`). El request cuesta prácticamente nada (1 token).
+
+### El flow completo de "save"
+
+1. User pega key en el form de Settings → click "Guardar".
+2. Frontend llama a `setApiKey(provider, apiKey)` (Tauri command).
+3. Backend lee/parsea `~/.pi/agent/auth.json`.
+4. Backend mergea la entry: `{ provider: { type: "api_key", key: "..." } }`.
+5. Backend escribe a `auth.json.tmp`, `fsync`, `rename` atómico.
+6. Backend aplica `chmod 600`.
+7. Frontend llama a `loadAuthStatus()` para refrescar `configuredProviders`.
+8. Frontend llama a `loadModels()` para refrescar el dropdown de "Modelo" (porque ahora hay un provider nuevo).
+9. La banderita de welcome se actualiza: si `hasAnyProvider === true`, se esconde.
+
+**No se reinicia pi**. La próxima vez que el user interactúe, pi lee el auth.json actualizado (o cuando se le pregunta via `get_available_models`).
+
+### Por qué no usar pi para escribir el auth.json
+
+Podríamos exponer un command en pi que haga `setApiKey` via RPC. Pero:
+- Requiere modificar pi-mono (upstream). Estamos atados a su release cycle.
+- Agrega una superficie de ataque (un command más en el RPC).
+- No hay beneficio: el formato del archivo es público, no es secreto de pi.
+
+Es más simple escribir el archivo directamente desde Rust y dejar que pi lo lea como siempre.

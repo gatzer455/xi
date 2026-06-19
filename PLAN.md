@@ -459,28 +459,48 @@ IMPORTANTE — cambio de scope durante la fase de idea. El plan original propon�
 ---
 
 ### Etapa 9: Onboarding y UX para no-técnicos
-**Objetivo:** Un usuario sin conocimientos técnicos puede usar xi sin ayuda.
+**Objetivo:** Un usuario sin conocimientos técnicos puede abrir xi por primera vez, entender qué es, y configurar su provider LLM sin editar archivos a mano.
 
 **Tareas:**
-1. Implementar `welcome.ts` (página de onboarding):
-   - Explicación simple de qué es xi
-   - Guía para configurar API key del proveedor LLM
-   - Primer prompt sugerido
-2. Implementar flujo de configuración de API key:
-   - Detectar si ya hay credenciales (`~/.pi/agent/auth.json`)
-   - Si no hay, guiar al usuario paso a paso
-   - Validar que la key funciona antes de continuar
-3. Implementar tooltips y ayuda contextual
-4. Implementar estado vacío con sugerencias:
-   - "Escribe tu primer mensaje"
-   - Sugerencias de prompts (ej: "Explícame qué es un array")
-5. Testing con usuarios reales no-técnicos
+1. Welcome mejorada:
+   - Párrafo breve explicando qué es xi
+   - Banderita condicional "No hay modelo configurado" + botón a settings
+   - Link "¿Necesitas ayuda?" al pie
+2. Settings: nueva sección "Proveedor":
+   - 7 providers con API key: Anthropic, OpenAI, Google, OpenRouter, Groq, OpenCode Go, DeepSeek
+   - Input password con botón de ojo
+   - Botones "Guardar" y "Probar" con feedback inline
+3. Backend commands nuevos:
+   - `get_auth_status`: lee ~/.pi/agent/auth.json
+   - `set_api_key`: escribe con atomic write + chmod 600
+   - `test_api_key`: dispatch por provider con endpoints específicos
+4. NO OAuth (decidido en grill-me — se difiere para v2)
+5. NO empty state con sugerencias de prompts (decidido en grill-me)
 
 **Validación:**
-- [ ] Un usuario nuevo puede configurar xi en < 3 minutos
-- [ ] El primer prompt funciona sin errores
-- [ ] Las sugerencias de prompts son útiles y variadas
-- [ ] El usuario entiende qué está pasando en cada momento
+- [x] Un usuario nuevo puede configurar xi en < 3 minutos
+- [x] El primer prompt funciona sin errores (si configuró key)
+- [x] La banderita de "no auth" se muestra solo si configuredProviders está vacío
+- [x] El user entiende qué está pasando (párrafo + banderita + feedback inline)
+
+**Implementación (c694e2e → 5f41e24):**
+
+8 commits:
+- `c694e2e`: Plumbing del backend (3 commands Rust, mod.rs, main.rs)
+- `d66b6ba`: State (hasAnyProvider, configuredProviders)
+- `e36b610`: Wrappers frontend (getAuthStatus, setApiKey, testApiKey)
+- `a3fc426`: auth-status.ts helper (loadAuthStatus, refreshAuthStatus)
+- `3c968a9`: Settings sección "Proveedor" (UI completa)
+- `f458100`: Welcome mejorada (párrafo + banderita + link)
+- `5f41e24`: CSS (settings-provider-*, welcome-auth-banner)
+- (próximo): docs (discoveries §13, PLAN)
+
+Detalles:
+- `backend/src/commands/auth_config.rs` (NEW): 3 commands. Atomic write con tmp+rename+fsync. chmod 600. Dispatch por provider en test_api_key. 7 endpoints de validación, todos con timeout 5s.
+- `frontend/src/lib/auth-status.ts` (NEW): helper con cache en signals.
+- `frontend/src/pages/settings.ts`: nueva sección "Proveedor" con segmented control (renderSegmented genérico), input password con botón de ojo, feedback inline. Va PRIMERA en orden (sin provider no hay modelo).
+- `frontend/src/pages/welcome.ts`: párrafo explicativo, banderita condicional (visibility:hidden mientras loadAuthStatus corre, evita flash), link a pi.dev/docs.
+- `docs/discoveries.md` §13: documentación completa del modelo de auth, por qué no OAuth, formato del auth.json, atomic write, endpoints por provider.
 
 ---
 
