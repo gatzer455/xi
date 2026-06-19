@@ -27,6 +27,9 @@
     "active": true,
     "targets": "all",
     "externalBin": ["pi", "pi-sessions"],
+    "resources": {
+      "binaries/package.json": "package.json"
+    },
     "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",

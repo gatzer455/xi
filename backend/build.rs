@@ -27,6 +27,7 @@ fn main() {
     copy_sidecar(&paths);
     copy_pi_sessions(&paths);
     copy_theme_dir(&paths);
+    copy_pi_package_json(&paths);
 }
 
 struct BuildPaths {
@@ -147,6 +148,38 @@ fn copy_theme_dir(paths: &BuildPaths) {
         let dest = dest_dir.join(name);
         copy_if_newer(&path, &dest);
     }
+}
+
+/// Copia el `package.json` de pi al `target/<profile>/` para que el
+/// sidecar pueda encontrarlo en dev mode. En release, Tauri lo copia
+/// como resource del bundle (ver `tauri.conf.json` -> `bundle.resources`).
+///
+/// Por qué: pi (compilado con `bun --compile`) lee su `package.json`
+/// desde `dirname(exe)` o desde el env var `PI_PACKAGE_DIR`. Sin este
+/// archivo, retorna "0.0.0" como versión y los endpoints que dependen
+/// del package name fallan.
+///
+/// El source vive en `backend/binaries/package.json` (generado por
+/// `scripts/build-pi.sh` con la versión real del package de npm).
+fn copy_pi_package_json(paths: &BuildPaths) {
+    let source = paths.manifest_dir.join("binaries").join("package.json");
+    let dest = paths.target_profile_dir.join("package.json");
+
+    println!("cargo:rerun-if-changed={}", source.display());
+
+    if !source.exists() {
+        // No es un error fatal: pi puede correr con `PI_PACKAGE_DIR`
+        // apuntando a otro lado, o `--version` retorna "0.0.0" sin
+        // romperse. Pero la versión de pi en settings será "desconocida".
+        println!(
+            "cargo:warning=pi package.json not found at {}. Run ./scripts/build-pi.sh to regenerate it.",
+            source.display()
+        );
+        return;
+    }
+
+    fs::create_dir_all(&paths.target_profile_dir).expect("Failed to create target profile dir");
+    copy_if_newer(&source, &dest);
 }
 
 fn copy_if_newer(source: &PathBuf, dest: &PathBuf) {

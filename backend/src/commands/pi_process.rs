@@ -8,24 +8,23 @@ use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 /// leer su `package.json` (necesario para reportar la versión real
 /// en lugar de "0.0.0" cuando corre como bun-binary).
 ///
-/// En dev, Tauri expone el path al binario copiado a
-/// `target/debug/`. En release, Tauri lo copia junto al binario
-/// principal (macOS: `Contents/MacOS/`, Windows: junto al .exe,
+/// En dev, Tauri expone el binario copiado a `target/debug/<name>`
+/// y los resources a `target/debug/`. En release, Tauri los copia
+/// juntos (macOS: `Contents/Resources/`, Windows: junto al .exe,
 /// Linux: junto al binario). El directorio es estable para cada
-/// release, así que es un buen lugar para que el package.json viva.
-fn get_sidecar_dir(app: &AppHandle, name: &str) -> PathBuf {
-    // `resolve_resource` o `path()` del Manager dan el resource dir;
-    // Tauri coloca el sidecar resuelto bajo
-    // `<resource_dir>/<target-triple>/<name>` o similar. La forma
-    // portable es resolver el path del binario y tomar dirname.
-    let resource_dir = app
+/// release, así que es un buen lugar para que el `package.json` viva.
+///
+/// BUG HISTÓRICO: en una versión anterior esta función hacía
+/// `resource_dir.join(name)`, retornando el path al BINARIO (un
+/// archivo), no al directorio. pi intentaba leer `<path>/package.json`
+/// y fallaba con ENOTDIR. Ahora retornamos el directorio limpio.
+fn get_sidecar_dir(app: &AppHandle, _name: &str) -> PathBuf {
+    let dir = app
         .path()
         .resource_dir()
-        .ok()
-        .or_else(|| std::env::current_dir().ok());
-    resource_dir
-        .map(|p| p.join(name))
-        .unwrap_or_else(|| PathBuf::from("."))
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    eprintln!("[pi_process] get_sidecar_dir → {}", dir.display());
+    dir
 }
 
 /// Estado del proceso pi
