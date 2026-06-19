@@ -41,23 +41,15 @@ fn auth_path() -> PathBuf {
 #[tauri::command]
 pub async fn get_auth_status() -> Result<Vec<String>, String> {
     let path = auth_path();
-    eprintln!("[auth_config] get_auth_status: path={}", path.display());
-    eprintln!("[auth_config] HOME={:?} dirs_home={:?}",
-        std::env::var("HOME").ok(),
-        dirs::home_dir().map(|p| p.display().to_string()));
 
     // Si no existe, no es error — el flujo normal para un user nuevo.
     if !path.exists() {
-        eprintln!("[auth_config] file does not exist, returning []");
         return Ok(vec![]);
     }
-    eprintln!("[auth_config] file exists, reading...");
 
     let content = tokio::fs::read_to_string(&path)
         .await
         .map_err(|e| format!("No se puede leer la config de pi: {e}"))?;
-
-    eprintln!("[auth_config] read {} bytes", content.len());
 
     let parsed: Value = serde_json::from_str(&content)
         .map_err(|_| "Archivo auth.json corrupto. Contactá a soporte.".to_string())?;
@@ -66,10 +58,7 @@ pub async fn get_auth_status() -> Result<Vec<String>, String> {
         .as_object()
         .ok_or_else(|| "auth.json no es un objeto JSON".to_string())?;
 
-    let keys: Vec<String> = obj.keys().cloned().collect();
-    eprintln!("[auth_config] found providers: {keys:?}");
-
-    Ok(keys)
+    Ok(obj.keys().cloned().collect())
 }
 
 /// Escribe (o actualiza) la API key de un provider en auth.json.

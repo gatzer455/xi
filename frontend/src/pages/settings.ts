@@ -153,9 +153,54 @@ function renderProviderSection(): HTMLElement {
       currentProvider = id;
       setLastProvider(id);
       saveStatus.value = { kind: 'idle' };
+      // Re-pintar el hint porque cambió el provider activo.
+      updateProviderUI(appState.configuredProviders.value);
     },
   );
   control.append(tabs);
+
+  // Status: "Tenés X providers configurados" o "No hay providers
+  // configurados". Se actualiza via suscripción a la signal.
+  const statusText = document.createElement('div');
+  statusText.className = 'settings-provider-status';
+
+  // Hint: aparece si el provider activo ya está configurado.
+  const keyHint = document.createElement('div');
+  keyHint.className = 'settings-provider-keyhint';
+
+  // Una sola función que actualiza markers + status + hint.
+  // Se llama al mount, al cambiar configuredProviders, y al
+  // cambiar de tab (porque el hint depende del provider activo).
+  const updateProviderUI = (configured: ReadonlyArray<string>): void => {
+    // Markers en los tabs.
+    for (const opt of SUPPORTED_PROVIDERS) {
+      const btn = tabs.querySelector<HTMLElement>(`[data-value="${opt.id}"]`);
+      if (!btn) continue;
+      const isConfigured = configured.includes(opt.id);
+      btn.textContent = isConfigured ? `${opt.label} ✓` : opt.label;
+      btn.classList.toggle('settings-segmented-btn--configured', isConfigured);
+    }
+    // Status global.
+    if (configured.length === 0) {
+      statusText.textContent = 'No hay providers configurados todavía.';
+    } else {
+      statusText.textContent = `Tenés ${configured.length} provider${configured.length > 1 ? 's' : ''} configurado${configured.length > 1 ? 's' : ''}. Marcados con ✓ abajo.`;
+    }
+    // Hint del provider activo.
+    if (configured.includes(currentProvider)) {
+      keyHint.textContent = 'Ya tenés una key guardada para este provider. Pegá una nueva solo si querés cambiarla.';
+      keyHint.style.display = 'block';
+    } else {
+      keyHint.textContent = '';
+      keyHint.style.display = 'none';
+    }
+  };
+  updateProviderUI(appState.configuredProviders.value);
+  appState.configuredProviders.subscribe(updateProviderUI);
+  control.append(statusText);
+
+  // Hint: aparece si el provider activo ya está configurado.
+  control.append(keyHint);
 
   // Input de API key: password con botón de ojo.
   const keyRow = document.createElement('div');
@@ -765,6 +810,7 @@ function renderSegmented<T extends string>(
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'settings-segmented-btn';
+    btn.dataset.value = opt.value;
     btn.textContent = opt.label;
     if (opt.value === current) {
       btn.classList.add('settings-segmented-btn--active');
