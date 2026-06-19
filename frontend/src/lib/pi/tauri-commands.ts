@@ -213,7 +213,9 @@ export async function getPiUpstreamVersion(): Promise<string | null> {
  */
 export async function getAuthStatus(): Promise<string[]> {
   try {
-    return await invoke<string[]>('get_auth_status');
+    const result = await invoke<string[]>('get_auth_status');
+    addEntry('system', `getAuthStatus: ${result.length} providers [${result.join(', ')}]`);
+    return result;
   } catch (err) {
     addEntry('system', `getAuthStatus failed: ${err instanceof Error ? err.message : String(err)}`);
     return [];

@@ -104,17 +104,18 @@ export function SettingsPage(): HTMLElement {
 
 // Providers que xi soporta en su UI. Cada uno tiene su ID (que va
 // al backend y a auth.json) y su label (que ve el user en el
-// segmented control). El orden es por popularidad (decidido en
-// design D6): el dev recomienda opencode-go y lo pone cerca del
-// tope.
+// segmented control). El orden refleja la recomendación del dev
+// (opencode-go al tope porque tiene modelos free + suscripción;
+// openai al final porque el dev no lo recomienda). El user final
+// puede reordenar en una v2 si hace falta.
 const SUPPORTED_PROVIDERS = [
-  { id: 'anthropic', label: 'Anthropic' },
-  { id: 'openai', label: 'OpenAI' },
-  { id: 'google', label: 'Google' },
-  { id: 'openrouter', label: 'OpenRouter' },
-  { id: 'groq', label: 'Groq' },
   { id: 'opencode-go', label: 'OpenCode Go' },
   { id: 'deepseek', label: 'DeepSeek' },
+  { id: 'anthropic', label: 'Anthropic' },
+  { id: 'openrouter', label: 'OpenRouter' },
+  { id: 'google', label: 'Google' },
+  { id: 'groq', label: 'Groq' },
+  { id: 'openai', label: 'OpenAI' },
 ] as const;
 
 type SupportedProviderId = (typeof SUPPORTED_PROVIDERS)[number]['id'];
@@ -126,7 +127,7 @@ function getLastProvider(): SupportedProviderId {
   if (stored && SUPPORTED_PROVIDERS.some((p) => p.id === stored)) {
     return stored as SupportedProviderId;
   }
-  return 'anthropic';
+  return 'opencode-go';
 }
 
 function setLastProvider(id: SupportedProviderId): void {
