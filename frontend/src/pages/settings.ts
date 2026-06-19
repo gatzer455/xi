@@ -24,7 +24,10 @@ import {
   setThinkingLevel,
   getAvailableModels,
   getPiVersion,
+  setApiKey,
+  testApiKey,
 } from '../lib/pi/tauri-commands.ts';
+import { loadAuthStatus } from '../lib/auth-status.ts';
 import {
   applyThemeToDOM,
   applyFontToDOM,
@@ -65,6 +68,11 @@ export function SettingsPage(): HTMLElement {
     appState.piVersion.value = version;
   });
 
+  // Cargar el estado de providers (lazy, no en main.ts — la welcome
+  // también lo hace al mount). Después de un save, esta misma función
+  // se re-ejecuta para refrescar configuredProviders.
+  void loadAuthStatus();
+
   // Back button: el shell del top bar sigue siendo el navegador principal.
   const back = document.createElement('button');
   back.className = 'settings-back';
@@ -77,7 +85,9 @@ export function SettingsPage(): HTMLElement {
   title.textContent = 'Configuración';
   page.append(title);
 
-  // Las 5 secciones en orden.
+  // Las 7 secciones en orden. "Proveedor" va primero: sin provider
+  // no hay modelo, así que la lógica de dependencias lo pone al tope.
+  page.append(renderProviderSection());
   page.append(renderModelSection());
   page.append(renderThinkingSection());
   page.append(renderAppearanceSection());
@@ -91,6 +101,165 @@ export function SettingsPage(): HTMLElement {
 // ═══════════════════════════════════════════════════════
 // Secciones
 // ═══════════════════════════════════════════════════════
+
+// Providers que xi soporta en su UI. Cada uno tiene su ID (que va
+// al backend y a auth.json) y su label (que ve el user en el
+// segmented control). El orden es por popularidad (decidido en
+// design D6): el dev recomienda opencode-go y lo pone cerca del
+// tope.
+const SUPPORTED_PROVIDERS = [
+  { id: 'anthropic', label: 'Anthropic' },
+  { id: 'openai', label: 'OpenAI' },
+  { id: 'google', label: 'Google' },
+  { id: 'openrouter', label: 'OpenRouter' },
+  { id: 'groq', label: 'Groq' },
+  { id: 'opencode-go', label: 'OpenCode Go' },
+  { id: 'deepseek', label: 'DeepSeek' },
+] as const;
+
+type SupportedProviderId = (typeof SUPPORTED_PROVIDERS)[number]['id'];
+
+const STORAGE_KEY_LAST_PROVIDER = 'xi.lastProvider';
+
+function getLastProvider(): SupportedProviderId {
+  const stored = localStorage.getItem(STORAGE_KEY_LAST_PROVIDER);
+  if (stored && SUPPORTED_PROVIDERS.some((p) => p.id === stored)) {
+    return stored as SupportedProviderId;
+  }
+  return 'anthropic';
+}
+
+function setLastProvider(id: SupportedProviderId): void {
+  localStorage.setItem(STORAGE_KEY_LAST_PROVIDER, id);
+}
+
+function renderProviderSection(): HTMLElement {
+  // El control es un wrapper estable con suscripciones a las signals.
+  // currentProvider vive solo en este closure (no en appState) porque
+  // es un setting puramente de UI — localStorage guarda la persistencia.
+  // saveStatus es un signal local para el feedback de "Guardado" /
+  // "Error" sin repintar toda la sección.
+  const control = document.createElement('div');
+  control.className = 'settings-provider-control';
+
+  let currentProvider: SupportedProviderId = getLastProvider();
+  const saveStatus = signal<{ kind: 'idle' } | { kind: 'saved' } | { kind: 'error'; message: string }>({ kind: 'idle' });
+
+  const tabs = renderSegmented<SupportedProviderId>(
+    SUPPORTED_PROVIDERS.map((p) => ({ value: p.id, label: p.label })),
+    currentProvider,
+    (id) => {
+      currentProvider = id;
+      setLastProvider(id);
+      saveStatus.value = { kind: 'idle' };
+    },
+  );
+  control.append(tabs);
+
+  // Input de API key: password con botón de ojo.
+  const keyRow = document.createElement('div');
+  keyRow.className = 'settings-provider-keyrow';
+
+  const keyInput = document.createElement('input');
+  keyInput.type = 'password';
+  keyInput.className = 'settings-input settings-provider-keyinput';
+  keyInput.placeholder = 'sk-...';
+  keyInput.autocomplete = 'off';
+  keyInput.spellcheck = false;
+
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'settings-provider-toggle';
+  toggleBtn.setAttribute('aria-label', 'Mostrar API key');
+  toggleBtn.textContent = '👁';
+  toggleBtn.addEventListener('click', () => {
+    if (keyInput.type === 'password') {
+      keyInput.type = 'text';
+      toggleBtn.setAttribute('aria-label', 'Ocultar API key');
+    } else {
+      keyInput.type = 'password';
+      toggleBtn.setAttribute('aria-label', 'Mostrar API key');
+    }
+  });
+
+  keyRow.append(keyInput, toggleBtn);
+  control.append(keyRow);
+
+  // Botones Guardar / Probar + feedback.
+  const actions = document.createElement('div');
+  actions.className = 'settings-provider-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'settings-btn settings-btn--primary';
+  saveBtn.textContent = 'Guardar';
+  saveBtn.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    if (!key) return;
+    saveBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    try {
+      await setApiKey(currentProvider, key);
+      saveStatus.value = { kind: 'saved' };
+      // Refrescar estado (welcome banderita) + lista de modelos.
+      await loadAuthStatus();
+      await loadModels();
+    } catch (err) {
+      saveStatus.value = {
+        kind: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      };
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  const testBtn = document.createElement('button');
+  testBtn.type = 'button';
+  testBtn.className = 'settings-btn';
+  testBtn.textContent = 'Probar';
+  testBtn.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    if (!key) return;
+    testBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    const errMsg = await testApiKey(currentProvider, key);
+    if (errMsg === '') {
+      saveStatus.value = { kind: 'saved' };
+    } else {
+      saveStatus.value = { kind: 'error', message: errMsg };
+    }
+    testBtn.disabled = false;
+  });
+
+  actions.append(saveBtn, testBtn);
+  control.append(actions);
+
+  // Feedback: ✓ Guardado, ✓ Funciona, ✗ <error>. Se actualiza via
+  // suscripción a saveStatus, así el repaint es local (no toca los
+  // inputs ni los tabs).
+  const feedback = document.createElement('div');
+  feedback.className = 'settings-provider-feedback';
+  saveStatus.subscribe((status) => {
+    feedback.className = 'settings-provider-feedback';
+    if (status.kind === 'idle') {
+      feedback.textContent = '';
+    } else if (status.kind === 'saved') {
+      feedback.classList.add('settings-provider-feedback--ok');
+      feedback.textContent = '✓ Guardado';
+    } else {
+      feedback.classList.add('settings-provider-feedback--err');
+      feedback.textContent = `✗ ${status.message}`;
+    }
+  });
+  control.append(feedback);
+
+  return createSection({
+    title: 'Proveedor',
+    description: 'Tu modelo de lenguaje. Pegá la API key del provider que querés usar.',
+    control,
+  });
+}
 
 function renderModelSection(): HTMLElement {
   // El control es un wrapper estable (`settings-row`) cuyo innerHTML
