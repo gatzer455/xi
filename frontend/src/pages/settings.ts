@@ -26,6 +26,9 @@ import {
   getPiVersion,
   setApiKey,
   testApiKey,
+  getApiKey,
+  deleteApiKey,
+  type ProviderInfo,
 } from '../lib/pi/tauri-commands.ts';
 import { loadAuthStatus } from '../lib/auth-status.ts';
 import {
@@ -168,27 +171,45 @@ function renderProviderSection(): HTMLElement {
   const keyHint = document.createElement('div');
   keyHint.className = 'settings-provider-keyhint';
 
+  // Helper: retorna la ProviderInfo del provider activo, o undefined
+  // si no está configurado. Usado por el hint y el botón Eliminar.
+  const findProvider = (list: ReadonlyArray<ProviderInfo>): ProviderInfo | undefined =>
+    list.find((p) => p.id === currentProvider);
+
   // Una sola función que actualiza markers + status + hint.
   // Se llama al mount, al cambiar configuredProviders, y al
   // cambiar de tab (porque el hint depende del provider activo).
-  const updateProviderUI = (configured: ReadonlyArray<string>): void => {
+  const updateProviderUI = (configured: ReadonlyArray<ProviderInfo>): void => {
     // Markers en los tabs.
     for (const opt of SUPPORTED_PROVIDERS) {
       const btn = tabs.querySelector<HTMLElement>(`[data-value="${opt.id}"]`);
       if (!btn) continue;
-      const isConfigured = configured.includes(opt.id);
+      const isConfigured = configured.some((p) => p.id === opt.id);
       btn.textContent = isConfigured ? `${opt.label} ✓` : opt.label;
       btn.classList.toggle('settings-segmented-btn--configured', isConfigured);
     }
-    // Status global.
+    // Status global: contamos los que tienen key editable (hasKey).
+    // Los oauth-only (como github-copilot) se cuentan igual porque
+    // "ya tenés un provider configurado" sigue siendo cierto.
     if (configured.length === 0) {
       statusText.textContent = 'No hay providers configurados todavía.';
     } else {
-      statusText.textContent = `Tenés ${configured.length} provider${configured.length > 1 ? 's' : ''} configurado${configured.length > 1 ? 's' : ''}. Marcados con ✓ abajo.`;
+      const editable = configured.filter((p) => p.hasKey).length;
+      const total = configured.length;
+      if (editable === total) {
+        statusText.textContent = `Tenés ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''}. Marcados con ✓ abajo.`;
+      } else {
+        statusText.textContent = `Tenés ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''} (${editable} con API key). Marcados con ✓ abajo.`;
+      }
     }
     // Hint del provider activo.
-    if (configured.includes(currentProvider)) {
-      keyHint.textContent = 'Ya tenés una key guardada para este provider. Pegá una nueva solo si querés cambiarla.';
+    const active = findProvider(configured);
+    if (active && active.hasKey) {
+      const masked = `sk-***${active.last4 ?? '****'}`;
+      keyHint.textContent = `Ya tenés una key guardada (${masked}). Pegá una nueva solo si querés cambiarla.`;
+      keyHint.style.display = 'block';
+    } else if (active && !active.hasKey) {
+      keyHint.textContent = 'Este provider está configurado con OAuth (no editable desde xi). Usá `pi login` en una terminal para cambiarlo.';
       keyHint.style.display = 'block';
     } else {
       keyHint.textContent = '';

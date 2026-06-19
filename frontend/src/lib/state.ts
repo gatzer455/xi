@@ -142,10 +142,11 @@ export const appState = {
    *  Drive: si false, welcome muestra banderita de "no auth". */
   hasAnyProvider: signal<boolean>(false),
 
-  /** Lista de provider IDs configurados (viene de get_auth_status).
-   *  Empty array si no hay auth. Lo usa settings para saber qué
-   *  provider está activo y mostrar feedback. */
-  configuredProviders: signal<string[]>([]),
+  /** Lista de providers configurados (viene de get_auth_status).
+   *  Cada entry tiene { id, hasKey, last4 } — la key completa
+   *  NUNCA está en la signal. Para ver la key completa, el user
+   *  hace click en "Ver" y se llama a getApiKey() on-demand. */
+  configuredProviders: signal<Array<{ id: string; hasKey: boolean; last4: string | null }>>([]),
 
   /** Dismiss del banner no persiste: en el próximo launch, el banner
    *  vuelve a aparecer si hay update ready. Decisión deliberada para

@@ -205,20 +205,47 @@ export async function getPiUpstreamVersion(): Promise<string | null> {
 }
 
 /**
- * Lee ~/.pi/agent/auth.json y retorna la lista de provider IDs
- * configurados. Empty array si no hay auth o si el archivo está
- * corrupto (en cuyo caso se loguea el error en el debug panel).
- * El wrapper NO lanza — siempre retorna un array, para que el
- * caller no necesite try/catch.
+ * Lee ~/.pi/agent/auth.json y retorna la lista de providers con
+ * su info pública (id, has_key, last4). Empty array si no hay auth
+ * o si el archivo está corrupto. El wrapper NO lanza — siempre
+ * retorna un array.
+ *
+ * La key completa NUNCA viaja en este command. Solo se envía via
+ * getApiKey() cuando el user hace click en "Ver" en la UI.
  */
-export async function getAuthStatus(): Promise<string[]> {
+export interface ProviderInfo {
+  id: string;
+  hasKey: boolean;
+  last4: string | null;
+}
+
+export async function getAuthStatus(): Promise<ProviderInfo[]> {
   try {
-    const result = await invoke<string[]>('get_auth_status');
-    addEntry('system', `getAuthStatus: ${result.length} providers [${result.join(', ')}]`);
+    const result = await invoke<ProviderInfo[]>('get_auth_status');
+    addEntry('system', `getAuthStatus: ${result.length} providers [${result.map(p => p.id).join(', ')}]`);
     return result;
   } catch (err) {
     addEntry('system', `getAuthStatus failed: ${err instanceof Error ? err.message : String(err)}`);
     return [];
+  }
+}
+
+/**
+ * Retorna la key completa de un provider. SOLO se invoca cuando el
+ * user hace click en "Ver" en la UI. La key viaja del backend al
+ * frontend por IPC local de Tauri (no hay red). El caller debe
+ * mostrarla y luego limpiarla (no persistir en state).
+ *
+ * Retorna null si el provider no existe o es oauth.
+ */
+export async function getApiKey(provider: string): Promise<string | null> {
+  addEntry('out', `get_api_key: ${provider}`);
+  try {
+    const result = await invoke<string | null>('get_api_key', { provider });
+    return result;
+  } catch (err) {
+    addEntry('system', `getApiKey failed: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
   }
 }
 
@@ -251,4 +278,14 @@ export async function testApiKey(provider: string, apiKey: string): Promise<stri
     addEntry('system', `test_api_key ${provider} failed: ${message}`);
     return message;
   }
+}
+
+/**
+ * Elimina la key de un provider de ~/.pi/agent/auth.json.
+ * Idempotente: si el provider no existe, no es error. Throw on
+ * cualquier otro error (permisos, archivo corrupto, etc).
+ */
+export async function deleteApiKey(provider: string): Promise<void> {
+  addEntry('out', `delete_api_key: ${provider}`);
+  await loggedInvoke('deleteApiKey', () => invoke('delete_api_key', { provider }));
 }
