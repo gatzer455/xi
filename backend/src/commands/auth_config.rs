@@ -21,6 +21,7 @@
 //   OAuth, tiene que usar `pi login` en su terminal. Esto está en
 //   scope para una v2.
 
+use serde::Serialize;
 use serde_json::Value;
 use std::path::PathBuf;
 
@@ -35,39 +36,146 @@ fn auth_path() -> PathBuf {
     home.join(".pi").join("agent").join("auth.json")
 }
 
-/// Lee el auth.json y retorna la lista de provider IDs configurados.
+/// Info de un provider configurado en auth.json. Lo retornado por
+/// get_auth_status para que la UI pueda mostrar masked keys sin
+/// pedir la key completa (que solo se envía on-demand via get_api_key).
+///
+/// `has_key` es true si la entry es de tipo "api_key" (con una key
+/// que podemos mostrar/editar). false si es "oauth" (no se puede
+/// editar desde la UI, el user tiene que usar `pi login`).
+///
+/// `last4` son los últimos 4 caracteres del key (si es api_key).
+/// Sirve para mostrar `sk-***1234` en la UI. La key completa NUNCA
+/// viaja al frontend en este command — solo via get_api_key, y solo
+/// cuando el user hace click en "Ver".
+#[derive(Serialize)]
+pub struct ProviderInfo {
+    pub id: String,
+    pub has_key: bool,
+    pub last4: Option<String>,
+}
+
+/// Lee el auth.json y retorna la lista de providers con su info.
 /// Si el archivo no existe, retorna `vec![]` (no es un error — el
 /// user simplemente no configuró nada todavía).
 #[tauri::command]
-pub async fn get_auth_status() -> Result<Vec<String>, String> {
+pub async fn get_auth_status() -> Result<Vec<ProviderInfo>, String> {
     let path = auth_path();
+    let map = read_auth_map(&path).await?;
 
-    // Si no existe, no es error — el flujo normal para un user nuevo.
+    Ok(map
+        .into_iter()
+        .map(|(id, value)| provider_info_from_value(&id, &value))
+        .collect())
+}
+
+/// Lee auth.json y parsea el contenido. Helper compartido por
+/// get_auth_status, get_api_key y delete_api_key. Si el archivo no
+/// existe, retorna un Map vacío (no es error).
+async fn read_auth_map(path: &PathBuf) -> Result<serde_json::Map<String, Value>, String> {
     if !path.exists() {
-        return Ok(vec![]);
+        return Ok(serde_json::Map::new());
     }
 
-    let content = tokio::fs::read_to_string(&path)
+    let content = tokio::fs::read_to_string(path)
         .await
         .map_err(|e| format!("No se puede leer la config de pi: {e}"))?;
 
     let parsed: Value = serde_json::from_str(&content)
         .map_err(|_| "Archivo auth.json corrupto. Contactá a soporte.".to_string())?;
 
-    let obj = parsed
+    parsed
         .as_object()
-        .ok_or_else(|| "auth.json no es un objeto JSON".to_string())?;
-
-    Ok(obj.keys().cloned().collect())
+        .cloned()
+        .ok_or_else(|| "auth.json no es un objeto JSON".to_string())
 }
 
-/// Escribe (o actualiza) la API key de un provider en auth.json.
-/// Atomic write: escribe a auth.json.tmp, fsync, rename. Si el
-/// rename falla, intenta borrar el tmp.
-#[tauri::command]
-pub async fn set_api_key(provider: String, api_key: String) -> Result<(), String> {
-    let path = auth_path();
+/// Extrae la info pública de un provider. Si la entry es de tipo
+/// "api_key" y tiene un key, computa el last4. Si es "oauth",
+/// has_key=false (la key no se puede editar desde xi).
+fn provider_info_from_value(id: &str, value: &Value) -> ProviderInfo {
+    let obj = match value.as_object() {
+        Some(o) => o,
+        None => {
+            return ProviderInfo {
+                id: id.to_string(),
+                has_key: false,
+                last4: None,
+            };
+        }
+    };
 
+    let entry_type = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
+    if entry_type != "api_key" {
+        return ProviderInfo {
+            id: id.to_string(),
+            has_key: false,
+            last4: None,
+        };
+    }
+
+    let key = obj.get("key").and_then(|v| v.as_str()).unwrap_or("");
+    let last4 = if key.len() >= 4 {
+        Some(key[key.len() - 4..].to_string())
+    } else if key.is_empty() {
+        None
+    } else {
+        Some(key.to_string())
+    };
+
+    ProviderInfo {
+        id: id.to_string(),
+        has_key: true,
+        last4,
+    }
+}
+
+/// Retorna la key completa de un provider. SOLO se llama cuando el
+/// user hace click en "Ver" en la UI. La key NUNCA se envía por
+/// ningún otro canal. Si el provider no existe o no es api_key,
+/// retorna None.
+#[tauri::command]
+pub async fn get_api_key(provider: String) -> Result<Option<String>, String> {
+    let path = auth_path();
+    let map = read_auth_map(&path).await?;
+
+    let Some(entry) = map.get(&provider) else {
+        return Ok(None);
+    };
+    let Some(obj) = entry.as_object() else {
+        return Ok(None);
+    };
+
+    let entry_type = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
+    if entry_type != "api_key" {
+        return Ok(None);
+    }
+
+    Ok(obj.get("key").and_then(|v| v.as_str()).map(String::from))
+}
+
+/// Elimina la entry de un provider de auth.json. Atomic write +
+/// chmod 600. Si el provider no existe, no es error (es idempotente).
+#[tauri::command]
+pub async fn delete_api_key(provider: String) -> Result<(), String> {
+    let path = auth_path();
+    let mut map = read_auth_map(&path).await?;
+
+    if !map.contains_key(&provider) {
+        // Idempotente: si el provider no estaba, no hacemos nada.
+        return Ok(());
+    }
+
+    map.remove(&provider);
+    write_auth_map(&path, &map).await
+}
+
+/// Helper compartido: serializa el map y hace atomic write + chmod 600.
+/// Usado por set_api_key y delete_api_key.
+async fn write_auth_map(
+    path: &PathBuf,
+    map: &serde_json::Map<String, Value>,
+) -> Result<(), String> {
     // 1. Asegurar que el directorio ~/.pi/agent existe.
     if let Some(parent) = path.parent() {
         tokio::fs::create_dir_all(parent)
@@ -86,19 +194,48 @@ pub async fn set_api_key(provider: String, api_key: String) -> Result<(), String
         }
     }
 
-    // 2. Leer el archivo existente (o empezar con {} si no existe).
-    let mut entries: serde_json::Map<String, Value> = if path.exists() {
-        let content = tokio::fs::read_to_string(&path)
-            .await
-            .map_err(|e| format!("No se puede leer la config existente: {e}"))?;
-        serde_json::from_str(&content).map_err(|_| {
-            "Archivo auth.json corrupto. No se puede actualizar. Contactá a soporte.".to_string()
-        })?
-    } else {
-        serde_json::Map::new()
-    };
+    // 2. Serializar.
+    let serialized = serde_json::to_string_pretty(map)
+        .map_err(|e| format!("No se puede serializar: {e}"))?;
 
-    // 3. Merge: agregar/actualizar la entry del provider.
+    // 3. Atomic write: tmp + rename.
+    let tmp_path = path.with_extension("json.tmp");
+    tokio::fs::write(&tmp_path, &serialized)
+        .await
+        .map_err(|e| format!("No se puede escribir el archivo temporal: {e}"))?;
+
+    if let Ok(file) = tokio::fs::File::open(&tmp_path).await {
+        let _ = file.sync_all().await;
+    }
+
+    if let Err(e) = tokio::fs::rename(&tmp_path, path).await {
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return Err(format!("No se puede escribir la config: {e}"));
+    }
+
+    // 4. chmod 600.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Ok(meta) = tokio::fs::metadata(path).await {
+            let mut perms = meta.permissions();
+            perms.set_mode(0o600);
+            let _ = tokio::fs::set_permissions(path, perms).await;
+        }
+    }
+
+    Ok(())
+}
+
+/// Escribe (o actualiza) la API key de un provider en auth.json.
+/// Atomic write: escribe a auth.json.tmp, fsync, rename. Si el
+/// rename falla, intenta borrar el tmp.
+#[tauri::command]
+pub async fn set_api_key(provider: String, api_key: String) -> Result<(), String> {
+    let path = auth_path();
+    let mut entries = read_auth_map(&path).await?;
+
+    // Merge: agregar/actualizar la entry del provider.
     entries.insert(
         provider,
         serde_json::json!({
@@ -107,40 +244,7 @@ pub async fn set_api_key(provider: String, api_key: String) -> Result<(), String
         }),
     );
 
-    // 4. Serializar.
-    let serialized = serde_json::to_string_pretty(&entries)
-        .map_err(|e| format!("No se puede serializar: {e}"))?;
-
-    // 5. Atomic write: tmp + rename.
-    let tmp_path = path.with_extension("json.tmp");
-    tokio::fs::write(&tmp_path, &serialized)
-        .await
-        .map_err(|e| format!("No se puede escribir el archivo temporal: {e}"))?;
-
-    // fsync — forzar que los datos lleguen al disco antes del rename.
-    if let Ok(file) = tokio::fs::File::open(&tmp_path).await {
-        let _ = file.sync_all().await;
-    }
-
-    // 6. Rename atómico.
-    if let Err(e) = tokio::fs::rename(&tmp_path, &path).await {
-        // Si el rename falla, intentamos borrar el tmp para no dejar basura.
-        let _ = tokio::fs::remove_file(&tmp_path).await;
-        return Err(format!("No se puede escribir la config: {e}"));
-    }
-
-    // 7. chmod 600 (owner read+write only). El formato de pi espera esto.
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(meta) = tokio::fs::metadata(&path).await {
-            let mut perms = meta.permissions();
-            perms.set_mode(0o600);
-            let _ = tokio::fs::set_permissions(&path, perms).await;
-        }
-    }
-
-    Ok(())
+    write_auth_map(&path, &entries).await
 }
 
 /// Hace un ping al provider para validar que la key funciona.
