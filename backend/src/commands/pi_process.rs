@@ -1,6 +1,32 @@
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
+
+/// Retorna el directorio donde Tauri resolvió el sidecar `name` en
+/// el bundle actual. Se usa como `PI_PACKAGE_DIR` para que pi pueda
+/// leer su `package.json` (necesario para reportar la versión real
+/// en lugar de "0.0.0" cuando corre como bun-binary).
+///
+/// En dev, Tauri expone el path al binario copiado a
+/// `target/debug/`. En release, Tauri lo copia junto al binario
+/// principal (macOS: `Contents/MacOS/`, Windows: junto al .exe,
+/// Linux: junto al binario). El directorio es estable para cada
+/// release, así que es un buen lugar para que el package.json viva.
+fn get_sidecar_dir(app: &AppHandle, name: &str) -> PathBuf {
+    // `resolve_resource` o `path()` del Manager dan el resource dir;
+    // Tauri coloca el sidecar resuelto bajo
+    // `<resource_dir>/<target-triple>/<name>` o similar. La forma
+    // portable es resolver el path del binario y tomar dirname.
+    let resource_dir = app
+        .path()
+        .resource_dir()
+        .ok()
+        .or_else(|| std::env::current_dir().ok());
+    resource_dir
+        .map(|p| p.join(name))
+        .unwrap_or_else(|| PathBuf::from("."))
+}
 
 /// Estado del proceso pi
 pub struct PiProcess {
@@ -55,12 +81,18 @@ impl PiProcess {
             args.push(path.clone());
         }
 
-        // Crear el sidecar command
+        // Crear el sidecar command. PI_PACKAGE_DIR apunta al
+        // directorio del binario de pi dentro del bundle de Tauri
+        // (donde está el package.json que el build-pi.sh copia al
+        // lado del binario). Sin esto, pi detecta que es un bun-
+        // binary y VERSION retorna "0.0.0" en lugar de la versión
+        // real.
         let sidecar_command = app
             .shell()
             .sidecar("pi")
             .map_err(|e| format!("Failed to create sidecar command: {}", e))?
             .args(args)
+            .env("PI_PACKAGE_DIR", get_sidecar_dir(&app, "pi"))
             .current_dir(&cwd);
 
         // Spawnear el proceso

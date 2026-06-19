@@ -6,6 +6,9 @@ CONTEXT.md
 
 # Backend (Rust / Cargo)
 backend/target/
+
+# Sidecar pi compilado + su package.json (regenerado por build-pi.sh)
+backend/binaries/
 backend/pi-x86_64-unknown-linux-gnu
 backend/pi-sessions-x86_64-unknown-linux-gnu
 backend/.git/        # sub-repo accidental que crea tauri/cargo
