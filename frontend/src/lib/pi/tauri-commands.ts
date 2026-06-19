@@ -203,3 +203,50 @@ export async function getPiUpstreamVersion(): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * Lee ~/.pi/agent/auth.json y retorna la lista de provider IDs
+ * configurados. Empty array si no hay auth o si el archivo está
+ * corrupto (en cuyo caso se loguea el error en el debug panel).
+ * El wrapper NO lanza — siempre retorna un array, para que el
+ * caller no necesite try/catch.
+ */
+export async function getAuthStatus(): Promise<string[]> {
+  try {
+    return await invoke<string[]>('get_auth_status');
+  } catch (err) {
+    addEntry('system', `getAuthStatus failed: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }
+}
+
+/**
+ * Escribe (o actualiza) la API key de un provider en
+ * ~/.pi/agent/auth.json. Atomic write, chmod 600. Si falla, throw
+ * — el caller (form de settings) muestra el error al user.
+ */
+export async function setApiKey(provider: string, apiKey: string): Promise<void> {
+  addEntry('out', `set_api_key: ${provider}`);
+  await loggedInvoke('setApiKey', () =>
+    invoke('set_api_key', { provider, apiKey }),
+  );
+}
+
+/**
+ * Hace un ping al provider para validar que la key funciona.
+ * Retorna el mensaje de error (string vacío = ok). El wrapper
+ * NO lanza — el comando Rust siempre retorna Ok(()) o Err(msg),
+ * y acá lo manejamos devolviendo el string directamente para
+ * que el caller no necesite try/catch.
+ */
+export async function testApiKey(provider: string, apiKey: string): Promise<string> {
+  addEntry('out', `test_api_key: ${provider}`);
+  try {
+    await invoke('test_api_key', { provider, apiKey });
+    return '';
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    addEntry('system', `test_api_key ${provider} failed: ${message}`);
+    return message;
+  }
+}
