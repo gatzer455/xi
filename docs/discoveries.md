@@ -601,3 +601,28 @@ Podríamos exponer un command en pi que haga `setApiKey` via RPC. Pero:
 - No hay beneficio: el formato del archivo es público, no es secreto de pi.
 
 Es más simple escribir el archivo directamente desde Rust y dejar que pi lo lea como siempre.
+
+### Mostrar vs enviar la key completa: el patrón "Ver" on-demand
+
+Mostrar la API key completa en la UI es un riesgo de seguridad innecesario. La key ya está protegida por `chmod 600` en disco; enviarla al WebView y mostrarla en el DOM la expone a:
+
+- Otros procesos que lean la memoria del WebView.
+- Bugs de UI que filtren el valor (autocomplete, logs, screenshots, etc).
+- Si el user hace click en un campo equivocado y se copia al clipboard.
+
+**Patrón "Ver" on-demand**: el backend **nunca** envía la key completa en `get_auth_status`. Solo envía metadata pública (`has_key: bool`, `last4: string|null`). La key completa solo viaja por IPC cuando el user hace click en "Ver" — el wrapper frontend llama a `get_api_key(provider)`, que retorna `Some(key)` solo si el provider existe y es `api_key`.
+
+**Por qué `last4` es seguro**: 4 caracteres de una key de ~50 chars da 46 bits de entropía ocultos. Suficiente para identificar visualmente la key ("ah, esa es la que termina en 604f") sin permitir reconstruirla. Es el patrón estándar de GitHub, AWS, Stripe, Google Cloud.
+
+**Side effects a tener en cuenta al mostrar la key**:
+- El input cambia de `type=password` a `type=text` (visible).
+- Después de Guardar o Eliminar, el modo Ver se cancela automáticamente (la key puede haber cambiado).
+- El input nunca persiste la key en localStorage ni en signals — solo en el DOM mientras se muestra.
+
+### Eliminar providers: idempotencia y confirm inline
+
+El command `delete_api_key(provider)` es **idempotente**: si el provider no existe, no es error (es un no-op). Esto simplifica el manejo de race conditions: si el user hace click en Eliminar dos veces rápido, ambos clicks se procesan sin error.
+
+**Confirm inline en vez de modal**: el primer click cambia el botón a "¿Seguro? Sí" con estilo rojo prominente. El segundo click confirma. Auto-cancela después de 5 segundos. Es reversible (pueden volver a guardar la key), así que un modal bloqueante sería fricción innecesaria. El patrón de pi mismo (editar models.json) tampoco pide confirmación.
+
+**Side effect importante**: si el provider eliminado es el activo del modelo actual, pi va a fallar la próxima vez que intente usar ese modelo. El dropdown de "Modelo" se refresca via `loadModels()` después del delete, así que el user ve el cambio inmediatamente. Si estaba usándolo, tiene que elegir otro.

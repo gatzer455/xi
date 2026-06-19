@@ -482,25 +482,35 @@ IMPORTANTE — cambio de scope durante la fase de idea. El plan original propon�
 - [x] El primer prompt funciona sin errores (si configuró key)
 - [x] La banderita de "no auth" se muestra solo si configuredProviders está vacío
 - [x] El user entiende qué está pasando (párrafo + banderita + feedback inline)
+- [x] El user puede ver la key enmascarada (sk-***XXXX) y revelarla on-demand con "Ver"
+- [x] El user puede eliminar la key de un provider desde la UI (con confirm inline)
 
-**Implementación (c694e2e → 5f41e24):**
+**Implementación (c694e2e → c9b523b):**
 
-8 commits:
-- `c694e2e`: Plumbing del backend (3 commands Rust, mod.rs, main.rs)
-- `d66b6ba`: State (hasAnyProvider, configuredProviders)
-- `e36b610`: Wrappers frontend (getAuthStatus, setApiKey, testApiKey)
-- `a3fc426`: auth-status.ts helper (loadAuthStatus, refreshAuthStatus)
-- `3c968a9`: Settings sección "Proveedor" (UI completa)
-- `f458100`: Welcome mejorada (párrafo + banderita + link)
-- `5f41e24`: CSS (settings-provider-*, welcome-auth-banner)
-- (próximo): docs (discoveries §13, PLAN)
+11 commits en 3 rondas:
+
+**Ronda 1 (c694e2e → dc8d8bd)** — Setup base:
+- 3 commands backend (get_auth_status, set_api_key, test_api_key)
+- State + wrappers + auth-status helper
+- Settings sección "Proveedor" con 7 providers
+- Welcome mejorada
+- CSS + docs
+
+**Ronda 2 (dc8d8bd → fee1697)** — UX fix:
+- Reordenar providers (opencode-go al tope, openai al final)
+- UI indica qué providers ya están configurados (markers ✓, status text, hint)
+
+**Ronda 3 (fee1697 → c9b523b)** — Feature additions:
+- `1f889c7`: get_auth_status retorna ProviderInfo (id, hasKey, last4) + nuevos commands get_api_key y delete_api_key. Atomic write refactorizado en write_auth_map().
+- `a9c9ff7`: Wrappers getApiKey/deleteApiKey + ProviderInfo en state.ts + ajustes en settings.ts.
+- `c9b523b`: UI "Ver" key (on-demand via get_api_key) y "Eliminar" provider (confirm inline, idempotente).
 
 Detalles:
-- `backend/src/commands/auth_config.rs` (NEW): 3 commands. Atomic write con tmp+rename+fsync. chmod 600. Dispatch por provider en test_api_key. 7 endpoints de validación, todos con timeout 5s.
+- `backend/src/commands/auth_config.rs` (NEW): 5 commands. Atomic write con tmp+rename+fsync. chmod 600. Dispatch por provider en test_api_key. 7 endpoints de validación, todos con timeout 5s. Helpers compartidos read_auth_map() y write_auth_map().
 - `frontend/src/lib/auth-status.ts` (NEW): helper con cache en signals.
-- `frontend/src/pages/settings.ts`: nueva sección "Proveedor" con segmented control (renderSegmented genérico), input password con botón de ojo, feedback inline. Va PRIMERA en orden (sin provider no hay modelo).
+- `frontend/src/pages/settings.ts`: nueva sección "Proveedor" con segmented control (renderSegmented genérico), input password con botón de ojo + "Ver" on-demand, botones Guardar/Probar/Eliminar con confirm inline. Va PRIMERA en orden (sin provider no hay modelo). Markers ✓ + status text + hint del provider activo.
 - `frontend/src/pages/welcome.ts`: párrafo explicativo, banderita condicional (visibility:hidden mientras loadAuthStatus corre, evita flash), link a pi.dev/docs.
-- `docs/discoveries.md` §13: documentación completa del modelo de auth, por qué no OAuth, formato del auth.json, atomic write, endpoints por provider.
+- `docs/discoveries.md` §13: documentación completa del modelo de auth, por qué no OAuth, formato del auth.json, atomic write, endpoints por provider, patrón "Ver" on-demand, idempotencia del delete.
 
 ---
 
