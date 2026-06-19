@@ -23,6 +23,7 @@ import {
   setModel,
   setThinkingLevel,
   getAvailableModels,
+  getPiVersion,
 } from '../lib/pi/tauri-commands.ts';
 import {
   applyThemeToDOM,
@@ -56,6 +57,13 @@ export function SettingsPage(): HTMLElement {
     modelsLoadAttempted = true;
     loadModels();
   }
+
+  // Cargar la versión de pi (lazy, no en main.ts — el user solo la
+  // ve en Acerca de). El wrapper retorna 'unknown' si falla, y la
+  // sección Acerca de muestra "pi desconocida" en ese caso.
+  void getPiVersion().then((version) => {
+    appState.piVersion.value = version;
+  });
 
   // Back button: el shell del top bar sigue siendo el navegador principal.
   const back = document.createElement('button');
@@ -235,11 +243,32 @@ function renderSessionSection(): HTMLElement {
   });
 }
 
+/** Versión hardcoded de xi. La fuente de verdad es tauri.conf.json;
+ *  hoy no la exponemos al frontend vía command. Cuando decidamos
+ *  bumpear versión sync entre Cargo.toml y tauri.conf.json, podemos
+ *  pasar a import.meta.env.VITE_APP_VERSION o un command Tauri. */
+const APP_VERSION = '0.1.0';
+
 function renderAboutSection(): HTMLElement {
+  // El row muestra "xi v0.1.0 — pi v0.79.3" (o "pi desconocida" si
+  // el sidecar no responde). Una sola línea, em-dash como separador.
+  // El user final ve esto en Acerca de; es toda la info que necesita.
+  const versionValue = document.createElement('span');
+  versionValue.className = 'settings-value';
+
+  const paint = (): void => {
+    const pi = appState.piVersion.value;
+    const piText = pi === 'unknown' ? 'desconocida' : `v${pi}`;
+    versionValue.textContent = `xi v${APP_VERSION} — pi ${piText}`;
+  };
+
+  paint();
+  appState.piVersion.subscribe(paint);
+
   const row = document.createElement('div');
   row.className = 'settings-row';
   row.append(label('Versión'));
-  row.append(value('0.1.0'));
+  row.append(versionValue);
 
   return createSection({
     title: 'Acerca de',
