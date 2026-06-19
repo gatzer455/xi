@@ -1,5 +1,5 @@
 /**
- * welcome.ts — Pantalla de bienvenida y proyectos recientes (Etapa 5).
+ * welcome.ts — Pantalla de bienvenida y proyectos recientes (Etapa 5+9).
  *
  * Es la ruta default del router (reemplaza a `#/chat`). Se muestra
  * cuando xi arranca sin workingDir, o cuando el usuario hace click en
@@ -9,8 +9,11 @@
  * pantalla. La sidebar se vuelve a mostrar cuando el usuario abre un
  * proyecto y navega a `#/chat`.
  *
- * Sin sidebar, sin distacciones. Solo el mensaje, el CTA, y los
- * proyectos recientes si los hay.
+ * Etapa 9 (onboarding): se agregaron 3 cosas:
+ * 1. Párrafo "¿Qué es xi?" debajo del header (texto estático).
+ * 2. Banderita de "no auth" condicional, alimentada por
+ *    loadAuthStatus() al mount.
+ * 3. Link "¿Necesitas ayuda?" al pie.
  */
 
 import { signal } from '../lib/signal.ts';
@@ -19,6 +22,7 @@ import { pickAndOpenProject, openProject } from '../lib/workdir.ts';
 import { navigate } from '../lib/nav.ts';
 import { getRecents } from '../lib/pi/index.ts';
 import type { Recent } from '../lib/pi/index.ts';
+import { loadAuthStatus } from '../lib/auth-status.ts';
 
 // Signal local de la welcome. No se exporta; vive solo mientras la
 // página está montada. Si `openProject` falla, mostramos el mensaje.
@@ -30,8 +34,17 @@ export function WelcomePage(): HTMLElement {
 
   page.append(renderErrorBanner());
   page.append(renderHeader());
+  page.append(renderAuthBanner());
   page.append(renderCta());
   page.append(renderRecentsSection());
+  page.append(renderHelpLink());
+
+  // Cargar el estado de providers al mount. Fire-and-forget — el
+  // render no espera; el banner se actualiza cuando la promesa
+  // resuelve. La banderita arranca con visibility:hidden para evitar
+  // flash de "no auth" cuando sí hay providers (el user apenas
+  // vuelve de settings, por ejemplo).
+  void loadAuthStatus();
 
   // Auto-cerrar la welcome cuando se setea un workingDir. Esto pasa
   // cuando el usuario hace click en un card (openProject setea
@@ -78,17 +91,65 @@ function renderHeader(): HTMLElement {
 
   const title = document.createElement('h1');
   title.className = 'welcome-title';
-  title.textContent = 'Bienvenido a xi';
+  title.textContent = 'Xi';
   header.append(title);
 
   const subtitle = document.createElement('p');
   subtitle.className = 'welcome-subtitle';
   subtitle.textContent =
-    'Para empezar, selecciona una carpeta de trabajo. ' +
-    'xi es opinionated: usa una carpeta, siempre.';
+    'Xi es un agente de código con IA. Abrí un proyecto y pedile lo que necesites: ' +
+    'explicarte el código, agregar tests, refactorizar, lo que sea.';
   header.append(subtitle);
 
   return header;
+}
+
+/** Banderita de "no auth" — solo se muestra si configuredProviders
+ *  está vacío Y la carga inicial terminó. Mientras loadAuthStatus
+ *  corre, la banderita está oculta (no debe haber flash de "no auth"
+ *  cuando sí hay providers). visibility:hidden reserva el espacio
+ *  para evitar layout shift. */
+function renderAuthBanner(): HTMLElement {
+  const banner = document.createElement('div');
+  banner.className = 'welcome-auth-banner';
+
+  // Estado inicial: mientras no sepamos si hay providers, escondemos
+  // la banderita. La suscripción a hasAnyProvider la actualiza.
+  banner.style.visibility = 'hidden';
+
+  const message = document.createElement('span');
+  message.textContent = '⚠ No hay modelo configurado. Configurá tu API key para empezar.';
+  banner.append(message);
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'welcome-auth-banner-btn';
+  button.textContent = 'Ir a Configuración';
+  button.addEventListener('click', () => navigate('settings'));
+  banner.append(button);
+
+  // Suscripción: aparece solo si NO hay providers. Si hay 1+, se
+  // esconde. La banderita se actualiza también si el user vuelve
+  // de settings (loadAuthStatus se re-ejecuta al mount).
+  appState.hasAnyProvider.subscribe((hasAny) => {
+    banner.style.visibility = hasAny ? 'hidden' : 'visible';
+  });
+
+  return banner;
+}
+
+/** Link al pie: "¿Necesitas ayuda?" — abre la doc de pi en una
+ *  nueva pestaña. Por ahora apunta a pi.dev/docs, que es la doc
+ *  oficial del sidecar. Cuando tengamos docs propias de xi, las
+ *  ponemos primero. */
+function renderHelpLink(): HTMLElement {
+  const link = document.createElement('a');
+  link.className = 'welcome-help-link';
+  link.href = 'https://pi.dev/docs';
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = '¿Necesitas ayuda? →';
+  return link;
 }
 
 function renderCta(): HTMLElement {
