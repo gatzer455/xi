@@ -426,27 +426,35 @@ Verificado empíricamente: 3 sesiones del proyecto xi se listan correctamente co
 ---
 
 ### Etapa 8: Actualización de pi (sidecar)
-**Objetivo:** pi se actualiza independientemente de la app.
+**Objetivo:** xi+pi son una unidad inseparable. Mostrar la versión de pi al user y avisarme a mí (dev) cuando hay un pi upstream nuevo.
 
 **Tareas:**
-1. Implementar comando `update_pi` en Rust:
-   - Ejecuta `pi update --self` como child process
-   - Captura stdout/stderr
-   - Devuelve resultado al frontend
-2. Implementar UI:
-   - Botón "Actualizar pi" en settings
-   - Indicador de versión actual de pi
-   - Indicador de versión disponible (via `pi.dev/api/latest-version`)
-3. Estrategia de distribución del sidecar:
-   - **Opción A:** Embeber binario de pi en el installer, usuario ejecuta `pi update`
-   - **Opción B:** Descargar pi en primer lanzamiento, guardarlo en app data
-   - **Opción C:** Actualizar pi junto con la app (menos flexible)
+1. Fix del script de build: incluir el package.json de pi en el bundle compilado con bun. Hoy retorna `--version` como "0.0.0".
+2. Pasaje de `PI_PACKAGE_DIR` env var al spawn del sidecar para que pi encuentre su package.json.
+3. Backend commands: `get_pi_version` (ejecuta el sidecar con --version) y `get_pi_upstream_version` (GET a `pi.dev/api/latest-version`).
+4. Frontend: signal `piVersion`, wrappers, trigger al iniciar.
+5. UI: sección "Acerca de" muestra `xi v0.1.0 — pi v0.79.3` (juntas).
+6. Debug panel: muestra `pi upstream: vX.Y.Z` para el dev.
 
 **Validación:**
-- [ ] La versión de pi se muestra en settings
-- [ ] "Actualizar pi" ejecuta el update correctamente
-- [ ] Después del update, pi funciona normalmente
-- [ ] Si el update de pi falla, la app sigue funcionando con la versión anterior
+- [x] La versión de pi se muestra en settings (junto con la de xi)
+- [x] `pi --version` retorna la versión real (no "0.0.0")
+- [x] El debug panel muestra la versión upstream de pi
+- [x] Si el endpoint `pi.dev` falla, la app sigue funcionando
+
+**Implementación (c541085 → b100d2a):**
+
+IMPORTANTE — cambio de scope durante la fase de idea. El plan original proponía `pi update --self` y un botón "Actualizar pi", pero descubrimos que **`pi update --self` NO funciona en binarios bun-compiled** (es el InstallMethod `bun-binary`, y `getSelfUpdateCommand()` retorna `undefined` para ese caso). El plan fue reemplazado por el modelo "xi+pi son una unidad inseparable": no hay update independiente de pi, el user ve las dos versiones juntas en Acerca de, y el dev (yo) recibe la señal de "pi upstream nuevo" en el debug panel.
+
+- `scripts/build-pi.sh`: extrae la versión real del package instalado, compila con `--compile-autoload-package-json`, copia el package.json al lado del binario en `backend/binaries/`. Verifica al final que `pi --version` retorne la versión esperada.
+- `backend/src/commands/pi_process.rs`: helper `get_sidecar_dir()` y env var `PI_PACKAGE_DIR` al spawn.
+- `backend/src/commands/pi_version.rs` (NEW): `get_pi_version` + `get_pi_upstream_version` con reqwest.
+- `frontend/src/lib/pi/tauri-commands.ts`: wrappers `getPiVersion()` y `getPiUpstreamVersion()`.
+- `frontend/src/lib/state.ts`: signal `piVersion` con default 'unknown'.
+- `frontend/src/main.ts`: dispara `getPiUpstreamVersion()` junto con `checkForUpdate()` en el setTimeout(2500).
+- `frontend/src/pages/settings.ts`: `renderAboutSection()` muestra `xi v0.1.0 — pi v0.79.3` (o "pi desconocida" si falla). SettingsPage llama a `getPiVersion()` al mount.
+- `.gitignore`: `backend/binaries/` (regenerado por el build).
+- `docs/discoveries.md` §12: documentación completa del modelo y del fix.
 
 ---
 
