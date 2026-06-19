@@ -176,9 +176,9 @@ function renderProviderSection(): HTMLElement {
   const findProvider = (list: ReadonlyArray<ProviderInfo>): ProviderInfo | undefined =>
     list.find((p) => p.id === currentProvider);
 
-  // Una sola función que actualiza markers + status + hint.
-  // Se llama al mount, al cambiar configuredProviders, y al
-  // cambiar de tab (porque el hint depende del provider activo).
+  // Una sola función que actualiza markers + status + hint + botones
+  // de Ver/Eliminar según el provider activo. Se llama al mount, al
+  // cambiar configuredProviders, y al cambiar de tab.
   const updateProviderUI = (configured: ReadonlyArray<ProviderInfo>): void => {
     // Markers en los tabs.
     for (const opt of SUPPORTED_PROVIDERS) {
@@ -189,8 +189,6 @@ function renderProviderSection(): HTMLElement {
       btn.classList.toggle('settings-segmented-btn--configured', isConfigured);
     }
     // Status global: contamos los que tienen key editable (hasKey).
-    // Los oauth-only (como github-copilot) se cuentan igual porque
-    // "ya tenés un provider configurado" sigue siendo cierto.
     if (configured.length === 0) {
       statusText.textContent = 'No hay providers configurados todavía.';
     } else {
@@ -202,18 +200,27 @@ function renderProviderSection(): HTMLElement {
         statusText.textContent = `Tenés ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''} (${editable} con API key). Marcados con ✓ abajo.`;
       }
     }
-    // Hint del provider activo.
+    // Hint + placeholder + botones según el provider activo.
     const active = findProvider(configured);
     if (active && active.hasKey) {
       const masked = `sk-***${active.last4 ?? '****'}`;
       keyHint.textContent = `Ya tenés una key guardada (${masked}). Pegá una nueva solo si querés cambiarla.`;
       keyHint.style.display = 'block';
+      keyInput.placeholder = `Actual: ${masked} — pegá una nueva para cambiar`;
+      viewBtn.style.display = 'inline-block';
+      deleteBtn.style.display = 'inline-block';
     } else if (active && !active.hasKey) {
       keyHint.textContent = 'Este provider está configurado con OAuth (no editable desde xi). Usá `pi login` en una terminal para cambiarlo.';
       keyHint.style.display = 'block';
+      keyInput.placeholder = 'OAuth — no editable';
+      viewBtn.style.display = 'none';
+      deleteBtn.style.display = 'none';
     } else {
       keyHint.textContent = '';
       keyHint.style.display = 'none';
+      keyInput.placeholder = 'sk-...';
+      viewBtn.style.display = 'none';
+      deleteBtn.style.display = 'none';
     }
   };
   updateProviderUI(appState.configuredProviders.value);
@@ -234,6 +241,38 @@ function renderProviderSection(): HTMLElement {
   keyInput.autocomplete = 'off';
   keyInput.spellcheck = false;
 
+  // Botón Ver / Ocultar: solo visible si el provider activo está
+  // configurado. Trae la key completa via getApiKey() (on-demand),
+  // la pone en el input, y al segundo click limpia el input.
+  const viewBtn = document.createElement('button');
+  viewBtn.type = 'button';
+  viewBtn.className = 'settings-btn';
+  viewBtn.textContent = 'Ver';
+  viewBtn.style.display = 'none';
+  let isViewing = false;
+  viewBtn.addEventListener('click', async () => {
+    if (isViewing) {
+      // Ya está mostrando → limpiar y volver a "Ver"
+      keyInput.value = '';
+      keyInput.type = 'password';
+      viewBtn.textContent = 'Ver';
+      isViewing = false;
+      return;
+    }
+    viewBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    const key = await getApiKey(currentProvider);
+    viewBtn.disabled = false;
+    if (key === null) {
+      saveStatus.value = { kind: 'error', message: 'No se pudo leer la key' };
+      return;
+    }
+    keyInput.value = key;
+    keyInput.type = 'text';
+    viewBtn.textContent = 'Ocultar';
+    isViewing = true;
+  });
+
   const toggleBtn = document.createElement('button');
   toggleBtn.type = 'button';
   toggleBtn.className = 'settings-provider-toggle';
@@ -249,10 +288,10 @@ function renderProviderSection(): HTMLElement {
     }
   });
 
-  keyRow.append(keyInput, toggleBtn);
+  keyRow.append(keyInput, toggleBtn, viewBtn);
   control.append(keyRow);
 
-  // Botones Guardar / Probar + feedback.
+  // Botones Guardar / Probar / Eliminar + feedback.
   const actions = document.createElement('div');
   actions.className = 'settings-provider-actions';
 
@@ -271,6 +310,14 @@ function renderProviderSection(): HTMLElement {
       // Refrescar estado (welcome banderita) + lista de modelos.
       await loadAuthStatus();
       await loadModels();
+      // Si estaba en modo Ver, salir de ese modo (la key nueva puede
+      // ser distinta, mejor que el user la escriba de nuevo si la quiere ver).
+      if (isViewing) {
+        keyInput.value = '';
+        keyInput.type = 'password';
+        viewBtn.textContent = 'Ver';
+        isViewing = false;
+      }
     } catch (err) {
       saveStatus.value = {
         kind: 'error',
@@ -299,7 +346,71 @@ function renderProviderSection(): HTMLElement {
     testBtn.disabled = false;
   });
 
-  actions.append(saveBtn, testBtn);
+  // Botón Eliminar: solo visible si el provider activo tiene api_key.
+  // Confirm inline: primer click cambia el botón a '¿Seguro?' + 2
+  // botones Sí/No. Segundo click en Sí confirma. Click fuera del
+  // área cancela (no lo implementamos por simplicidad; el user puede
+  // hacer click en Sí o No, o esperar al próximo render).
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'settings-btn settings-btn--danger';
+  deleteBtn.textContent = 'Eliminar';
+  deleteBtn.style.display = 'none';
+  let confirmingDelete = false;
+  let confirmTimer: number | null = null;
+
+  const cancelDelete = (): void => {
+    confirmingDelete = false;
+    deleteBtn.textContent = 'Eliminar';
+    deleteBtn.classList.remove('settings-btn--confirming');
+    if (confirmTimer !== null) {
+      clearTimeout(confirmTimer);
+      confirmTimer = null;
+    }
+  };
+
+  deleteBtn.addEventListener('click', async () => {
+    if (!confirmingDelete) {
+      // Primer click: pedir confirmación.
+      confirmingDelete = true;
+      deleteBtn.textContent = '¿Seguro? Sí';
+      deleteBtn.classList.add('settings-btn--confirming');
+      // Auto-cancelar después de 5s.
+      confirmTimer = window.setTimeout(cancelDelete, 5000);
+      return;
+    }
+    // Segundo click: confirmar eliminación.
+    if (confirmTimer !== null) {
+      clearTimeout(confirmTimer);
+      confirmTimer = null;
+    }
+    deleteBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    try {
+      await deleteApiKey(currentProvider);
+      saveStatus.value = { kind: 'saved' };
+      // Refrescar estado + lista de modelos.
+      await loadAuthStatus();
+      await loadModels();
+      // Limpiar el input (la key recién eliminada puede estar visible).
+      keyInput.value = '';
+      keyInput.type = 'password';
+      if (isViewing) {
+        viewBtn.textContent = 'Ver';
+        isViewing = false;
+      }
+    } catch (err) {
+      saveStatus.value = {
+        kind: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      };
+    } finally {
+      deleteBtn.disabled = false;
+      cancelDelete();
+    }
+  });
+
+  actions.append(saveBtn, testBtn, deleteBtn);
   control.append(actions);
 
   // Feedback: ✓ Guardado, ✓ Funciona, ✗ <error>. Se actualiza via

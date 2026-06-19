@@ -956,6 +956,26 @@ code, pre { font-family: var(--font-mono); }
   border-color: var(--color-accent);
 }
 
+/* Variante danger: rojo, para "Eliminar" */
+.settings-btn--danger {
+  background: transparent;
+  color: var(--color-error, #f87171);
+  border-color: var(--color-error, #f87171);
+}
+.settings-btn--danger:hover:not(:disabled) {
+  background: var(--color-error, #f87171);
+  color: var(--color-page-bg);
+  border-color: var(--color-error, #f87171);
+}
+
+/* Estado de confirmación inline: más prominente */
+.settings-btn--danger.settings-btn--confirming {
+  background: var(--color-error, #f87171);
+  color: var(--color-page-bg);
+  border-color: var(--color-error, #f87171);
+  font-weight: bold;
+}
+
 .settings-provider-feedback {
   font-size: var(--text-sm);
   font-family: var(--font-mono);
