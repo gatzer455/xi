@@ -849,6 +849,101 @@ code, pre { font-family: var(--font-mono); }
   filter: brightness(0.9);
 }
 
+/* ─── Settings: sección Proveedor (Etapa 9: onboarding) ───
+   El segmented control se reusa del bloque anterior
+   (settings-segmented). Acá van los estilos específicos del
+   form de API key. */
+.settings-provider-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.settings-provider-keyrow {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 480px;
+}
+
+.settings-provider-keyinput {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-card-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color 0.1s;
+}
+.settings-provider-keyinput:focus {
+  border-color: var(--color-accent);
+}
+
+.settings-provider-toggle {
+  font-size: var(--text-base);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.settings-provider-toggle:hover {
+  background: var(--color-user-msg-bg);
+}
+
+.settings-provider-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.settings-btn {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-card-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+.settings-btn:hover:not(:disabled) {
+  background: var(--color-user-msg-bg);
+  border-color: var(--color-accent);
+}
+.settings-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-btn--primary {
+  background: var(--color-accent);
+  color: var(--color-page-bg);
+  border-color: var(--color-accent);
+}
+.settings-btn--primary:hover:not(:disabled) {
+  filter: brightness(0.9);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.settings-provider-feedback {
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  min-height: 1.2em;
+}
+.settings-provider-feedback--ok {
+  color: var(--color-success, var(--color-accent));
+}
+.settings-provider-feedback--err {
+  color: var(--color-error, #f87171);
+}
+
 /* ═══════════════════════════════════════════════════════
    WELCOME / EMPTY STATE
    ═══════════════════════════════════════════════════════ */
@@ -1329,6 +1424,46 @@ code, pre { font-family: var(--font-mono); }
   color: var(--color-text-muted);
   margin-top: var(--space-1);
 }
+
+/* ─── Welcome: banderita de auth y link de ayuda (Etapa 9) ─── */
+.welcome-auth-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  max-width: 600px;
+  width: 100%;
+  background: var(--color-warning-soft, var(--color-card-bg));
+  border: 1px solid var(--color-warning, var(--color-accent));
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  text-align: center;
+}
+
+.welcome-auth-banner-btn {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent);
+  color: var(--color-page-bg);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: filter 0.1s;
+}
+.welcome-auth-banner-btn:hover { filter: brightness(0.9); }
+.welcome-auth-banner-btn:active { filter: brightness(0.8); }
+
+.welcome-help-link {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  margin-top: var(--space-4);
+  transition: color 0.1s;
+}
+.welcome-help-link:hover { color: var(--color-accent); }
 
 /* ─── Botón "Cambiar de proyecto" en el sidebar (Etapa 5) ─── */
 .sidebar-switch-project {
