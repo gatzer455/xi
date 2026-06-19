@@ -19,11 +19,22 @@
 import { appState } from './state.ts';
 import { getAuthStatus } from './pi/tauri-commands.ts';
 
+/** Contador monotónico para descartar respuestas stale de loadAuthStatus
+ *  cuando se superponen múltiples llamadas (e.g., mount de settings
+ *  + save casi simultáneo). Cada llamada captura su número al entrar
+ *  y verifica que sigue siendo el actual antes de mutar signals.
+ *  Patrón: solo la última llamada (en orden de inicio) gana. */
+let loadGeneration = 0;
+
 /** Carga el estado de providers y popula las signals. Llamar al
  *  mount de welcome y al mount de settings. Fire-and-forget: no
  *  bloquea el render, las signals se actualizan cuando termina. */
 export async function loadAuthStatus(): Promise<void> {
+  const myGen = ++loadGeneration;
   const providers = await getAuthStatus();
+  // Si una llamada más nueva empezó durante mi await, descarto mi
+  // respuesta (que tiene datos potencialmente viejos).
+  if (myGen !== loadGeneration) return;
   appState.configuredProviders.value = providers;
   appState.hasAnyProvider.value = providers.length > 0;
 }

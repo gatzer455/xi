@@ -49,6 +49,7 @@ fn auth_path() -> PathBuf {
 /// viaja al frontend en este command — solo via get_api_key, y solo
 /// cuando el user hace click en "Ver".
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderInfo {
     pub id: String,
     pub has_key: bool,

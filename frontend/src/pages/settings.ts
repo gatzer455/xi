@@ -18,6 +18,7 @@
 
 import { appState, type ThemeMode, type FontSize, type ThinkingLevel } from '../lib/state.ts';
 import { signal } from '../lib/signal.ts';
+import { createScope, type Scope, type Page } from '../lib/scope.ts';
 import { navigate } from '../lib/nav.ts';
 import {
   setModel,
@@ -46,9 +47,10 @@ import {
 // Entry point
 // ═══════════════════════════════════════════════════════
 
-export function SettingsPage(): HTMLElement {
-  const page = document.createElement('div');
-  page.className = 'settings-page';
+export function SettingsPage(): Page {
+  const root = document.createElement('div');
+  root.className = 'settings-page';
+  const scope = createScope();
 
   // Disparar la carga de modelos al primer mount, solo si la lista
   // está vacía Y no estamos ya cargando (main.ts puede haber
@@ -81,24 +83,26 @@ export function SettingsPage(): HTMLElement {
   back.className = 'settings-back';
   back.textContent = '← Volver al chat';
   back.addEventListener('click', () => navigate('chat'));
-  page.append(back);
+  root.append(back);
 
   const title = document.createElement('h1');
   title.className = 'settings-title';
   title.textContent = 'Configuración';
-  page.append(title);
+  root.append(title);
 
   // Las 7 secciones en orden. "Proveedor" va primero: sin provider
   // no hay modelo, así que la lógica de dependencias lo pone al tope.
-  page.append(renderProviderSection());
-  page.append(renderModelSection());
-  page.append(renderThinkingSection());
-  page.append(renderAppearanceSection());
-  page.append(renderSessionSection());
-  page.append(renderUpdateSection());
-  page.append(renderAboutSection());
+  // Cada sub-función recibe `scope` para registrar las suscripciones
+  // a signals. Al desmontar la page, scope.dispose() las limpia todas.
+  root.append(renderProviderSection(scope));
+  root.append(renderModelSection(scope));
+  root.append(renderThinkingSection());
+  root.append(renderAppearanceSection());
+  root.append(renderSessionSection(scope));
+  root.append(renderUpdateSection(scope));
+  root.append(renderAboutSection(scope));
 
-  return page;
+  return { root, dispose: () => scope.dispose() };
 }
 
 // ═══════════════════════════════════════════════════════
@@ -137,7 +141,7 @@ function setLastProvider(id: SupportedProviderId): void {
   localStorage.setItem(STORAGE_KEY_LAST_PROVIDER, id);
 }
 
-function renderProviderSection(): HTMLElement {
+function renderProviderSection(scope: Scope): HTMLElement {
   // El control es un wrapper estable con suscripciones a las signals.
   // currentProvider vive solo en este closure (no en appState) porque
   // es un setting puramente de UI — localStorage guarda la persistencia.
@@ -207,24 +211,22 @@ function renderProviderSection(): HTMLElement {
       keyHint.textContent = `Ya tenés una key guardada (${masked}). Pegá una nueva solo si querés cambiarla.`;
       keyHint.style.display = 'block';
       keyInput.placeholder = `Actual: ${masked} — pegá una nueva para cambiar`;
-      viewBtn.style.display = 'inline-block';
+      eyeBtn.style.display = 'inline-block';
       deleteBtn.style.display = 'inline-block';
     } else if (active && !active.hasKey) {
       keyHint.textContent = 'Este provider está configurado con OAuth (no editable desde xi). Usá `pi login` en una terminal para cambiarlo.';
       keyHint.style.display = 'block';
       keyInput.placeholder = 'OAuth — no editable';
-      viewBtn.style.display = 'none';
+      eyeBtn.style.display = 'none';
       deleteBtn.style.display = 'none';
     } else {
       keyHint.textContent = '';
       keyHint.style.display = 'none';
       keyInput.placeholder = 'sk-...';
-      viewBtn.style.display = 'none';
+      eyeBtn.style.display = 'none';
       deleteBtn.style.display = 'none';
     }
   };
-  updateProviderUI(appState.configuredProviders.value);
-  appState.configuredProviders.subscribe(updateProviderUI);
   control.append(statusText);
 
   // Hint: aparece si el provider activo ya está configurado.
@@ -241,54 +243,53 @@ function renderProviderSection(): HTMLElement {
   keyInput.autocomplete = 'off';
   keyInput.spellcheck = false;
 
-  // Botón Ver / Ocultar: solo visible si el provider activo está
-  // configurado. Trae la key completa via getApiKey() (on-demand),
-  // la pone en el input, y al segundo click limpia el input.
-  const viewBtn = document.createElement('button');
-  viewBtn.type = 'button';
-  viewBtn.className = 'settings-btn';
-  viewBtn.textContent = 'Ver';
-  viewBtn.style.display = 'none';
-  let isViewing = false;
-  viewBtn.addEventListener('click', async () => {
-    if (isViewing) {
-      // Ya está mostrando → limpiar y volver a "Ver"
+  // Botón "ojo" (toggle de visibilidad). Solo visible si el provider
+  // activo está configurado (tiene key guardada). Comportamiento:
+  //   - Si el input está vacío: trae la key del backend via getApiKey()
+  //     y la pone visible. El ícono cambia a "🙈" (ocultar).
+  //   - Si el input ya tiene contenido: alterna entre password (oculto)
+  //     y text (visible). El ícono cambia entre "👁" y "🙈".
+  //   - El ícono refleja el estado actual: ojo abierto = oculto,
+  //     mono tapándose = visible.
+  // Reemplaza al botón "Ver" original (commit c9b523b) que hacía lo
+  // mismo con un botón separado. Ahora es un solo control.
+  const eyeBtn = document.createElement('button');
+  eyeBtn.type = 'button';
+  eyeBtn.className = 'settings-provider-toggle';
+  eyeBtn.setAttribute('aria-label', 'Mostrar API key');
+  eyeBtn.textContent = '👁';
+  eyeBtn.style.display = 'none';
+  let isKeyVisible = false;
+  eyeBtn.addEventListener('click', async () => {
+    if (isKeyVisible) {
+      // Ya está visible → limpiar y volver a "👁"
       keyInput.value = '';
       keyInput.type = 'password';
-      viewBtn.textContent = 'Ver';
-      isViewing = false;
+      eyeBtn.textContent = '👁';
+      eyeBtn.setAttribute('aria-label', 'Mostrar API key');
+      isKeyVisible = false;
       return;
     }
-    viewBtn.disabled = true;
-    saveStatus.value = { kind: 'idle' };
-    const key = await getApiKey(currentProvider);
-    viewBtn.disabled = false;
-    if (key === null) {
-      saveStatus.value = { kind: 'error', message: 'No se pudo leer la key' };
-      return;
+    // Si el input está vacío, traer la key del backend.
+    // Si ya tiene algo escrito, no pisamos: solo alternamos visibilidad.
+    if (keyInput.value === '') {
+      eyeBtn.disabled = true;
+      saveStatus.value = { kind: 'idle' };
+      const key = await getApiKey(currentProvider);
+      eyeBtn.disabled = false;
+      if (key === null) {
+        saveStatus.value = { kind: 'error', message: 'No se pudo leer la key' };
+        return;
+      }
+      keyInput.value = key;
     }
-    keyInput.value = key;
     keyInput.type = 'text';
-    viewBtn.textContent = 'Ocultar';
-    isViewing = true;
+    eyeBtn.textContent = '🙈';
+    eyeBtn.setAttribute('aria-label', 'Ocultar API key');
+    isKeyVisible = true;
   });
 
-  const toggleBtn = document.createElement('button');
-  toggleBtn.type = 'button';
-  toggleBtn.className = 'settings-provider-toggle';
-  toggleBtn.setAttribute('aria-label', 'Mostrar API key');
-  toggleBtn.textContent = '👁';
-  toggleBtn.addEventListener('click', () => {
-    if (keyInput.type === 'password') {
-      keyInput.type = 'text';
-      toggleBtn.setAttribute('aria-label', 'Ocultar API key');
-    } else {
-      keyInput.type = 'password';
-      toggleBtn.setAttribute('aria-label', 'Mostrar API key');
-    }
-  });
-
-  keyRow.append(keyInput, toggleBtn, viewBtn);
+  keyRow.append(keyInput, eyeBtn);
   control.append(keyRow);
 
   // Botones Guardar / Probar / Eliminar + feedback.
@@ -301,7 +302,10 @@ function renderProviderSection(): HTMLElement {
   saveBtn.textContent = 'Guardar';
   saveBtn.addEventListener('click', async () => {
     const key = keyInput.value.trim();
-    if (!key) return;
+    if (!key) {
+      saveStatus.value = { kind: 'error', message: 'Pegá una key antes de guardar' };
+      return;
+    }
     saveBtn.disabled = true;
     saveStatus.value = { kind: 'idle' };
     try {
@@ -310,13 +314,13 @@ function renderProviderSection(): HTMLElement {
       // Refrescar estado (welcome banderita) + lista de modelos.
       await loadAuthStatus();
       await loadModels();
-      // Si estaba en modo Ver, salir de ese modo (la key nueva puede
-      // ser distinta, mejor que el user la escriba de nuevo si la quiere ver).
-      if (isViewing) {
+      // Si estaba visible la key anterior, limpiar y volver al estado oculto.
+      if (isKeyVisible) {
         keyInput.value = '';
         keyInput.type = 'password';
-        viewBtn.textContent = 'Ver';
-        isViewing = false;
+        eyeBtn.textContent = '👁';
+        eyeBtn.setAttribute('aria-label', 'Mostrar API key');
+        isKeyVisible = false;
       }
     } catch (err) {
       saveStatus.value = {
@@ -332,9 +336,13 @@ function renderProviderSection(): HTMLElement {
   testBtn.type = 'button';
   testBtn.className = 'settings-btn';
   testBtn.textContent = 'Probar';
+  testBtn.title = 'Valida la key del input contra el endpoint del provider (no la guardada en disco)';
   testBtn.addEventListener('click', async () => {
     const key = keyInput.value.trim();
-    if (!key) return;
+    if (!key) {
+      saveStatus.value = { kind: 'error', message: 'Pegá una key antes de probar' };
+      return;
+    }
     testBtn.disabled = true;
     saveStatus.value = { kind: 'idle' };
     const errMsg = await testApiKey(currentProvider, key);
@@ -395,9 +403,10 @@ function renderProviderSection(): HTMLElement {
       // Limpiar el input (la key recién eliminada puede estar visible).
       keyInput.value = '';
       keyInput.type = 'password';
-      if (isViewing) {
-        viewBtn.textContent = 'Ver';
-        isViewing = false;
+      if (isKeyVisible) {
+        eyeBtn.textContent = '👁';
+        eyeBtn.setAttribute('aria-label', 'Mostrar API key');
+        isKeyVisible = false;
       }
     } catch (err) {
       saveStatus.value = {
@@ -432,6 +441,12 @@ function renderProviderSection(): HTMLElement {
   });
   control.append(feedback);
 
+  // Llamada inicial + suscripción. Se hacen ACÁ (no antes) porque
+  // `keyInput`, `eyeBtn` y `deleteBtn` se declaran en este bloque
+  // y `updateProviderUI` los referencia. Si se llamara antes, TDZ.
+  updateProviderUI(appState.configuredProviders.value);
+  scope.add(appState.configuredProviders.subscribe(updateProviderUI));
+
   return createSection({
     title: 'Proveedor',
     description: 'Tu modelo de lenguaje. Pegá la API key del provider que querés usar.',
@@ -439,7 +454,7 @@ function renderProviderSection(): HTMLElement {
   });
 }
 
-function renderModelSection(): HTMLElement {
+function renderModelSection(scope: Scope): HTMLElement {
   // El control es un wrapper estable (`settings-row`) cuyo innerHTML
   // se reemplaza en cada repaint. Las suscripciones a modelsLoading,
   // modelsError, availableModels y currentModel disparan el repaint.
@@ -454,10 +469,10 @@ function renderModelSection(): HTMLElement {
   repaint();
 
   // Suscripciones: cada cambio de state relevante re-pinta el control.
-  modelsLoading.subscribe(repaint);
-  modelsError.subscribe(repaint);
-  appState.availableModels.subscribe(() => repaint());
-  appState.currentModel.subscribe(() => repaint());
+  scope.add(modelsLoading.subscribe(repaint));
+  scope.add(modelsError.subscribe(repaint));
+  scope.add(appState.availableModels.subscribe(() => repaint()));
+  scope.add(appState.currentModel.subscribe(() => repaint()));
 
   return createSection({
     title: 'Modelo',
@@ -567,7 +582,7 @@ function renderAppearanceSection(): HTMLElement {
   });
 }
 
-function renderSessionSection(): HTMLElement {
+function renderSessionSection(scope: Scope): HTMLElement {
   const sessionValue = document.createElement('span');
   sessionValue.className = 'settings-value';
   sessionValue.textContent = 'ninguna';
@@ -576,7 +591,7 @@ function renderSessionSection(): HTMLElement {
     sessionValue.textContent = session ? session.id.slice(0, 8) + '…' : 'ninguna';
   };
   paint(appState.session.value);
-  appState.session.subscribe(paint);
+  scope.add(appState.session.subscribe(paint));
 
   const row = document.createElement('div');
   row.className = 'settings-row';
@@ -596,7 +611,7 @@ function renderSessionSection(): HTMLElement {
  *  pasar a import.meta.env.VITE_APP_VERSION o un command Tauri. */
 const APP_VERSION = '0.1.0';
 
-function renderAboutSection(): HTMLElement {
+function renderAboutSection(scope: Scope): HTMLElement {
   // El row muestra "xi v0.1.0 — pi v0.79.3" (o "pi desconocida" si
   // el sidecar no responde). Una sola línea, em-dash como separador.
   // El user final ve esto en Acerca de; es toda la info que necesita.
@@ -610,7 +625,7 @@ function renderAboutSection(): HTMLElement {
   };
 
   paint();
-  appState.piVersion.subscribe(paint);
+  scope.add(appState.piVersion.subscribe(paint));
 
   const row = document.createElement('div');
   row.className = 'settings-row';
@@ -628,7 +643,7 @@ function renderAboutSection(): HTMLElement {
 // Sección de update (Etapa 7)
 // ═══════════════════════════════════════════════════════
 
-function renderUpdateSection(): HTMLElement {
+function renderUpdateSection(scope: Scope): HTMLElement {
   // El control es un wrapper estable con suscripciones. La signal
   // updateStatus determina qué se ve (status text + botones).
   // El resto se actualiza en cada repaint.
@@ -658,10 +673,10 @@ function renderUpdateSection(): HTMLElement {
   // Suscripción a las 3 signals que afectan la UI.
   // (updateError no se renderiza directo; lo lee statusText).
   repaint();
-  appState.updateStatus.subscribe(repaint);
-  appState.updateReady.subscribe(repaint);
-  appState.updateError.subscribe(repaint);
-  appState.updateDismissed.subscribe(repaint);
+  scope.add(appState.updateStatus.subscribe(repaint));
+  scope.add(appState.updateReady.subscribe(repaint));
+  scope.add(appState.updateError.subscribe(repaint));
+  scope.add(appState.updateDismissed.subscribe(repaint));
 
   return createSection({
     title: 'Actualización',
