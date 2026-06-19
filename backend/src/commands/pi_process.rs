@@ -19,12 +19,9 @@ use tauri_plugin_shell::{process::CommandEvent, ShellExt};
 /// archivo), no al directorio. pi intentaba leer `<path>/package.json`
 /// y fallaba con ENOTDIR. Ahora retornamos el directorio limpio.
 fn get_sidecar_dir(app: &AppHandle, _name: &str) -> PathBuf {
-    let dir = app
-        .path()
+    app.path()
         .resource_dir()
-        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-    eprintln!("[pi_process] get_sidecar_dir → {}", dir.display());
-    dir
+        .unwrap_or_else(|_| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
 }
 
 /// Estado del proceso pi
