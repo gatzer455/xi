@@ -137,6 +137,16 @@ export const appState = {
    *  la versión en otros contextos. */
   piVersion: signal<string>('unknown'),
 
+  /** True si hay al menos un provider con API key configurada.
+   *  Lo popula auth-status.ts al mount de welcome o settings.
+   *  Drive: si false, welcome muestra banderita de "no auth". */
+  hasAnyProvider: signal<boolean>(false),
+
+  /** Lista de provider IDs configurados (viene de get_auth_status).
+   *  Empty array si no hay auth. Lo usa settings para saber qué
+   *  provider está activo y mostrar feedback. */
+  configuredProviders: signal<string[]>([]),
+
   /** Dismiss del banner no persiste: en el próximo launch, el banner
    *  vuelve a aparecer si hay update ready. Decisión deliberada para
    *  que el user no sienta que la app le esconde algo. */
