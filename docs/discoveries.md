@@ -626,3 +626,66 @@ El command `delete_api_key(provider)` es **idempotente**: si el provider no exis
 **Confirm inline en vez de modal**: el primer click cambia el botón a "¿Seguro? Sí" con estilo rojo prominente. El segundo click confirma. Auto-cancela después de 5 segundos. Es reversible (pueden volver a guardar la key), así que un modal bloqueante sería fricción innecesaria. El patrón de pi mismo (editar models.json) tampoco pide confirmación.
 
 **Side effect importante**: si el provider eliminado es el activo del modelo actual, pi va a fallar la próxima vez que intente usar ese modelo. El dropdown de "Modelo" se refresca via `loadModels()` después del delete, así que el user ve el cambio inmediatamente. Si estaba usándolo, tiene que elegir otro.
+
+---
+
+## 13. Lecciones aprendidas (Etapa 9)
+
+### 13.1 TDZ de const/let en closures — la ventana negra
+
+**Bug**: en `renderProviderSection` (`frontend/src/pages/settings.ts`), `updateProviderUI` se llamaba antes de declarar `keyInput`, `viewBtn`, `deleteBtn` que usaba dentro. Resultado: `ReferenceError: Cannot access 'keyInput' before initialization`. El render de la página entera se rompía — la ventana de settings quedaba **negra** (solo el background del body, sin contenido).
+
+**Causa**: `const` y `let` en JavaScript/TypeScript tienen **Temporal Dead Zone (TDZ)**. A diferencia de `var` (que se hoistea a `undefined`), las variables `const`/`let` no se pueden acceder hasta que se ejecute su declaración. Si una closure intenta leer una `const` antes de su declaración, lanza ReferenceError.
+
+**Patrón del bug**:
+
+```ts
+// 1. Define la función (todavía no accede a vars)
+const updateProviderUI = (configured) => {
+  // ... usa keyInput, viewBtn, deleteBtn (todavía no declarados)
+};
+
+// 2. LLAMA la función (explota si esas vars están en TDZ)
+updateProviderUI(appState.configuredProviders.value);
+
+// 3. AHORA declara las vars
+const keyInput = document.createElement('input');
+const viewBtn = document.createElement('button');
+```
+
+**Patrón seguro**: declarar las variables **antes** de cualquier código que las use. O usar una `function` declaration (que se hoistea entera), no una arrow function que captura variables.
+
+**Fix aplicado**: mover la llamada a `updateProviderUI` y la suscripción a `appState.configuredProviders.subscribe` para que se ejecuten **después** de las declaraciones de `keyInput`/`viewBtn`/`deleteBtn` (commit `fix(etapa9): TDZ en renderProviderSection`).
+
+**Prevención**: cuando una sub-función (closure) referencia variables que se declaran más abajo en el mismo scope, hacer un check mental: *¿se ejecuta esa sub-función antes de la declaración?*. Si sí, mover la llamada o la declaración. Herramientas útiles: `tsc --noEmit --strict` o ESLint con `no-use-before-define` activado.
+
+### 13.2 serde naming convention: snake_case (Rust) vs camelCase (TS)
+
+**Bug**: `get_auth_status` retornaba `{ id, has_key: true, last4: "604f" }` (snake_case, idiomático de Rust). El frontend esperaba `{ id, hasKey: true, last4: "604f" }` (camelCase, idiomático de JS). Resultado: `provider.hasKey` era `undefined` → `!active.hasKey` era `true` → el UI mostraba "OAuth — no editable" para providers que en realidad SÍ tenían API key (opencode-go, openrouter, etc.).
+
+**Causa**: cuando se usa `#[derive(Serialize)]` en Rust **sin** `#[serde(rename_all = "camelCase")]`, el struct se serializa con los field names exactos de Rust (snake_case por convención). Tauri **no** transforma automáticamente entre Rust y JS conventions para retornos de commands custom.
+
+```rust
+// MAL: serializa como { id, has_key, last4 }
+#[derive(Serialize)]
+pub struct ProviderInfo {
+    pub id: String,
+    pub has_key: bool,    // ← snake_case en JSON
+    pub last4: Option<String>,
+}
+
+// BIEN: serializa como { id, hasKey, last4 }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderInfo {
+    pub id: String,
+    pub has_key: bool,    // ← renombrado a hasKey en JSON
+    pub last4: Option<String>,
+}
+```
+
+**Convención del proyecto**: otros structs del backend YA tienen `#[serde(rename_all = "camelCase")]` (ver `pi_sessions.rs:24`, `recents.rs:35`). El de `ProviderInfo` se olvidó en el commit `1f889c7` que lo creó.
+
+**Prevención**: cuando se crea un struct nuevo que se retorna al frontend vía Tauri command, agregar el `#[serde(rename_all = "camelCase")]` desde el principio. Es 1 línea y previene el mismatch entero. Para los **argumentos** de los commands, Tauri 2 SÍ convierte snake_case → camelCase automáticamente, pero para **retornos** no.
+
+**Troubleshooting rápido**: si un campo que esperás ver en el frontend es `undefined`, lo más probable es que sea un mismatch de naming. Abrir el WebView DevTools, inspeccionar el JSON que llega via IPC, y comparar con el nombre que usa el TS.
