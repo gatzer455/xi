@@ -401,3 +401,80 @@ El bundle fake no es un AppImage real, así que `downloadAndInstall` va a fallar
 - [tauri-plugin-updater docs](https://v2.tauri.app/plugin/updater/)
 - [tauri-action examples](https://github.com/tauri-apps/tauri-action/tree/dev/examples)
 - [minisign](https://jedisct1.github.io/minisign/)
+
+## 12. Sidecar pi como bun-binary: implicaciones (Etapa 8)
+
+### El problema
+
+xi compila el CLI de pi con `bun build --compile` para distribuirlo como binario standalone. Esto trae 2 consecuencias que no son obvias:
+
+1. **`pi update --self` no funciona.** pi detecta que corre como bun-binary (chequea `import.meta.url.includes("$bunfs")` o similar) y para ese caso `getSelfUpdateCommand()` retorna `undefined`. El user que corra `pi update --self` ve: "pi cannot self-update this installation. Download from: https://github.com/earendil-works/pi-mono/releases/latest".
+
+2. **`pi --version` retorna "0.0.0"** porque el `package.json` no se incluye automáticamente en el bundle compilado. La versión real está en `node_modules/@earendil-works/pi-coding-agent/package.json` (típicamente `0.79.x`), pero el binario standalone no tiene acceso a ese path.
+
+### El modelo: xi+pi son una unidad
+
+Por las razones de arriba, **xi y pi se distribuyen juntos atómicamente**. Cuando hago un release de xi v0.2.0, ese release incluye una versión pinneada de pi (ej: v0.80.1). El user no puede actualizar pi independientemente — necesita un release de xi.
+
+**Implicaciones de UX**:
+- El user no ve "hay un pi nuevo" como algo accionable. No hay botón "Actualizar pi" en settings.
+- En su lugar, en "Acerca de" ve `xi v0.2.0 — pi v0.80.1` (las dos versiones juntas). Cuando hay un release de xi con un pi más nuevo, las dos cambian atómicamente.
+- El "latest de pi upstream" en `https://pi.dev/api/latest-version` no se muestra al user — sería una falsa promesa. Solo lo veo yo como dev en el debug panel, para saber cuándo hacer un release de xi.
+
+### El fix: 2 partes
+
+**Parte 1 — el script de build** (`scripts/build-pi.sh`):
+
+1. Instalar pi via npm: `npm install @earendil-works/pi-coding-agent@latest --silent`.
+2. Extraer la versión real con `node -p "require('./node_modules/@earendil-works/pi-coding-agent/package.json').version"`.
+3. Reemplazar el `package.json` del proyecto con uno que tenga la versión real (no hardcoded) y el `name` correcto.
+4. Compilar con `bun build --compile --compile-autoload-package-json`. El flag `--compile-autoload-package-json` le dice a bun que mantenga accesible el package.json del cwd en runtime.
+5. Copiar el binario + el `package.json` a `backend/binaries/`. El script tiene un check al final que falla si `pi --version` no retorna la versión esperada.
+
+**Parte 2 — el env var en el spawn** (`backend/src/commands/pi_process.rs`):
+
+pi detecta el directorio del package.json con esta lógica (en `config.js:getPackageDir()`):
+
+```ts
+export function getPackageDir(): string {
+    if (process.env.PI_PACKAGE_DIR) return normalizePath(process.env.PI_PACKAGE_DIR);
+    if (isBunBinary) return dirname(process.execPath);
+    // ... Node.js path
+}
+```
+
+Para bun-binary, retorna `dirname(process.execPath)` — el directorio del binario. Si ese directorio tiene un `package.json` con `name` y `version`, pi los lee correctamente. Pero por defecto ese directorio no tiene el `package.json` (Tauri no lo copia al bundle).
+
+El fix: pasamos `PI_PACKAGE_DIR=<resource_dir>` al spawn del sidecar. Así, pi busca el package.json en el resource dir (que Tauri sí conoce), no en el directorio del binario.
+
+```rust
+// backend/src/commands/pi_process.rs
+let sidecar_command = app
+    .shell()
+    .sidecar("pi")?
+    .args(args)
+    .env("PI_PACKAGE_DIR", get_sidecar_dir(&app, "pi"))
+    .current_dir(&cwd);
+```
+
+### Verificación
+
+```bash
+$ bash scripts/build-pi.sh
+...
+✅ Verificación OK: pi --version retorna 0.79.8
+```
+
+El script tiene un check al final que falla si `pi --version` no retorna la versión esperada — protege contra regresiones.
+
+### Endpoints útiles
+
+- `https://pi.dev/api/latest-version`: texto plano con la última versión de pi (ej: `"0.80.1\n"`). Usado por el command `get_pi_upstream_version` (debug panel).
+- `https://github.com/earendil-works/pi-mono/releases`: binarios pre-compilados de pi para todas las plataformas (formato `pi-{os}-{arch}.tar.gz` o `.zip`).
+- `https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/CHANGELOG.md`: para saber qué cambió entre versiones de pi.
+
+### Alternativas evaluadas (descartadas)
+
+- **Hacer que el binario de pi se actualice solo via `pi update --self`**: no funciona (es bun-binary).
+- **Reemplazar el binario de pi en runtime desde xi**: problemas de permisos (macOS bundle, Linux AppImage), lock (Windows), complejidad innecesaria. La Etapa 7 ya cubre "xi se actualiza con su pi incluido".
+- **Mostrar al user "hay un pi nuevo, actualizá xi"**: sería fake promise porque el user no puede forzar un release de xi.
