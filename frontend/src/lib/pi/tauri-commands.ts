@@ -16,7 +16,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { addEntry } from '../debug-panel.ts';
 import type { Recent, SessionInfo } from './types.ts';
-import type { ThinkingLevel } from '../state.ts';
+import type { ThinkingLevel, FileEntry } from '../state.ts';
 
 // Helper: envuelve invoke con logging de éxito y error. Si la llamada
 // falla, loguea el error en el panel antes de propagar la excepción.
@@ -288,4 +288,24 @@ export async function testApiKey(provider: string, apiKey: string): Promise<stri
 export async function deleteApiKey(provider: string): Promise<void> {
   addEntry('out', `delete_api_key: ${provider}`);
   await loggedInvoke('deleteApiKey', () => invoke('delete_api_key', { provider }));
+}
+
+// ─── Filesystem (explorer) ──────────────────────────────────────
+
+/** Listar archivos de un directorio. */
+export async function listFiles(path: string): Promise<FileEntry[]> {
+  addEntry('out', `list_files: ${path}`);
+  return loggedInvoke('listFiles', () => invoke('list_files', { path }));
+}
+
+/** Leer contenido de un archivo. */
+export async function readFile(path: string): Promise<string> {
+  addEntry('out', `read_file: ${path}`);
+  return loggedInvoke('readFile', () => invoke('read_file', { path }));
+}
+
+/** Escribir contenido a un archivo. */
+export async function writeFile(path: string, content: string): Promise<void> {
+  addEntry('out', `write_file: ${path}`);
+  await loggedInvoke('writeFile', () => invoke('write_file', { path, content }));
 }

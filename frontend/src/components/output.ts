@@ -19,6 +19,7 @@
 import { appState } from '../lib/state.ts';
 import type { Page } from '../lib/scope.ts';
 import { ChatPage } from '../pages/chat.ts';
+import { ExplorerPage } from '../pages/explorer.ts';
 import { SessionsPage } from '../pages/sessions.ts';
 import { SettingsPage } from '../pages/settings.ts';
 import { WelcomePage } from '../pages/welcome.ts';
@@ -54,6 +55,9 @@ export function OutputBoard(): HTMLElement {
         break;
       case 'sessions':
         page = SessionsPage();
+        break;
+      case 'explorer':
+        page = ExplorerPage();
         break;
       case 'settings':
         page = SettingsPage();

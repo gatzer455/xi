@@ -101,6 +101,18 @@ export const appState = {
    *  sepa a dónde regresar (welcome, sessions, o chat). */
   previousView: signal<ViewName>('welcome'),
 
+  // ─── Explorer ────────────────────────────────────────────────
+  /** Archivos del directorio actual del explorador. */
+  files: signal<FileEntry[]>([]),
+  /** Path actual del explorador (relativo al workingDir). */
+  explorerPath: signal<string>(''),
+  /** Archivo seleccionado para preview. */
+  selectedFile: signal<FileEntry | null>(null),
+  /** Contenido del archivo seleccionado. */
+  fileContent: signal<string | null>(null),
+  /** Modo edición activo. */
+  isEditing: signal<boolean>(false),
+
   /** Sesiones abiertas como tabs en el top bar (browser-shaped).
    *  Cada tab es una sesión que el usuario está viendo. `activeTabId`
    *  indica cuál está activa. `tabMessages` guarda los mensajes
@@ -201,7 +213,15 @@ export type ThinkingLevel =
   | 'xhigh';
 
 /** Vistas posibles del output-board (browser-shaped, sin router). */
-export type ViewName = 'welcome' | 'chat' | 'sessions' | 'settings';
+export type ViewName = 'welcome' | 'chat' | 'sessions' | 'settings' | 'explorer';
+
+export interface FileEntry {
+  name: string;
+  path: string;      // relativo al workingDir
+  is_dir: boolean;
+  size: number;
+  modified: number;  // timestamp en ms
+}
 
 // ═══════════════════════════════════════════════════════
 // Tipos del updater (Etapa 7)

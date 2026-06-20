@@ -40,6 +40,9 @@ fn main() {
             commands::recents::get_recents,
             commands::recents::add_recent,
             commands::extension_ui::respond_extension_ui,
+            commands::files::list_files,
+            commands::files::read_file,
+            commands::files::write_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

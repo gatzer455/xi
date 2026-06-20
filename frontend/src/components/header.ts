@@ -97,6 +97,17 @@ function renderTabs(): HTMLElement {
       newBtn.title = 'Ver historial de conversaciones';
       newBtn.addEventListener('click', () => navigate('sessions'));
       container.append(newBtn);
+
+      // Botón "📄" para el explorador de archivos.
+      // Solo visible si hay un proyecto abierto.
+      if (appState.workingDir.value) {
+        const explorerBtn = document.createElement('button');
+        explorerBtn.className = 'top-bar-new-btn';
+        explorerBtn.textContent = '📄';
+        explorerBtn.title = 'Explorador de archivos';
+        explorerBtn.addEventListener('click', () => navigate('explorer'));
+        container.append(explorerBtn);
+      }
     }
   };
 
