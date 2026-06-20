@@ -15,6 +15,11 @@
  * 4. Decidir vista inicial (welcome o chat según si pi está corriendo)
  */
 
+// Fuentes — Adwaita Sans (UI) + Adwaita Mono (code)
+import '@fontsource/adwaita-sans';
+import '@fontsource/adwaita-mono/400.css';
+import '@fontsource/adwaita-mono/700.css';
+
 import { appState } from './lib/state.ts';
 import { navigate } from './lib/nav.ts';
 import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';

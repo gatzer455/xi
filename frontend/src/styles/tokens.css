@@ -13,14 +13,14 @@
   --color-border:     var(--color-border-muted);
   --color-user-bubble: var(--color-user-msg-bg);
   --color-ai-bubble:  var(--color-page-bg);
-  --color-accent-hover: color-mix(in srgb, var(--color-accent) 80%, transparent);
+  --color-accent-hover: color-mix(in srgb, var(--color-accent) 85%, transparent);
   --color-error:      var(--color-diff-removed);
   --color-success:    var(--color-diff-added);
   --color-warning:    var(--color-warning);
 
-  /* Tipografía */
-  --font-sans:  'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono:  'JetBrains Mono', 'Fira Code', monospace;
+  /* Tipografía — Adwaita Sans (UI) + Adwaita Mono (code) */
+  --font-sans:  'Adwaita Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono:  'Adwaita Mono', 'Iosevka', 'JetBrains Mono', monospace;
   /* --font-size-base es la raíz del font-size. Cambia con
      :root[data-font-size='small|medium|large'] (Etapa 6). Default
      1rem = 16px. */
@@ -43,10 +43,10 @@
   --space-8:  2rem;
   --space-12: 3rem;
 
-  /* Bordes */
-  --radius-sm:  4px;
-  --radius-md:  8px;
-  --radius-lg:  12px;
+  /* Bordes — cuadrados, profesional (design.md) */
+  --radius-sm:  2px;
+  --radius-md:  4px;
+  --radius-lg:  6px;
   --radius-full: 9999px;
 
   /* Layout */
@@ -804,6 +804,7 @@ code, pre { font-family: var(--font-mono); }
   background: var(--color-card-bg);
   color: var(--color-text);
   border: 1px solid var(--color-border);
+  appearance: auto;
   border-radius: var(--radius-md);
   cursor: pointer;
   min-width: 280px;
@@ -815,6 +816,30 @@ code, pre { font-family: var(--font-mono); }
 .settings-select:focus {
   outline: none;
   border-color: var(--color-accent);
+}
+.settings-select option {
+  background: var(--color-card-bg);
+  color: var(--color-text);
+  padding: 4px 8px;
+}
+
+/* Forzar color-scheme para que el browser use nuestros colores
+   en el select cerrado (no solo en las options) */
+:root[data-theme='dark'] .settings-select {
+  color-scheme: dark;
+}
+:root[data-theme='light'] .settings-select {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .settings-select {
+    color-scheme: dark;
+  }
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .settings-select {
+    color-scheme: light;
+  }
 }
 
 /* Error state del modelo */
@@ -1389,7 +1414,7 @@ code, pre { font-family: var(--font-mono); }
   min-width: 280px;
   text-align: center;
   background: var(--color-accent);
-  color: var(--color-text);
+  color: var(--color-accent-fg);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--text-base);
@@ -1491,7 +1516,7 @@ code, pre { font-family: var(--font-mono); }
   font-size: var(--text-sm);
   padding: var(--space-2) var(--space-4);
   background: var(--color-accent);
-  color: var(--color-page-bg);
+  color: var(--color-accent-fg);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
