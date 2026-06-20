@@ -1,4 +1,4 @@
-use super::pi_process::PiProcessState;
+use super::pi_process::{PendingRequests, PiProcessState};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -27,11 +27,18 @@ pub fn get_pi_status(state: State<'_, PiProcessState>) -> PiStatus {
 pub fn start_pi(
     cwd: String,
     state: State<'_, PiProcessState>,
+    pending: State<'_, PendingRequests>,
     app: tauri::AppHandle,
     session_path: Option<String>,
 ) -> Result<(), String> {
     let mut process = state.lock().unwrap();
-    process.spawn(cwd, session_path, app)
+    process.spawn(
+        cwd,
+        session_path,
+        app,
+        pending.inner().clone(),
+        state.inner().clone(),
+    )
 }
 
 /// Detener el proceso pi

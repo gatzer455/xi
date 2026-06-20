@@ -90,5 +90,100 @@ el momento de hacer el primer release, hay que hacer estos pasos.
 
 ---
 
+## Approve/Deny UI — interacción con extensiones de pi
+
+**Contexto:** pi extensions pueden llamar `ctx.ui.confirm()`, `ctx.ui.select()`,
+etc. En modo RPC, estos métodos emiten `extension_ui_request` por stdout
+y esperan `extension_ui_response` por stdin. Sin interceptar esto, las
+acciones `ask` de pi-tool-guard no funcionan en xi (timeout de 5s → deny
+silencioso).
+
+**Qué se necesita:**
+- Backend: handler que lee `extension_ui_request` del JSONL stream
+- Backend: command Tauri para enviar `extension_ui_response` por stdin
+- Frontend: modal/dialog que muestra la pregunta y botones approve/deny
+- Frontend: manejo de timeout (la extensión puede tener un timeout)
+
+**Protocolo (documentado en pi extensions.md):**
+```json
+// stdout → xi
+{ "type": "extension_ui_request", "id": "uuid",
+  "method": "confirm", "title": "...", "message": "...",
+  "timeout": 5000 }
+
+// stdin ← xi
+{ "type": "extension_ui_response", "id": "uuid",
+  "confirmed": true }
+```
+
+**Decisión:** diseñar ANTES de pi-tool-guard. Es fundacional — sin esto,
+`ask` no funciona. Crear idea en `.develop/01-idea/` y seguir el pipeline.
+
+---
+
+## Bundled extensions — pi-tool-guard y más
+
+**Contexto:** xi debería venir con extensiones de pi pre-instaladas que
+mejoren la experiencia del usuario no-técnico. La primera es `pi-tool-guard`
+(permissions: bloquea/pide confirmación para comandos peligrosos).
+
+**Approach decidido:**
+1. Escribir `pi-tool-guard` standalone (para probar en pi TUI primero)
+2. Bundlear con xi (`build-pi.sh` + `ensure_extensions`)
+3. Sección "Extensiones" dentro de Settings para gestionar config
+
+**Archivos clave:**
+- `backend/extensions/pi-tool-guard/index.ts` — la extensión
+- `~/.pi/agent/pi-tool-guard.json` — config de reglas
+- `~/.pi/agent/extensions/pi-tool-guard/` — copia instalada
+
+**Pendiente:** diseñar después de approve/deny UI. La idea ya existe en
+`.develop/01-idea/bundled-extensions.md`.
+
+## Investigación pendiente
+
+- **pi TUI extension loading**: ¿cómo carga pi las extensions? ¿Auto-discovery
+  de `~/.pi/agent/extensions/`? ¿Flags `-e`? ¿Settings.json?
+  → Ya respondido: auto-discovery + `-e` flag + settings.json `extensions: []`
+- **Conflict detection**: ¿qué pasa si hay 2 extensions con el mismo tool name?
+  → Ya respondido: pi detecta conflicts, loguea diagnostics, no falla.
+  Primera en cargar "gana" para tools conflictivos.
+- **Bundlear extensions con xi**: ¿cómo?
+  → Ya respondido: copiar a `~/.pi/agent/extensions/` si no existen.
+  `build-pi.sh` copia a `backend/binaries/extensions/`.
+  `ensure_extensions` command en Rust copia al arranque.
+
+---
+
+## Rewrite de ask tool — minimalista
+
+**Contexto:** el `ask` actual (`~/.pi/agent/extensions/ask-tool/`) usa
+`ctx.ui.custom()` que es TUI-only (retorna `undefined` en RPC). Tiene
+~1000 líneas de UI custom (inline editing, tabs, cursor handling).
+
+**Decisión:** rewrite con APIs simples (`ctx.ui.select()`, `ctx.ui.input()`).
+~100-200 líneas. Funciona en TUI y RPC. Notas via "Other" option.
+
+**Flujo por pregunta:**
+1. `ctx.ui.select("pregunta", ["Opción A", "Opción B", "Other"])` → usuario elige
+2. Si eligió "Other": `ctx.ui.input("Tu respuesta")` → usuario escribe
+3. Si eligió otra cosa: se acepta sin nota (el "Other" cubre notas)
+
+**Orden de implementación:**
+1. Rewrito de ask (standalone, para probar en pi TUI)
+2. Approve/deny UI en xi (interceptar `extension_ui_request`)
+3. Bundlear ask con xi
+
+**Archivos del ask actual:**
+- `index.ts` — registro de tool, lógica de resultado (~200 LOC)
+- `ask-logic.ts` — lógica pura de selección (~80 LOC)
+- `ask-inline-ui.ts` — UI custom single question (~250 LOC)
+- `ask-tabs-ui.ts` — UI custom multi-question tabs (~570 LOC)
+- `ask-inline-editor-cursor.ts` — cursor handling (~30 LOC)
+- `ask-inline-note.ts` — inline note rendering (~80 LOC)
+- `ask-text-wrap.ts` — text wrapping (~50 LOC)
+
+---
+
 ## Otros pendientes
 - (vacío — agregar aquí cuando surjan)

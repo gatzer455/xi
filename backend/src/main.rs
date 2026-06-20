@@ -3,7 +3,7 @@
 
 mod commands;
 
-use commands::pi_process::create_pi_state;
+use commands::pi_process::{create_pi_state, create_pending_requests};
 use tauri::Manager;
 
 fn main() {
@@ -12,8 +12,9 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            // Inicializar el estado del proceso pi
+            // Inicializar el estado del proceso pi y pending requests
             app.manage(create_pi_state());
+            app.manage(create_pending_requests());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -38,6 +39,7 @@ fn main() {
             commands::auth_config::delete_api_key,
             commands::recents::get_recents,
             commands::recents::add_recent,
+            commands::extension_ui::respond_extension_ui,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

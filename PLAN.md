@@ -324,6 +324,8 @@ Verificado empíricamente: 3 sesiones del proyecto xi se listan correctamente co
 ### Etapa 5: Tool calls y thinking blocks
 **Objetivo:** Mostrar herramientas que pi usa y su razonamiento.
 
+**Estado:** ✅ Completada (con limitación upstream — ver §14)
+
 **Tareas:**
 1. Implementar `tool-call.ts`:
    - Nombre de la herramienta + argumentos colapsables
@@ -341,10 +343,10 @@ Verificado empíricamente: 3 sesiones del proyecto xi se listan correctamente co
    - UI de confirmación (approve / deny)
 
 **Validación:**
-- [ ] Cuando pi usa `bash`, se muestra el comando y su output
-- [ ] Cuando pi usa `read`, se muestra qué archivo leyó
-- [ ] Los thinking blocks son colapsables por defecto
-- [ ] El usuario puede aprobar/denegar herramientas peligrosas
+- [x] Cuando pi usa `bash`, se muestra el comando y su output
+- [x] Cuando pi usa `read`, se muestra qué archivo leyó
+- [x] Los thinking blocks son colapsables por defecto
+- [x] ~~El usuario puede aprobar/denegar herramientas peligrosas~~ — **No soportado por pi upstream** en modo RPC. Ver `docs/discoveries.md` §14. Workaround futuro: extension de pi, kill switch en xi, o sandbox Gondolin.
 
 ---
 

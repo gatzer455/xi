@@ -36,9 +36,11 @@
  * agrega espacio para que el último mensaje no quede pegado al borde.
  */
 
-import { appState } from '../lib/state.ts';
+import { appState, type ExtensionDialogState } from '../lib/state.ts';
 import { createScope, type Page } from '../lib/scope.ts';
 import { ChatBubble } from '../components/chat-bubble.ts';
+import { renderSelectDialog, renderConfirmDialog, renderInputDialog, renderEditorDialog } from '../components/extension-ui-dialog.ts';
+import { setDialogRenderer, clearDialogRenderer } from '../lib/pi/extension-ui-handler.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 const NEAR_BOTTOM_PX = 100;
@@ -162,12 +164,199 @@ export function ChatPage(): Page {
   // (no cerca del fondo) está anotado en NOTAS.md. Cuando lo
   // implementemos, se setea un flag en el scroll listener.
 
+  // ─── Extension UI Dialog ────────────────────────────────
+  // Cuando una extensión de pi pide interacción (select, confirm, etc.),
+  // se renderiza un dialog al final del chat. El usuario responde y
+  // el dialog se reemplaza por un mensaje del usuario.
+
+  let activeDialogContainer: HTMLElement | null = null;
+
+  function renderExtensionDialog(dialog: ExtensionDialogState): void {
+    // Remover dialog anterior si existe
+    removeExtensionDialog();
+
+    activeDialogContainer = document.createElement('div');
+    activeDialogContainer.className = 'extension-dialog-wrapper';
+
+    let dialogElement: HTMLElement;
+
+    switch (dialog.method) {
+      case 'select':
+        dialogElement = renderSelectDialog(
+          { type: 'extension_ui_request', id: dialog.id, method: 'select', title: dialog.title, options: dialog.options ?? [] },
+          dialog.resolve,
+          dialog.reject,
+        );
+        break;
+      case 'confirm':
+        dialogElement = renderConfirmDialog(
+          { type: 'extension_ui_request', id: dialog.id, method: 'confirm', title: dialog.title, message: dialog.message ?? '' },
+          dialog.resolve,
+          dialog.reject,
+        );
+        break;
+      case 'input':
+        dialogElement = renderInputDialog(
+          { type: 'extension_ui_request', id: dialog.id, method: 'input', title: dialog.title, placeholder: dialog.placeholder },
+          dialog.resolve,
+          dialog.reject,
+        );
+        break;
+      case 'editor':
+        dialogElement = renderEditorDialog(
+          { type: 'extension_ui_request', id: dialog.id, method: 'editor', title: dialog.title, prefill: dialog.prefill },
+          dialog.resolve,
+          dialog.reject,
+        );
+        break;
+      default:
+        console.error(`[chat] Unknown extension dialog method: ${dialog.method}`);
+        dialog.reject();
+        return;
+    }
+
+    activeDialogContainer.appendChild(dialogElement);
+
+    // Insertar antes del sentinel para que scrollIntoView lo muestre
+    messagesInner.insertBefore(activeDialogContainer, endSentinel);
+
+    // Scroll al dialog
+    requestAnimationFrame(() => {
+      activeDialogContainer?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    });
+
+    // Escape para cancelar
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        document.removeEventListener('keydown', handleKeyDown);
+        dialog.reject();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Limpiar listener cuando el dialog se remueve
+    scope.add(() => document.removeEventListener('keydown', handleKeyDown));
+  }
+
+  function removeExtensionDialog(): void {
+    if (activeDialogContainer) {
+      activeDialogContainer.remove();
+      activeDialogContainer = null;
+    }
+  }
+
+  // Acumular respuestas del ask para mostrarlas como un solo bloque
+  // al final de todas las preguntas (no una por pregunta).
+  let askResponses: Array<{ question: string; answer: string }> = [];
+
+  // Registrar el renderer con el handler de extension-ui
+  setDialogRenderer((_method, request) => {
+    return new Promise((resolve, reject) => {
+      // Wrap resolve/reject para limpiar el dialog.
+      // NO agregamos messages del usuario — las respuestas se muestran
+      // como un bloque formateado al final.
+      const wrappedResolve = (value: Record<string, unknown>) => {
+        const answer = formatDialogResponse(request.method, value);
+        if (answer) {
+          askResponses.push({ question: request.title, answer });
+        }
+        appState.activeExtensionDialog.value = null;
+        resolve(value);
+      };
+
+      const wrappedReject = () => {
+        askResponses.push({ question: request.title, answer: '(cancelled)' });
+        appState.activeExtensionDialog.value = null;
+        reject();
+      };
+
+      appState.activeExtensionDialog.value = {
+        id: request.id,
+        method: request.method,
+        title: ('title' in request) ? request.title : '',
+        message: ('message' in request) ? request.message : undefined,
+        options: ('options' in request) ? request.options : undefined,
+        placeholder: ('placeholder' in request) ? request.placeholder : undefined,
+        prefill: ('prefill' in request) ? request.prefill : undefined,
+        resolve: wrappedResolve,
+        reject: wrappedReject,
+      };
+    });
+  });
+
+  // Cuando el dialog se cierra (se resuelve o cancela), si hay
+  // respuestas acumuladas, agregar un solo bloque formateado al chat.
+  scope.add(appState.activeExtensionDialog.subscribe((dialog) => {
+    if (dialog) {
+      renderExtensionDialog(dialog);
+    } else {
+      removeExtensionDialog();
+      // Mostrar respuestas acumuladas como un solo tool result
+      if (askResponses.length > 0) {
+        addAskResult(askResponses);
+        askResponses = [];
+      }
+    }
+  }));
+
   scope.add(appState.messages.subscribe(renderMessages));
 
   messagesContainer.append(messagesInner);
   root.append(messagesContainer);
 
-  return { root, dispose: () => scope.dispose() };
+  return {
+    root,
+    dispose: () => {
+      clearDialogRenderer();
+      appState.activeExtensionDialog.value = null;
+      scope.dispose();
+    },
+  };
+}
+
+/**
+ * Agregar el resultado de un ask tool como un solo tool result.
+ *
+ * En vez de agregar un message del usuario por cada respuesta,
+ * se muestra un bloque formateado con todas las preguntas y respuestas.
+ * Se ve como un output de tool, no como un message del usuario.
+ */
+function addAskResult(responses: Array<{ question: string; answer: string }>): void {
+  const id = `ask-result-${Date.now()}`;
+  const lines = responses.map(r => `**${r.question}** → ${r.answer}`);
+  const content = lines.join('\n');
+
+  const message = {
+    id,
+    role: 'toolResult' as const,
+    content,
+    timestamp: Date.now(),
+    toolResult: {
+      toolName: 'ask',
+      isError: false,
+    },
+  };
+  appState.messages.value = [...appState.messages.value, message];
+}
+
+/**
+ * Formatear la respuesta del dialog para mostrarla como mensaje del usuario.
+ *
+ * Convierte el objeto de respuesta a un string legible.
+ */
+function formatDialogResponse(method: string, value: Record<string, unknown>): string {
+  switch (method) {
+    case 'select':
+      return String(value.value ?? '');
+    case 'confirm':
+      return value.confirmed ? 'Sí' : 'No';
+    case 'input':
+      return String(value.value ?? '');
+    case 'editor':
+      return String(value.value ?? '');
+    default:
+      return JSON.stringify(value);
+  }
 }
 
 /** Renderiza la pantalla de bienvenida (estado vacío). */

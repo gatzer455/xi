@@ -689,3 +689,28 @@ pub struct ProviderInfo {
 **Prevención**: cuando se crea un struct nuevo que se retorna al frontend vía Tauri command, agregar el `#[serde(rename_all = "camelCase")]` desde el principio. Es 1 línea y previene el mismatch entero. Para los **argumentos** de los commands, Tauri 2 SÍ convierte snake_case → camelCase automáticamente, pero para **retornos** no.
 
 **Troubleshooting rápido**: si un campo que esperás ver en el frontend es `undefined`, lo más probable es que sea un mismatch de naming. Abrir el WebView DevTools, inspeccionar el JSON que llega via IPC, y comparar con el nombre que usa el TS.
+
+---
+
+## 14. pi en modo RPC no soporta permisos de tools (Etapa 5)
+
+**Hallazgo**: durante el cierre de la Etapa 5, descubrimos que **pi en modo RPC no tiene un mecanismo para que el frontend apruebe o deniegue tools antes de que se ejecuten**. El evento `tool_execution_start` llega **DESPUÉS** de que pi ya decidió ejecutar, y no hay un evento intermedio de `permission_request` en el JSONL.
+
+**Implicación**: la validación 4 de la Etapa 5 ("El usuario puede aprobar/denegar herramientas peligrosas") no se puede implementar con la versión actual de pi. xi no tiene control sobre qué tools ejecuta pi o no — pi corre como un proceso con los permisos del usuario y ejecuta bash/read/edit/write libremente.
+
+**Confirmado en la doc oficial** (`docs/security.md` de pi-coding-agent):
+> "Pi does not include a built-in sandbox. Built-in tools can read files, write files, edit files, and run shell commands with the permissions of the pi process."
+
+> "Non-interactive modes (`-p`, `--mode json`, and `--mode rpc`) do not show a trust prompt."
+
+**Lo que sí podemos hacer (futuro)**:
+
+1. **Extension de pi (más correcto)**: escribir una extension de pi que intercepta tools peligrosas (`bash`, `edit`, `write`) y emite un evento custom de `permission_request` en el JSONL antes de ejecutar. xi lo maneja con UI de approve/deny y responde con allow/deny. Trabajo: varios días. Requiere aprender la API de extensions de pi (TypeScript, corre dentro de pi).
+
+2. **Kill switch en xi (más rápido)**: botón de "abortar" en la UI que envía un `abort` command a pi cuando está ejecutando una tool. NO es prevent approve/deny, pero reacciona si el user ve algo mal. Trabajo: 1-2 horas. Aceptable para v2.
+
+3. **Gondolin sandbox (más seguro pero más invasivo)**: pi puede correr con un sandbox de micro-VM que aísla las tools del sistema host. NO es approve/deny interactivo, pero limita el daño si pi ejecuta algo destructivo. Trabajo: setup + config de Gondolin. Cambia el deploy (requiere Gondolin instalado).
+
+**Decisión de scope (Etapa 5)**: marcamos la etapa como completada con 3/4 validaciones. La 4ta se documenta como limitación upstream y se difiere a v2 cuando decidamos cuál opción tomar. Para el MVP, xi asume que el user usa pi en un entorno confiado (su propia máquina, un repo de su propiedad) — que es exactamente la posición oficial de pi.
+
+**Recomendación futura**: si esto es importante para usuarios no-técnicos, empezar por el kill switch (#2) por velocidad, y mientras tanto diseñar la extension (#1) como solución definitiva.

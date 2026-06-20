@@ -1,7 +1,22 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::{process::CommandEvent, ShellExt};
+use tokio::sync::oneshot;
+
+// ─── Pending Requests ────────────────────────────────────────────────────────
+
+/// Requests interactivos de extensiones de pi pendientes de respuesta.
+///
+/// Cada request tiene un id único (UUID) y un oneshot::Sender para
+/// enviar la respuesta de vuelta al task que lee stdout y escribe
+/// la respuesta a pi via stdin.
+pub type PendingRequests = Arc<Mutex<HashMap<String, oneshot::Sender<serde_json::Value>>>>;
+
+pub fn create_pending_requests() -> PendingRequests {
+    Arc::new(Mutex::new(HashMap::new()))
+}
 
 /// Retorna el directorio donde Tauri resolvió el sidecar `name` en
 /// el bundle actual. Se usa como `PI_PACKAGE_DIR` para que pi pueda
@@ -50,6 +65,8 @@ impl PiProcess {
         cwd: String,
         session_path: Option<String>,
         app: AppHandle,
+        pending_requests: PendingRequests,
+        process_state: PiProcessState,
     ) -> Result<(), String> {
         eprintln!(
             "[pi] spawn requested, cwd={}, session_path={:?}",
@@ -96,7 +113,12 @@ impl PiProcess {
             .spawn()
             .map_err(|e| format!("Failed to spawn pi sidecar: {}", e))?;
 
-        // Leer stdout/stderr en un task async y emitir eventos
+        // Leer stdout/stderr en un task async y emitir eventos.
+        //
+        // El reader intercepta `extension_ui_request` antes de emitir
+        // `pi:raw`. Por cada request, crea un oneshot channel y spawnea
+        // un task que espera la respuesta del frontend y la escribe a
+        // stdin de pi.
         eprintln!("[pi] sidecar spawned, waiting for stdout");
         let app_clone = app.clone();
         tauri::async_runtime::spawn(async move {
@@ -104,10 +126,61 @@ impl PiProcess {
                 match event {
                     CommandEvent::Stdout(line_bytes) => {
                         let line = String::from_utf8_lossy(&line_bytes).trim().to_string();
-                        eprintln!("[pi stdout] {}", line);
-                        if !line.is_empty() {
-                            let _ = app_clone.emit("pi:raw", line);
+                        if line.is_empty() {
+                            continue;
                         }
+                        eprintln!("[pi stdout] {}", line);
+
+                        // Interceptar extension_ui_request ANTES de emitir pi:raw
+                        if let Some(val) = try_parse_extension_ui_request(&line) {
+                            let id = val["id"].as_str().unwrap_or("").to_string();
+                            eprintln!("[extension-ui] intercepted request id={id}");
+
+                            let (tx, rx) = oneshot::channel();
+                            pending_requests.lock().unwrap().insert(id.clone(), tx);
+
+                            // Emitir al frontend para mostrar UI
+                            let _ = app_clone.emit("extension-ui-request", val);
+
+                            // Spawnear task que espera la respuesta y escribe a stdin
+                            let pending = pending_requests.clone();
+                            let proc = process_state.clone();
+                            let _app_task = app_clone.clone();
+                            let id_clone = id.clone();
+                            tauri::async_runtime::spawn(async move {
+                                // Esperar la respuesta del frontend sin timeout propio.
+                                // Pi ya tiene su propio timeout — si el usuario tarda mucho,
+                                // pi maneja el timeout y cierra la sesión.
+                                match rx.await {
+                                    Ok(response) => {
+                                        // Construir response con id y tipo, más los campos del response
+                                        let mut response_obj = serde_json::Map::new();
+                                        response_obj.insert("type".into(), serde_json::Value::String("extension_ui_response".into()));
+                                        response_obj.insert("id".into(), serde_json::Value::String(id_clone.clone()));
+                                        // Merge los campos del response del frontend
+                                        if let serde_json::Value::Object(map) = response {
+                                            for (k, v) in map {
+                                                response_obj.insert(k, v);
+                                            }
+                                        }
+                                        let response_json = serde_json::Value::Object(response_obj);
+                                        let mut process = proc.lock().unwrap();
+                                        if let Err(e) = process.send(&response_json.to_string()) {
+                                            eprintln!("[extension-ui] failed to write response: {e}");
+                                        }
+                                    }
+                                    Err(_) => {
+                                        // Channel closed — frontend dropped without responding
+                                        eprintln!("[extension-ui] channel closed for id={id_clone}");
+                                    }
+                                }
+                                pending.lock().unwrap().remove(&id_clone);
+                            });
+                            continue;
+                        }
+
+                        // Evento normal — emitir como pi:raw
+                        let _ = app_clone.emit("pi:raw", line);
                     }
                     CommandEvent::Stderr(line_bytes) => {
                         let line = String::from_utf8_lossy(&line_bytes).trim().to_string();
@@ -167,4 +240,21 @@ pub type PiProcessState = Arc<Mutex<PiProcess>>;
 
 pub fn create_pi_state() -> PiProcessState {
     Arc::new(Mutex::new(PiProcess::new()))
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/// Intentar parsear una línea JSONL como `extension_ui_request`.
+///
+/// Retorna `Some(Value)` si la línea es un request válido,
+/// `None` si no lo es (evento normal de pi).
+fn try_parse_extension_ui_request(line: &str) -> Option<serde_json::Value> {
+    let val = serde_json::from_str::<serde_json::Value>(line).ok()?;
+    if val.get("type").and_then(|t| t.as_str()) != Some("extension_ui_request") {
+        return None;
+    }
+    if val.get("id").is_none() || val.get("method").is_none() {
+        return None;
+    }
+    Some(val)
 }

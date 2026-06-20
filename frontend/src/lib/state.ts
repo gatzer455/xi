@@ -156,7 +156,30 @@ export const appState = {
   /** Mensaje legible solo cuando updateStatus === 'error'. En otros
    *  estados es null (no muestra error donde no lo hay). */
   updateError: signal<string | null>(null),
+
+  // ── Extension UI (Etapa 10) ─────────────────────────────
+  // Dialog activo de una extensión de pi. Cuando una extensión
+  // llama ctx.ui.select/confirm/input, se setea esta signal.
+  // El chat la renderiza al final de los mensajes. Cuando el
+  // usuario responde, se limpia.
+
+  /** Dialog activo de extensión. null = no hay dialog. */
+  activeExtensionDialog: signal<ExtensionDialogState | null>(null),
 };
+
+/** Estado del dialog de extensión activo. */
+export interface ExtensionDialogState {
+  id: string;
+  method: string;
+  title: string;
+  message?: string;
+  options?: string[];
+  placeholder?: string;
+  prefill?: string;
+  /** Resolve/reject para comunicar la respuesta al handler. */
+  resolve: (value: Record<string, unknown>) => void;
+  reject: () => void;
+}
 
 /** Tema de la UI. 'system' delega al media query del CSS. */
 export type ThemeMode = 'dark' | 'light' | 'system';

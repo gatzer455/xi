@@ -18,6 +18,7 @@ import { appState } from '../state.ts';
 import { addEntry } from '../debug-panel.ts';
 import { parsePiEvent } from './event-parser.ts';
 import { applyEvent } from './state-sync.ts';
+import { initExtensionUIHandler } from './extension-ui-handler.ts';
 
 let unlistenRaw: UnlistenFn | null = null;
 let unlistenErr: UnlistenFn | null = null;
@@ -25,6 +26,9 @@ let unlistenTerminated: UnlistenFn | null = null;
 
 export async function initPiConnection(): Promise<void> {
   destroyPiConnection();
+
+  // Iniciar handler de extension UI (select, confirm, input, etc.)
+  initExtensionUIHandler();
 
   unlistenRaw = await listen<string>('pi:raw', (event) => {
     const parsed = parsePiEvent(event.payload);
