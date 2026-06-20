@@ -89,12 +89,15 @@ function renderTabs(): HTMLElement {
 
     // Botón "+" al final de los tabs — va a la vista de sesiones
     // (historial) para elegir o crear una nueva conversación.
-    const newBtn = document.createElement('button');
-    newBtn.className = 'top-bar-new-btn';
-    newBtn.textContent = '+';
-    newBtn.title = 'Ver historial de conversaciones';
-    newBtn.addEventListener('click', () => navigate('sessions'));
-    container.append(newBtn);
+    // Solo visible si hay una sesión activa (no en welcome ni sessions vacío).
+    if (tabs.length > 0) {
+      const newBtn = document.createElement('button');
+      newBtn.className = 'top-bar-new-btn';
+      newBtn.textContent = '+';
+      newBtn.title = 'Ver historial de conversaciones';
+      newBtn.addEventListener('click', () => navigate('sessions'));
+      container.append(newBtn);
+    }
   };
 
   repaint();
