@@ -1,0 +1,93 @@
+/*
+ * temml.css — Estilos para temml (MathML) con Noto Sans Math.
+ *
+ * Noto Sans Math es sans-serif, combina con Adwaita Sans.
+ * La fuente está en public/NotoSansMath-Regular.ttf.
+ */
+
+@font-face {
+  font-family: 'Noto Sans Math';
+  src: url('/NotoSansMath-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+math {
+  font-family: 'Noto Sans Math', 'Adwaita Sans', sans;
+  font-style: normal;
+  font-weight: normal;
+  line-height: normal;
+  font-size-adjust: none;
+  text-indent: 0;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: "dtls" off;
+}
+
+math * {
+  border-color: currentColor;
+}
+
+/* display: block is necessary in Firefox and Safari. */
+math.tml-display {
+  display: block;
+  width: 100%;
+}
+
+math .mathscr {
+  font-family: "ssty1";
+}
+
+*.mathcal {
+  font-feature-settings: 'ss01';
+}
+
+/* Chromium prime glyph */
+mo.tml-prime {
+  font-feature-settings: 'ssty';
+}
+
+/* Cramped superscripts in WebKit */
+mfrac > :nth-child(2),
+msqrt,
+mover > :first-child {
+  math-shift: compact;
+}
+
+.menclose {
+  display: inline-block;
+  position: relative;
+  padding: 0.5ex 0ex;
+}
+
+/* flex-wrap for line-breaking in Chromium */
+math {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+math > mrow {
+  padding: 0.5ex 0ex;
+}
+
+/* Firefox */
+@-moz-document url-prefix() {
+  math { display: inline; }
+  math > mrow { padding: 0; }
+  mtd, mtable.tml-small mtd { padding-top: 0; padding-bottom: 0; }
+  mtable.tml-jot mtd { padding-top: 0.2ex; padding-bottom: 0; }
+}
+
+/* AMS environment auto-numbering via CSS counter. */
+.tml-eqn::before {
+  counter-increment: tmlEqnNo;
+  content: "(" counter(tmlEqnNo) ")";
+}
+
+body {
+  counter-reset: tmlEqnNo;
+}

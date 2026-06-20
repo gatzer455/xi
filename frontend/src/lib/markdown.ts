@@ -18,6 +18,7 @@
  */
 
 import MarkdownIt from 'markdown-it';
+import markdownItMath from 'markdown-it-math/temml';
 import hljs from 'highlight.js/lib/core';
 import bash from 'highlight.js/lib/languages/bash';
 import typescript from 'highlight.js/lib/languages/typescript';
@@ -49,6 +50,13 @@ const md: MarkdownIt = new MarkdownIt({
   html: false,
   linkify: true,
   typographer: false,
+}).use(markdownItMath, {
+  // Macros persistentes entre ecuaciones.
+  temmlOptions: { macros: {} },
+});
+
+// Configuración de highlight.js (después de crear md)。
+Object.assign(md.options, {
   highlight(code: string, lang: string): string {
     if (lang && hljs.getLanguage(lang)) {
       try {

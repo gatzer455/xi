@@ -15,6 +15,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // Target moderno para soportar top-level await (temml).
+    target: 'es2022',
   },
   server: {
     port: 5173,

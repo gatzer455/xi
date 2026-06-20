@@ -20,6 +20,10 @@ import '@fontsource/adwaita-sans';
 import '@fontsource/adwaita-mono/400.css';
 import '@fontsource/adwaita-mono/700.css';
 
+// MathML — temml para rendering de LaTeX en mensajes.
+// Noto Sans Math (sans-serif, combina con Adwaita Sans).
+import './styles/temml.css';
+
 import { appState } from './lib/state.ts';
 import { navigate } from './lib/nav.ts';
 import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';

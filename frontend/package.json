@@ -15,13 +15,15 @@
     "vite": "^6.0.0"
   },
   "dependencies": {
-    "@fontsource/adwaita-sans": "^5.2.1",
     "@fontsource/adwaita-mono": "^5.2.1",
+    "@fontsource/adwaita-sans": "^5.2.1",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.7.1",
-    "@tauri-apps/plugin-updater": "^2.0.0",
     "@tauri-apps/plugin-process": "^2.0.0",
+    "@tauri-apps/plugin-updater": "^2.0.0",
     "highlight.js": "^11.11.1",
-    "markdown-it": "^14.2.0"
+    "markdown-it": "^14.2.0",
+    "markdown-it-math": "^6.0.0",
+    "temml": "^0.13.3"
   }
 }
