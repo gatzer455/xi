@@ -25,6 +25,7 @@ import {
   setThinkingLevel,
   getAvailableModels,
   getPiVersion,
+  getPiState,
   setApiKey,
   testApiKey,
   getApiKey,
@@ -77,6 +78,14 @@ export function SettingsPage(): Page {
   // también lo hace al mount). Después de un save, esta misma función
   // se re-ejecuta para refrescar configuredProviders.
   void loadAuthStatus();
+
+  // Refrescar el estado de pi al abrir settings para que el modelo
+  // mostrado en el dropdown esté sincronizado con lo que pi tiene
+  // en memoria. Sin esto, el modelo puede estar desactualizado si
+  // el usuario cambió de sesión o pi restarteó con un default.
+  if (appState.activeTabId.value) {
+    void getPiState();
+  }
 
   // Back button: el shell del top bar sigue siendo el navegador principal.
   const back = document.createElement('button');
@@ -167,7 +176,7 @@ function renderProviderSection(scope: Scope): HTMLElement {
   control.className = 'settings-provider-control';
 
   let currentProvider: SupportedProviderId = getLastProvider();
-  const saveStatus = signal<{ kind: 'idle' } | { kind: 'saved' } | { kind: 'error'; message: string }>({ kind: 'idle' });
+  const saveStatus = signal<{ kind: 'idle' } | { kind: 'saved' } | { kind: 'tested' } | { kind: 'error'; message: string }>({ kind: 'idle' });
 
   const tabs = renderSegmented<SupportedProviderId>(
     SUPPORTED_PROVIDERS.map((p) => ({ value: p.id, label: p.label })),
@@ -363,7 +372,7 @@ function renderProviderSection(scope: Scope): HTMLElement {
     saveStatus.value = { kind: 'idle' };
     const errMsg = await testApiKey(currentProvider, key);
     if (errMsg === '') {
-      saveStatus.value = { kind: 'saved' };
+      saveStatus.value = { kind: 'tested' };
     } else {
       saveStatus.value = { kind: 'error', message: errMsg };
     }
@@ -450,6 +459,9 @@ function renderProviderSection(scope: Scope): HTMLElement {
     } else if (status.kind === 'saved') {
       feedback.classList.add('settings-provider-feedback--ok');
       feedback.textContent = '✓ Guardado';
+    } else if (status.kind === 'tested') {
+      feedback.classList.add('settings-provider-feedback--ok');
+      feedback.textContent = '✓ Funciona';
     } else {
       feedback.classList.add('settings-provider-feedback--err');
       feedback.textContent = `✗ ${status.message}`;
