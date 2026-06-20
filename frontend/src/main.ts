@@ -125,10 +125,12 @@ async function main(): Promise<void> {
   const debugContainer = initDebugPanel();
   document.body.append(debugContainer);
 
-  // 8. Decidir vista inicial: si pi está corriendo con cwd, chat;
+  // 8. Decidir vista inicial: si pi está corriendo con cwd, sessions;
   //    si no, welcome. El default de currentView es 'welcome'.
+  //    Siempre vamos a sessions (no a chat) para forzar al usuario
+  //    a elegir o crear una sesión antes de chatear.
   if (hasWorkingDir) {
-    navigate('chat');
+    navigate('sessions');
   }
 
   addEntry('system', 'xi ready');

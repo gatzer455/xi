@@ -81,8 +81,12 @@ export function SettingsPage(): Page {
   // Back button: el shell del top bar sigue siendo el navegador principal.
   const back = document.createElement('button');
   back.className = 'settings-back';
-  back.textContent = '← Volver al chat';
-  back.addEventListener('click', () => navigate('chat'));
+  back.textContent = '← Volver';
+  back.addEventListener('click', () => {
+    // Volver a la vista de donde el usuario vino.
+    // previousView se actualiza en navigate() antes de ir a settings.
+    navigate(appState.previousView.value);
+  });
   root.append(back);
 
   const title = document.createElement('h1');
@@ -90,13 +94,25 @@ export function SettingsPage(): Page {
   title.textContent = 'Configuración';
   root.append(title);
 
-  // Las 7 secciones en orden. "Proveedor" va primero: sin provider
-  // no hay modelo, así que la lógica de dependencias lo pone al tope.
-  // Cada sub-función recibe `scope` para registrar las suscripciones
-  // a signals. Al desmontar la page, scope.dispose() las limpia todas.
-  root.append(renderProviderSection(scope));
-  root.append(renderModelSection(scope));
-  root.append(renderThinkingSection());
+  // ─── Secciones de Modelo/Providers (solo con sesión activa) ───
+  // Estas secciones requieren pi corriendo con una sesión. Si no
+  // hay sesión activa, se ocultan — no tiene sentido configurar
+  // modelo si no hay a qué conectar.
+  const modelSections = document.createElement('div');
+  modelSections.className = 'settings-model-sections';
+  modelSections.append(renderProviderSection(scope));
+  modelSections.append(renderModelSection(scope));
+  modelSections.append(renderThinkingSection());
+  root.append(modelSections);
+
+  const updateModelSectionsVisibility = (): void => {
+    const hasSession = appState.activeTabId.value !== null;
+    modelSections.style.display = hasSession ? '' : 'none';
+  };
+  updateModelSectionsVisibility();
+  scope.add(appState.activeTabId.subscribe(updateModelSectionsVisibility));
+
+  // ─── Secciones siempre visibles ─────────────────────────────
   root.append(renderAppearanceSection());
   root.append(renderSessionSection(scope));
   root.append(renderUpdateSection(scope));

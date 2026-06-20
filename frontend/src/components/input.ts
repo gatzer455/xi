@@ -45,17 +45,19 @@ export function InputBar(): HTMLElement {
   sendBtn.disabled = true;
   sendBtn.addEventListener('click', send);
 
-  // Habilitar/deshabilitar según proyecto y streaming.
+  // Habilitar/deshabilitar según sesión activa y streaming.
+  // El input solo es visible cuando hay una sesión activa (tab abierta).
   const updateState = (): void => {
-    const hasProject = appState.workingDir.value !== null;
+    const hasSession = appState.activeTabId.value !== null;
     const streaming = appState.isStreaming.value;
-    const disabled = !hasProject || streaming;
+    const disabled = !hasSession || streaming;
 
+    bar.style.display = hasSession ? '' : 'none';
     textarea.disabled = disabled;
     sendBtn.disabled = disabled;
 
-    if (!hasProject) {
-      textarea.placeholder = 'Selecciona un proyecto primero';
+    if (!hasSession) {
+      textarea.placeholder = 'Selecciona una sesión primero';
     } else if (streaming) {
       textarea.placeholder = 'pi está respondiendo...';
     } else {
@@ -64,7 +66,7 @@ export function InputBar(): HTMLElement {
   };
 
   updateState();
-  appState.workingDir.subscribe(updateState);
+  appState.activeTabId.subscribe(updateState);
   appState.isStreaming.subscribe(updateState);
 
   bar.append(textarea, sendBtn);

@@ -17,6 +17,7 @@ import {
   deleteSession,
   renameSession,
   startPi,
+  stopPi,
   getPiMessages,
   newPiSession,
   getPiState,
@@ -125,8 +126,16 @@ function renderHeader(): HTMLElement {
 
   const backBtn = document.createElement('button');
   backBtn.className = 'sessions-back';
-  backBtn.textContent = '← Volver al chat';
-  backBtn.addEventListener('click', () => navigate('chat'));
+  backBtn.textContent = '← Volver';
+  backBtn.addEventListener('click', () => {
+    // Si hay una sesión activa, volver al chat. Si no, volver a welcome
+    // para elegir otro proyecto.
+    if (appState.activeTabId.value) {
+      navigate('chat');
+    } else {
+      navigate('welcome');
+    }
+  });
   header.append(backBtn);
 
   return header;
@@ -498,9 +507,14 @@ async function handleDelete(session: SessionInfo): Promise<void> {
   try {
     await deleteSession(session.path);
     if (isActive) {
-      // Reemplazar la sesión activa con una nueva (sin sessionPath).
-      const cwd = appState.workingDir.value;
-      if (cwd) await startPi(cwd);
+      // La sesión activa fue eliminada. Detener pi y limpiar tabs.
+      await stopPi();
+      appState.openTabs.value = appState.openTabs.value.filter(
+        t => t.id !== session.id,
+      );
+      appState.activeTabId.value = null;
+      appState.session.value = null;
+      appState.messages.value = [];
     }
     await loadSessions();
   } catch (err) {

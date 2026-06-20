@@ -13,5 +13,11 @@
 import { appState, type ViewName } from './state.ts';
 
 export function navigate(view: ViewName): void {
+  // Guardar la vista actual como anterior antes de cambiar.
+  // Excepción: si ya estamos en settings, no sobreescribir —
+  // el back button necesita saber de dónde vino originalmente.
+  if (appState.currentView.value !== 'settings') {
+    appState.previousView.value = appState.currentView.value;
+  }
   appState.currentView.value = view;
 }

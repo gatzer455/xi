@@ -97,6 +97,10 @@ export const appState = {
    *  suscribe y re-renderiza. */
   currentView: signal<ViewName>('welcome'),
 
+  /** Vista anterior. Se usa para que el botón "Volver" de settings
+   *  sepa a dónde regresar (welcome, sessions, o chat). */
+  previousView: signal<ViewName>('welcome'),
+
   /** Sesiones abiertas como tabs en el top bar (browser-shaped).
    *  Cada tab es una sesión que el usuario está viendo. `activeTabId`
    *  indica cuál está activa. `tabMessages` guarda los mensajes

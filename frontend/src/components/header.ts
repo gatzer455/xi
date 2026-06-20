@@ -161,11 +161,12 @@ function closeTab(tabId: string): void {
       setActiveTab(nextId);
       navigate('chat');
     } else {
-      // No quedan tabs. setActiveTab(null) deja messages vacíos
-      // y activeTabId en null. appState.session NO se toca — sigue
-      // reflejando la sesión que pi tiene cargada en memoria.
+      // No quedan tabs. Ir a sessions para que el usuario cree
+      // una nueva sesión. No a welcome — workingDir sigue activo.
       setActiveTab(null);
-      navigate('welcome');
+      appState.session.value = null;
+      appState.messages.value = [];
+      navigate('sessions');
     }
   }
 }

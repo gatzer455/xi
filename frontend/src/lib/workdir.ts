@@ -15,7 +15,7 @@
 
 import { open } from '@tauri-apps/plugin-dialog';
 import { appState } from './state.ts';
-import { startPi, stopPi } from './pi/index.ts';
+import { stopPi } from './pi/index.ts';
 import { addRecent } from './pi/tauri-commands.ts';
 
 /**
@@ -30,10 +30,9 @@ export async function openProject(path: string): Promise<void> {
   await stopPi();
   appState.workingDir.value = path;
   appState.messages.value = [];
-  await startPi(path);
-  // Si llegamos acá, el proyecto se abrió OK. Lo guardamos como
-  // reciente. Si `addRecent` falla, no es crítico — la app sigue
-  // funcionando, el usuario simplemente no lo ve en la welcome.
+  // NO arrancamos pi acá — pi se arranca cuando el usuario
+  // crea o selecciona una sesión en la pantalla de sessions.
+  // Esto evita spawnear pi sin session_path.
   addRecent(path).catch((err) => {
     console.error('Failed to save recent:', err);
   });

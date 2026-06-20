@@ -51,10 +51,17 @@ export function WelcomePage(): Page {
   // Auto-cerrar la welcome cuando se setea un workingDir. Esto pasa
   // cuando el usuario hace click en un card (openProject setea
   // workingDir) o cuando el flujo externo setea workingDir mientras
-  // la welcome está montada. Redirigimos a #/chat.
+  // la welcome está montada. Redirigimos a #/sessions para que el
+  // usuario cree o elija una sesión antes de chatear.
+  //
+  // El flag `initialDir` captura el valor de workingDir al mount.
+  // Si workingDir ya estaba seteado (ej: el usuario volvió a welcome
+  // desde sessions), NO navegamos — solo navegamos cuando workingDir
+  // CAMBIA de null a un valor (el usuario eligió un proyecto).
+  const initialDir = appState.workingDir.value;
   scope.add(appState.workingDir.subscribe((dir) => {
-    if (dir) {
-      navigate('chat');
+    if (dir && dir !== initialDir) {
+      navigate('sessions');
     }
   }));
 
