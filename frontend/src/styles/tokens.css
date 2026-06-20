@@ -501,55 +501,56 @@ code, pre { font-family: var(--font-mono); }
 /* ═══════════════════════════════════════════════════════
    CHAT BUBBLES
    ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════
+   CHAT MESSAGES
+   User: right-aligned, subtle bubble (secondary color)
+   Assistant: left-aligned, no bubble (text on page bg)
+   No avatars — clean, professional look (like Claude/Gemini)
+   ═══════════════════════════════════════════════════════ */
 .message {
   display: flex;
-  gap: var(--space-3);
   max-width: 100%;
 }
 
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+/* Avatar ocultado — mantener solo para compatibilidad */
 .message-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-sm);
-  flex-shrink: 0;
-}
-
-.message.user .message-avatar {
-  background: var(--color-accent);
-  color: white;
-}
-
-.message.assistant .message-avatar {
-  background: var(--color-surface-2);
-  color: var(--color-text-muted);
+  display: none;
 }
 
 .message-content {
   flex: 1;
   min-width: 0;
+  max-width: 700px;
+}
+
+.message.user .message-content {
+  max-width: 600px;
 }
 
 .message-bubble {
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   font-size: var(--text-base);
   line-height: 1.6;
   word-break: break-word;
 }
 
 .message.user .message-bubble {
-  background: var(--color-user-bubble);
-  border-bottom-left-radius: var(--radius-sm);
+  background: var(--color-secondary);
+  color: var(--color-text);
 }
 
 .message.assistant .message-bubble {
-  background: var(--color-ai-bubble);
-  border: 1px solid var(--color-border);
-  border-bottom-left-radius: var(--radius-sm);
+  background: transparent;
+  padding: 0;
 }
 
 /* Streaming cursor */

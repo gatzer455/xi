@@ -18,6 +18,16 @@ export default defineConfig({
     // Target moderno para soportar top-level await (temml).
     target: 'es2022',
   },
+  // esbuild target para dev server (top-level await).
+  esbuild: {
+    target: 'es2022',
+  },
+  // Optimización de dependencias: esbuild target para dev server.
+  optimizeDeps: {
+    esbuildOptions: {
+      target: 'es2022',
+    },
+  },
   server: {
     port: 5173,
     host: true,

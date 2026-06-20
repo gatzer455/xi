@@ -30,11 +30,7 @@ export function ChatBubble(message: ChatMessage): HTMLElement {
     return wrapper;
   }
 
-  // ═══ Avatar ═══
-  const avatar = document.createElement('div');
-  avatar.className = 'message-avatar';
-  avatar.textContent = message.role === 'user' ? '👤' : '✦';
-  wrapper.append(avatar);
+  // Avatar eliminado — diseño limpio sin avatares (como Claude/Gemini)
 
   // ═══ Content ═══
   const content = document.createElement('div');
