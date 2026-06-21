@@ -86,8 +86,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root deps
+        run: npm ci
+
       - name: Install frontend deps
         run: cd frontend && npm ci
+
+      - name: Build pi sidecar
+        run: ./scripts/build-pi.sh --target linux
+
+      - name: Build pi-sessions
+        run: ./scripts/build-pi-sessions.sh --target linux
 
       - name: Frontend tests
         run: cd frontend && npm run test:run
@@ -125,8 +137,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root deps
+        run: npm ci
+
       - name: Install frontend deps
         run: cd frontend && npm ci
+
+      - name: Build pi sidecar
+        run: ./scripts/build-pi.sh --target linux
+
+      - name: Build pi-sessions
+        run: ./scripts/build-pi-sessions.sh --target linux
 
       - name: Build frontend
         run: cd frontend && npm run build
@@ -167,11 +191,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root deps
+        run: npm ci
+
       - name: Install frontend deps
         run: cd frontend && npm ci
 
       - name: Install E2E deps
         run: cd e2e && npm ci
+
+      - name: Build pi sidecar
+        run: ./scripts/build-pi.sh --target linux
+
+      - name: Build pi-sessions
+        run: ./scripts/build-pi-sessions.sh --target linux
 
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked
