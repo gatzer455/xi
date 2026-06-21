@@ -24,25 +24,24 @@ export function ChatBubble(message: ChatMessage): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = `message ${message.role}`;
 
-  // toolResult no tiene avatar — es un resultado anidado, no un turno.
+  // toolResult se renderiza como mensaje separado (fiel al JSONL de pi)
   if (message.role === 'toolResult') {
-    wrapper.append(renderToolResultCard(message));
+    const result = renderToolResultFromMessage(message);
+    if (result) wrapper.append(result);
     return wrapper;
   }
-
-  // Avatar eliminado — diseño limpio sin avatares (como Claude/Gemini)
 
   // ═══ Content ═══
   const content = document.createElement('div');
   content.className = 'message-content';
 
   if (message.role === 'assistant') {
-    // 1. Thinking (colapsable, primero) — ver R2
+    // 1. Thinking (colapsable, primero)
     if (message.thinking && message.thinking.length > 0) {
       content.append(ThinkingBlockUI(message.thinking));
     }
 
-    // 2. Tool calls (colapsable, después del thinking) — ver R3
+    // 2. Tool calls (colapsados, después del thinking)
     if (message.toolCalls && message.toolCalls.length > 0) {
       message.toolCalls.forEach((tc) => content.append(renderToolCall(tc)));
     }
@@ -84,22 +83,20 @@ export function ChatBubble(message: ChatMessage): HTMLElement {
  * es un mensaje aparte, no se acopla al assistant message. Background
  * usa los tokens pi-light (toolSuccessBg/toolErrorBg).
  */
-function renderToolResultCard(message: ChatMessage): HTMLElement {
+function renderToolResultFromMessage(message: ChatMessage): HTMLElement | null {
+  if (!message.toolResult) return null;
+
+  const isError = message.toolResult.isError;
   const details = document.createElement('details');
-  details.className = 'tool-result-card';
-  if (message.toolResult?.isError) details.classList.add('is-error');
+  details.className = `tool-result-card${isError ? ' is-error' : ''}`;
+  details.open = false; // Colapsado por default
 
   const summary = document.createElement('summary');
   summary.className = 'tool-result-header';
 
-  const icon = document.createElement('span');
-  icon.className = 'tool-result-icon';
-  icon.textContent = message.toolResult?.isError ? '✗' : '✓';
-  summary.append(icon);
-
   const name = document.createElement('span');
   name.className = 'tool-result-name';
-  name.textContent = `Result: ${message.toolResult?.toolName ?? 'tool'}`;
+  name.textContent = `Result: ${message.toolResult.toolName}`;
   summary.append(name);
 
   details.append(summary);
@@ -127,15 +124,10 @@ function renderToolCall(tc: ToolCall): HTMLElement {
   const state = computeStatus(tc);
   const details = document.createElement('details');
   details.className = `tool-call tool-call--${state}`;
-  details.open = false; // Colapsado por default (background ya da info)
+  details.open = false; // Colapsado por default
 
   const summary = document.createElement('summary');
   summary.className = 'tool-call-header';
-
-  const icon = document.createElement('span');
-  icon.className = 'tool-call-icon';
-  icon.textContent = TOOL_ICONS[tc.name] ?? '⚡';
-  summary.append(icon);
 
   const name = document.createElement('span');
   name.className = 'tool-call-name';
@@ -150,13 +142,11 @@ function renderToolCall(tc: ToolCall): HTMLElement {
 
   details.append(summary);
 
-  // Body = el output de la tool (result). Solo si hay result.
-  if (tc.result !== undefined) {
-    const body = document.createElement('pre');
-    body.className = 'tool-call-body';
-    body.textContent = extractToolOutput(tc.result);
-    details.append(body);
-  }
+  // Body = argumentos de la tool (expandible)
+  const body = document.createElement('pre');
+  body.className = 'tool-call-body';
+  body.textContent = JSON.stringify(tc.arguments, null, 2);
+  details.append(body);
 
   return details;
 }
@@ -206,11 +196,7 @@ function computeStatus(tc: ToolCall): 'pending' | 'success' | 'error' {
 }
 
 function statusGlyph(state: 'pending' | 'success' | 'error'): string {
-  switch (state) {
-    case 'pending': return '●';
-    case 'success': return '✓';
-    case 'error': return '✗';
-  }
+  return ''; // Sin icons — solo el color indica el estado
 }
 
 function statusLabel(state: 'pending' | 'success' | 'error'): string {
@@ -229,12 +215,4 @@ function statusLabel(state: 'pending' | 'success' | 'error'): string {
  * - find/grep: `⌕` (buscar)
  * - ls: `≡` (listar)
  */
-const TOOL_ICONS: Record<string, string> = {
-  bash: '$',
-  read: '→',
-  write: '✎',
-  edit: '✎',
-  find: '⌕',
-  grep: '⌕',
-  ls: '≡',
-};
+// Icons eliminados — diseño limpio, solo color indica estado

@@ -33,26 +33,26 @@ export function formatToolCallHeader(tc: ToolCall): string {
 
   switch (name) {
     case 'bash':
-      return `$ ${strArg(args, 'command') ?? '...'}`;
+      return `Tool: $ ${strArg(args, 'command') ?? '...'}`;
 
     case 'read': {
       const path = strArg(args, 'file_path') ?? strArg(args, 'path') ?? '?';
       const range = formatReadLineRange(args);
-      return `read ${path}${range}`;
+      return `Tool: read ${path}${range}`;
     }
 
     case 'write':
-      return `write ${strArg(args, 'file_path') ?? strArg(args, 'path') ?? '?'}`;
+      return `Tool: write ${strArg(args, 'file_path') ?? strArg(args, 'path') ?? '?'}`;
 
     case 'edit':
-      return `edit ${strArg(args, 'file_path') ?? strArg(args, 'path') ?? '?'}`;
+      return `Tool: edit ${strArg(args, 'file_path') ?? strArg(args, 'path') ?? '?'}`;
 
     case 'find': {
       const pattern = strArg(args, 'pattern') ?? '?';
       const path = strArg(args, 'path') ?? '.';
       const limit = args?.['limit'];
       const limitSuffix = limit !== undefined ? ` (limit ${limit})` : '';
-      return `find ${pattern} in ${path}${limitSuffix}`;
+      return `Tool: find ${pattern} in ${path}${limitSuffix}`;
     }
 
     case 'grep': {
@@ -62,29 +62,19 @@ export function formatToolCallHeader(tc: ToolCall): string {
       const limit = args?.['limit'];
       const globSuffix = glob ? ` (${glob})` : '';
       const limitSuffix = limit !== undefined ? ` limit ${limit}` : '';
-      return `grep /${pattern}/ in ${path}${globSuffix}${limitSuffix}`;
+      return `Tool: grep /${pattern}/ in ${path}${globSuffix}${limitSuffix}`;
     }
 
     case 'ls': {
       const path = strArg(args, 'path') ?? '.';
       const limit = args?.['limit'];
       const limitSuffix = limit !== undefined ? ` (limit ${limit})` : '';
-      return `ls ${path}${limitSuffix}`;
+      return `Tool: ls ${path}${limitSuffix}`;
     }
 
     default: {
-      // Heurística genérica: 1 solo arg string → `<name> <arg>`. Si no, JSON.
-      if (args) {
-        const stringArgs = Object.values(args).filter(v => typeof v === 'string');
-        if (stringArgs.length === 1) {
-          return `${name} ${stringArgs[0]}`;
-        }
-      }
-      const json = JSON.stringify(args ?? {});
-      const truncated = json.length > JSON_FALLBACK_MAX_CHARS
-        ? json.slice(0, JSON_FALLBACK_MAX_CHARS) + '…'
-        : json;
-      return `${name} ${truncated}`;
+      // Para tools custom (como ask): solo nombre, sin arguments en el header
+      return `Tool: ${name}`;
     }
   }
 }
