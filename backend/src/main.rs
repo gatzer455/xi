@@ -3,7 +3,7 @@
 
 mod commands;
 
-use commands::pi_process::{create_pi_state, create_pending_requests};
+use commands::pi_process::{create_pending_requests, create_pi_state};
 use tauri::Manager;
 
 fn main() {

@@ -196,8 +196,8 @@ async fn write_auth_map(
     }
 
     // 2. Serializar.
-    let serialized = serde_json::to_string_pretty(map)
-        .map_err(|e| format!("No se puede serializar: {e}"))?;
+    let serialized =
+        serde_json::to_string_pretty(map).map_err(|e| format!("No se puede serializar: {e}"))?;
 
     // 3. Atomic write: tmp + rename.
     let tmp_path = path.with_extension("json.tmp");

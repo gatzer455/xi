@@ -11,10 +11,10 @@ use std::path::Path;
 #[derive(Serialize, Deserialize)]
 pub struct FileEntry {
     pub name: String,
-    pub path: String,    // relativo al workingDir
+    pub path: String, // relativo al workingDir
     pub is_dir: bool,
     pub size: u64,
-    pub modified: u64,   // timestamp en ms
+    pub modified: u64, // timestamp en ms
 }
 
 /// Directorios y archivos que se ocultan en el explorador.
@@ -32,12 +32,9 @@ const EXCLUDED: &[&str] = &[
 
 /// Extensiones de archivos binarios que no se pueden mostrar.
 const BINARY_EXTENSIONS: &[&str] = &[
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".svg",
-    ".mp3", ".mp4", ".wav", ".avi", ".mov",
-    ".zip", ".tar", ".gz", ".7z", ".rar",
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx",
-    ".woff", ".woff2", ".ttf", ".otf", ".eot",
-    ".so", ".dll", ".dylib",
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".svg", ".mp3", ".mp4", ".wav", ".avi",
+    ".mov", ".zip", ".tar", ".gz", ".7z", ".rar", ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+    ".woff", ".woff2", ".ttf", ".otf", ".eot", ".so", ".dll", ".dylib",
 ];
 
 /// Listar archivos de un directorio.
@@ -100,7 +97,12 @@ pub fn list_files(path: String) -> Result<Vec<FileEntry>, String> {
         }
 
         // Construir path relativo al directorio actual
-        let rel_path = entry.path().strip_prefix(dir).unwrap_or(&entry.path()).to_string_lossy().to_string();
+        let rel_path = entry
+            .path()
+            .strip_prefix(dir)
+            .unwrap_or(&entry.path())
+            .to_string_lossy()
+            .to_string();
 
         result.push(FileEntry {
             name: name_str,
@@ -141,7 +143,10 @@ pub fn read_file(path: String) -> Result<String, String> {
     }
 
     // Verificar que no sea binario
-    let ext = file.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
+    let ext = file
+        .extension()
+        .map(|e| e.to_string_lossy().to_string())
+        .unwrap_or_default();
     if BINARY_EXTENSIONS.contains(&format!(".{}", ext).as_str()) {
         return Err("Archivo binario no soportado".to_string());
     }
@@ -290,7 +295,11 @@ mod tests {
     #[test]
     fn write_file_crea_directorios_padre() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("a/b/c/archivo.txt").to_string_lossy().to_string();
+        let path = dir
+            .path()
+            .join("a/b/c/archivo.txt")
+            .to_string_lossy()
+            .to_string();
 
         write_file(path.clone(), "contenido".to_string()).unwrap();
 

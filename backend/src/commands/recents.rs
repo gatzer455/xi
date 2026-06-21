@@ -127,8 +127,7 @@ pub async fn get_recents(app: tauri::AppHandle) -> Result<Vec<Recent>, String> {
 
 #[tauri::command]
 pub async fn add_recent(path: String, app: tauri::AppHandle) -> Result<(), String> {
-    let abs = fs::canonicalize(&path)
-        .map_err(|e| format!("invalid path {path:?}: {e}"))?;
+    let abs = fs::canonicalize(&path).map_err(|e| format!("invalid path {path:?}: {e}"))?;
 
     let path_str = abs.to_string_lossy().to_string();
     let name = abs
@@ -190,13 +189,32 @@ mod tests {
     #[test]
     fn dedup_moves_to_top() {
         let mut f = RecentsFile::empty();
-        f.recents.push(Recent { path: "/a".into(), last_opened: 1, name: "a".into() });
-        f.recents.push(Recent { path: "/b".into(), last_opened: 2, name: "b".into() });
-        f.recents.push(Recent { path: "/c".into(), last_opened: 3, name: "c".into() });
+        f.recents.push(Recent {
+            path: "/a".into(),
+            last_opened: 1,
+            name: "a".into(),
+        });
+        f.recents.push(Recent {
+            path: "/b".into(),
+            last_opened: 2,
+            name: "b".into(),
+        });
+        f.recents.push(Recent {
+            path: "/c".into(),
+            last_opened: 3,
+            name: "c".into(),
+        });
 
         // Simular el flujo de add_recent con /b
         f.recents.retain(|r| r.path != "/b");
-        f.recents.insert(0, Recent { path: "/b".into(), last_opened: 99, name: "b".into() });
+        f.recents.insert(
+            0,
+            Recent {
+                path: "/b".into(),
+                last_opened: 99,
+                name: "b".into(),
+            },
+        );
         f.recents.truncate(MAX_RECENTS);
 
         assert_eq!(f.recents.len(), 3);
