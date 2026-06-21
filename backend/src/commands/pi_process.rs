@@ -84,11 +84,7 @@ impl PiProcess {
         self.kill();
 
         // Construir args base + session opcional
-        let mut args: Vec<String> = vec![
-            "--mode".into(),
-            "rpc".into(),
-            "--no-themes".into(),
-        ];
+        let mut args: Vec<String> = vec!["--mode".into(), "rpc".into(), "--no-themes".into()];
         if let Some(path) = &session_path {
             args.push("--session".into());
             args.push(path.clone());
@@ -155,8 +151,16 @@ impl PiProcess {
                                     Ok(response) => {
                                         // Construir response con id y tipo, más los campos del response
                                         let mut response_obj = serde_json::Map::new();
-                                        response_obj.insert("type".into(), serde_json::Value::String("extension_ui_response".into()));
-                                        response_obj.insert("id".into(), serde_json::Value::String(id_clone.clone()));
+                                        response_obj.insert(
+                                            "type".into(),
+                                            serde_json::Value::String(
+                                                "extension_ui_response".into(),
+                                            ),
+                                        );
+                                        response_obj.insert(
+                                            "id".into(),
+                                            serde_json::Value::String(id_clone.clone()),
+                                        );
                                         // Merge los campos del response del frontend
                                         if let serde_json::Value::Object(map) = response {
                                             for (k, v) in map {
@@ -166,12 +170,16 @@ impl PiProcess {
                                         let response_json = serde_json::Value::Object(response_obj);
                                         let mut process = proc.lock().unwrap();
                                         if let Err(e) = process.send(&response_json.to_string()) {
-                                            eprintln!("[extension-ui] failed to write response: {e}");
+                                            eprintln!(
+                                                "[extension-ui] failed to write response: {e}"
+                                            );
                                         }
                                     }
                                     Err(_) => {
                                         // Channel closed — frontend dropped without responding
-                                        eprintln!("[extension-ui] channel closed for id={id_clone}");
+                                        eprintln!(
+                                            "[extension-ui] channel closed for id={id_clone}"
+                                        );
                                     }
                                 }
                                 pending.lock().unwrap().remove(&id_clone);

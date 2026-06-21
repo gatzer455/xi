@@ -22,12 +22,15 @@ use std::path::PathBuf;
 /// para la feature de gestión de sesiones (Etapa 4). Si falta, se
 /// loguea un warning y la app compila, pero esa feature no funcionará.
 fn main() {
-    tauri_build::build();
+    // Copiar sidecars ANTES de tauri_build::build() porque Tauri
+    // verifica que externalBin exista durante su build.
     let paths = resolve_paths();
     copy_sidecar(&paths);
     copy_pi_sessions(&paths);
     copy_theme_dir(&paths);
     copy_pi_package_json(&paths);
+
+    tauri_build::build();
 }
 
 struct BuildPaths {
@@ -53,7 +56,20 @@ fn resolve_paths() -> BuildPaths {
 }
 
 fn copy_sidecar(paths: &BuildPaths) {
-    let source = paths.manifest_dir.join(&paths.sidecar_name);
+    // Buscar en binaries/ (ubicación actual) o en manifest_dir (legacy)
+    let source = if paths
+        .manifest_dir
+        .join("binaries")
+        .join(&paths.sidecar_name)
+        .exists()
+    {
+        paths
+            .manifest_dir
+            .join("binaries")
+            .join(&paths.sidecar_name)
+    } else {
+        paths.manifest_dir.join(&paths.sidecar_name)
+    };
     let dest = paths.target_profile_dir.join(&paths.sidecar_name);
 
     println!("cargo:rerun-if-changed={}", source.display());
@@ -87,7 +103,20 @@ fn copy_sidecar(paths: &BuildPaths) {
 /// compilado no existe, se loguea un warning (igual que con `pi`) y el
 /// fallo se verá en runtime.
 fn copy_pi_sessions(paths: &BuildPaths) {
-    let source = paths.manifest_dir.join(&paths.pi_sessions_name);
+    // Buscar en binaries/ (ubicación actual) o en manifest_dir (legacy)
+    let source = if paths
+        .manifest_dir
+        .join("binaries")
+        .join(&paths.pi_sessions_name)
+        .exists()
+    {
+        paths
+            .manifest_dir
+            .join("binaries")
+            .join(&paths.pi_sessions_name)
+    } else {
+        paths.manifest_dir.join(&paths.pi_sessions_name)
+    };
     let dest = paths.target_profile_dir.join("pi-sessions");
 
     println!("cargo:rerun-if-changed={}", source.display());
@@ -134,7 +163,11 @@ fn copy_theme_dir(paths: &BuildPaths) {
     let entries = match fs::read_dir(&source_dir) {
         Ok(e) => e,
         Err(err) => {
-            println!("cargo:warning=Failed to read {}: {}", source_dir.display(), err);
+            println!(
+                "cargo:warning=Failed to read {}: {}",
+                source_dir.display(),
+                err
+            );
             return;
         }
     };
@@ -144,7 +177,9 @@ fn copy_theme_dir(paths: &BuildPaths) {
         if !path.is_file() {
             continue;
         }
-        let Some(name) = path.file_name() else { continue };
+        let Some(name) = path.file_name() else {
+            continue;
+        };
         let dest = dest_dir.join(name);
         copy_if_newer(&path, &dest);
     }

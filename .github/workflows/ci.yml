@@ -50,6 +50,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Build pi sidecar (needed for clippy — Tauri valida externalBin)
+        run: ./scripts/build-pi.sh --target linux
+
+      - name: Build pi-sessions
+        run: ./scripts/build-pi-sessions.sh --target linux
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Build frontend (needed for clippy — --all-targets incluye tests que requieren frontendDist)
+        run: cd frontend && npm run build
+
       - name: cargo fmt
         run: cargo fmt --all --manifest-path backend/Cargo.toml -- --check
 
@@ -86,8 +104,23 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root deps
+        run: npm ci
+
       - name: Install frontend deps
         run: cd frontend && npm ci
+
+      - name: Build pi sidecar
+        run: ./scripts/build-pi.sh --target linux
+
+      - name: Build pi-sessions
+        run: ./scripts/build-pi-sessions.sh --target linux
+
+      - name: Build frontend (needed for cargo test — Tauri requiere frontendDist)
+        run: cd frontend && npm run build
 
       - name: Frontend tests
         run: cd frontend && npm run test:run
@@ -125,8 +158,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root deps
+        run: npm ci
+
       - name: Install frontend deps
         run: cd frontend && npm ci
+
+      - name: Build pi sidecar
+        run: ./scripts/build-pi.sh --target linux
+
+      - name: Build pi-sessions
+        run: ./scripts/build-pi-sessions.sh --target linux
 
       - name: Build frontend
         run: cd frontend && npm run build
@@ -141,6 +186,10 @@ jobs:
   # ──────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
+    # Nota: los tests básicos (app, welcome, settings) no requieren
+    # pi con API keys. Solo sessions.spec.ts necesita pi-sessions
+    # sidecar, que se compila en CI.
+    # Si algún test falla, se reintenta 1 vez (config en wdio.conf.ts).
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -165,13 +214,28 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf webkit2gtk-driver
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root deps
+        run: npm ci
 
       - name: Install frontend deps
         run: cd frontend && npm ci
 
       - name: Install E2E deps
         run: cd e2e && npm ci
+
+      - name: Build pi sidecar
+        run: ./scripts/build-pi.sh --target linux
+
+      - name: Build pi-sessions
+        run: ./scripts/build-pi-sessions.sh --target linux
+
+      - name: Build frontend (needed for Tauri dev mode)
+        run: cd frontend && npm run build
 
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked

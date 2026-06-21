@@ -83,8 +83,7 @@ fn resolve_sidecar_path(_app: &AppHandle) -> Result<PathBuf, String> {
     // En dev es `target/debug/xi-backend`, en producción es el
     // binario empaquetado. El sidecar `pi-sessions` está en el
     // mismo directorio (Tauri lo copia ahí durante el build).
-    let exe = std::env::current_exe()
-        .map_err(|e| format!("failed to resolve current exe: {e}"))?;
+    let exe = std::env::current_exe().map_err(|e| format!("failed to resolve current exe: {e}"))?;
 
     let exe_dir = exe
         .parent()
@@ -131,9 +130,8 @@ async fn run_pi_sessions(args: Vec<String>, app: &AppHandle) -> Result<String, S
     // `Command::output()` es bloqueante (espera a que el proceso
     // termine). Lo ejecutamos en un thread dedicado vía
     // `tokio::task::spawn_blocking` para no congelar el async runtime.
-    let output_fut = tokio::task::spawn_blocking(move || {
-        Command::new(&bin_path).args(&args).output()
-    });
+    let output_fut =
+        tokio::task::spawn_blocking(move || Command::new(&bin_path).args(&args).output());
 
     let output = match timeout(SUBPROCESS_TIMEOUT, output_fut).await {
         // timeout → Elapsed
@@ -318,6 +316,7 @@ mod tests {
 
     /// Campos opcionales presentes.
     #[test]
+    #[allow(clippy::useless_format)] // {{ y }} son escapes de format! para {} en JSON
     fn parse_json_con_campos_opcionales_presentes() {
         let json = format!(
             r#"{{"sessions":[{{
