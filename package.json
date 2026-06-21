@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npx tauri dev",
     "build": "npx tauri build",
+    "tauri": "npx tauri",
     "build-pi": "./scripts/build-pi.sh",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && cargo run",
