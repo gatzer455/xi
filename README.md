@@ -1,16 +1,16 @@
 # xi
 
-Interfaz de escritorio para [pi](https://github.com/earendil-works/pi-coding-agent), dirigida a personas sin conocimientos técnicos. Tauri 2 + Vanilla TypeScript + pi como motor de procesamiento de lenguaje natural.
+Interfaz de escritorio para [pi](https://github.com/earendil-works/pi-coding-agent), dirigida a personas sin conocimientos técnicos. Tauri 2 + Vanilla TypeScript.
 
-xi resuelve un problema concreto: pi funciona desde la terminal, lo cual excluye a usuarios que no conocen ese entorno. Esta aplicación abre una ventana nativa donde cualquier persona puede conversar con pi, gestionar sesiones, configurar proveedores de inteligencia artificial y explorar archivos de su proyecto.
+xi no es un producto independiente: es la ventana que pi necesitaba para llegar a personas que no usan la terminal. Pi es el motor — xi es la interfaz. Todo el procesamiento de lenguaje natural, la gestión de sesiones y la inteligencia artificial la hace pi. xi se encarga de mostrarle al usuario una pantalla amigable donde puede conversar con pi sin preocuparse de la terminal, los comandos o la configuración técnica.
 
-La aplicación es opinionada: viene con las configuraciones por defecto del desarrollador de xi. Esto significa que la aplicacion ya viene con una configuración especifica, que sin embargo es cambiable si uno ya entiende pi. Si el usuario quiere cambiar algo, puede hacerlo desde la pantalla de ajustes, pero no es obligatorio.
+La aplicación es opinionada: viene con las configuraciones por defecto del desarrollador de xi. Esto significa que la aplicación ya viene con una configuración específica, que sin embargo es cambiable si uno ya entiende pi. Si el usuario quiere cambiar algo, puede hacerlo desde la pantalla de ajustes, pero no es obligatorio.
 
 ---
 
 ## Requisitos previos
 
-Antes de instalar xi, necesitás:
+Antes de instalar xi, necesitas:
 
 - **Node.js** v18 o superior (recomendado: v22)
 - **Rust** 1.77.2 o superior (recomendado: estable actual)

@@ -103,8 +103,8 @@ function renderHeader(): HTMLElement {
   const subtitle = document.createElement('p');
   subtitle.className = 'welcome-subtitle';
   subtitle.textContent =
-    'Xi es un agente de código con IA. Abrí un proyecto y pedile lo que necesites: ' +
-    'explicarte el código, agregar tests, refactorizar, lo que sea.';
+    'Xi es un asistente de inteligencia artificial. Abre un proyecto y pídele lo que necesites: ' +
+    'redactar documentos, analizar archivos, responder preguntas, lo que necesites.';
   header.append(subtitle);
 
   return header;

@@ -93,7 +93,7 @@ components:
 
 ## Visual Theme & Atmosphere
 
-xi es una app de escritorio para interactuar con un agente de código AI, dirigida a usuarios no-técnicos.
+xi es una app de escritorio para interactuar con un asistente de inteligencia artificial, dirigida a usuarios no-técnicos.
 
 **Personalidad:** Amigable pero profesional. No es un terminal, no es una app genérica. Es una herramienta que se siente accesible pero seria.
 

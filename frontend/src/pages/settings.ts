@@ -233,13 +233,13 @@ function renderProviderSection(scope: Scope): HTMLElement {
     const active = findProvider(configured);
     if (active && active.hasKey) {
       const masked = `sk-***${active.last4 ?? '****'}`;
-      keyHint.textContent = `Ya tenés una key guardada (${masked}). Pegá una nueva solo si querés cambiarla.`;
+      keyHint.textContent = `Ya tienes una key guardada (${masked}). Pega una nueva solo si quieres cambiarla.`;
       keyHint.style.display = 'block';
-      keyInput.placeholder = `Actual: ${masked} — pegá una nueva para cambiar`;
+      keyInput.placeholder = `Actual: ${masked} — pega una nueva para cambiar`;
       eyeBtn.style.display = 'inline-block';
       deleteBtn.style.display = 'inline-block';
     } else if (active && !active.hasKey) {
-      keyHint.textContent = 'Este provider está configurado con OAuth (no editable desde xi). Usá `pi login` en una terminal para cambiarlo.';
+      keyHint.textContent = 'Este provider está configurado con OAuth (no editable desde xi). Usa `pi login` en una terminal para cambiarlo.';
       keyHint.style.display = 'block';
       keyInput.placeholder = 'OAuth — no editable';
       eyeBtn.style.display = 'none';
@@ -477,7 +477,7 @@ function renderProviderSection(scope: Scope): HTMLElement {
 
   return createSection({
     title: 'Proveedor',
-    description: 'Tu modelo de lenguaje. Pegá la API key del provider que querés usar.',
+    description: 'Tu modelo de lenguaje. Pega la API key del provider que quieras usar.',
     control,
   });
 }
