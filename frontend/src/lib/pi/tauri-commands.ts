@@ -15,7 +15,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { addEntry } from '../debug-panel.ts';
-import type { Recent, SessionInfo } from './types.ts';
+import type { ListSessionsResult, Recent, SessionInfo } from './types.ts';
 import type { ThinkingLevel, FileEntry } from '../state.ts';
 
 // Helper: envuelve invoke con logging de éxito y error. Si la llamada
@@ -84,10 +84,10 @@ export async function getPiStatus(): Promise<PiStatus> {
 // ───────────────────────────────────────────────────────
 
 /** Lista las sesiones del directorio de trabajo. */
-export async function listSessions(cwd: string): Promise<SessionInfo[]> {
+export async function listSessions(cwd: string): Promise<ListSessionsResult> {
   addEntry('out', `list_sessions cwd=${cwd}`);
   return await loggedInvoke('list_sessions', () =>
-    invoke<SessionInfo[]>('list_sessions', { cwd }),
+    invoke<ListSessionsResult>('list_sessions', { cwd }),
   );
 }
 

@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::Value;
 use tauri::State;
 
@@ -19,23 +19,6 @@ pub struct ExtensionUIRequest {
     pub request_type: String,
     pub id: String,
     pub method: String,
-    #[serde(flatten)]
-    pub payload: Value,
-}
-
-/// Response que xi envía de vuelta a pi via stdin.
-///
-/// El campo `id` debe matchear el de la request original.
-/// Los campos adicionales varían por method:
-/// - select: { "value": "opcion elegida" }
-/// - confirm: { "confirmed": true/false }
-/// - input: { "value": "texto escrito" }
-/// - editor: { "value": "texto editado" }
-#[derive(Debug, Serialize)]
-pub struct ExtensionUIResponse {
-    #[serde(rename = "type")]
-    pub response_type: String,
-    pub id: String,
     #[serde(flatten)]
     pub payload: Value,
 }

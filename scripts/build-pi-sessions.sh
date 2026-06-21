@@ -35,10 +35,11 @@ EOF
 echo "Instalando @earendil-works/pi-coding-agent..."
 npm install @earendil-works/pi-coding-agent@latest >/dev/null 2>&1
 
-# Copiamos el entry point al BUILD_DIR para que bun resuelva el import
-# `@earendil-works/pi-coding-agent` desde `node_modules/` adyacente.
-# (Mismo truco que usa build-pi.sh con `pi-entry.js`.)
+# Copiamos el entry point y el helper module al BUILD_DIR para que bun resuelva
+# el import `./sessions-helpers.ts` y `@earendil-works/pi-coding-agent`
+# desde `node_modules/` adyacente. (Mismo truco que usa build-pi.sh con `pi-entry.js`.)
 cp "$SRC" "$BUILD_DIR/pi-sessions.ts"
+cp "$PROJECT_ROOT/backend/scripts/sessions-helpers.ts" "$BUILD_DIR/sessions-helpers.ts"
 ENTRY="$BUILD_DIR/pi-sessions.ts"
 
 echo "Compilando pi-sessions con bun..."

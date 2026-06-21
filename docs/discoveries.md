@@ -714,3 +714,80 @@ pub struct ProviderInfo {
 **Decisión de scope (Etapa 5)**: marcamos la etapa como completada con 3/4 validaciones. La 4ta se documenta como limitación upstream y se difiere a v2 cuando decidamos cuál opción tomar. Para el MVP, xi asume que el user usa pi en un entorno confiado (su propia máquina, un repo de su propiedad) — que es exactamente la posición oficial de pi.
 
 **Recomendación futura**: si esto es importante para usuarios no-técnicos, empezar por el kill switch (#2) por velocidad, y mientras tanto diseñar la extension (#1) como solución definitiva.
+
+---
+
+## 15. tauri-plugin-shell: truncamiento de output grande (bug #7684)
+
+### El problema
+
+`pi-sessions list` con un workspace de 35 sesiones (~220KB de JSON, 200KB solo en `firstMessage`) fallaba con:
+```
+failed to parse pi-sessions output: EOF while parsing a string at line 1 column 73728
+```
+
+73728 = 72KB = 64KB (pipe buffer de Linux) + 8KB (BufReader interno). El output se truncaba exactamente ahí, sin importar el tamaño real del JSON.
+
+### La causa real
+
+`tauri-plugin-shell` pasa los eventos de stdout del sidecar por su **event loop proxy interno**. Cuando el volumen de datos supera la capacidad del proxy (~72KB en la práctica), los eventos se pierden silenciosamente. Es un bug conocido y confirmado por el equipo de Tauri:
+
+> "events are lost because the internal event loop proxy is full/busy handling previous events and we ignore that error hence the skipped events"
+> — [tauri-apps/tauri#7684](https://github.com/tauri-apps/tauri/issues/7684)
+
+El proxy se satura porque cada chunk de stdout se convierte en un evento que pasa por el event loop de Tauri. Con output grande, el event loop no alcanza a procesar todos los eventos antes de que el pipe se llene y el reader thread se bloquee.
+
+### Bugs en cascada que intentamos primero
+
+1. **`output()` inserta `\n` entre chunks** ([#3090](https://github.com/tauri-apps/plugins-workspace/issues/3090)): el método `output()` del shell plugin agrega un byte `\n` después de cada chunk recibido. Si el chunk boundary cae dentro de un string JSON, inserta un control character (0x0A) inválido. → error: `control character (\u0000-\u001F) found while parsing a string`.
+
+2. **Race condition en `spawn()` + `recv()` manual**: al usar `spawn()` en vez de `output()`, el evento `Terminated` puede llegar antes de que todos los `Stdout` eventos se procesen. Si haces `break` al recibir `Terminated`, pierdes los últimos chunks. → mismo error EOF, mismo truncamiento.
+
+Ambos son síntomas del mismo problema de fondo: el shell plugin de Tauri **no es confiable para outputs grandes**.
+
+### La solución: bypassar el shell plugin
+
+En vez de usar `app.shell().sidecar("pi-sessions").args().output()`, usamos `std::process::Command` directamente, que usa pipes nativas del OS con buffering ilimitado, sin pasar por ningún event loop proxy.
+
+```rust
+use std::process::Command;
+
+fn resolve_sidecar_path() -> Result<PathBuf, String> {
+    // std::env::current_exe() → target/debug/xi-backend
+    // el sidecar está en el mismo directorio
+    let exe = std::env::current_exe()...;
+    let exe_dir = exe.parent()...;
+    let bin_path = exe_dir.join("pi-sessions");
+    if !bin_path.exists() { return Err(...); }
+    Ok(bin_path)
+}
+
+async fn run_pi_sessions(args: Vec<String>) -> Result<String, String> {
+    let bin_path = resolve_sidecar_path()?;
+    // spawn_blocking porque Command::output() es bloqueante
+    let output = tokio::task::spawn_blocking(move || {
+        Command::new(&bin_path).args(&args).output()
+    }).await??;
+    String::from_utf8(output.stdout)...
+}
+```
+
+Esto es exactamente lo que recomienda el equipo de Tauri en el issue #7684:
+> "Runs the command directly in Rust using `Command::new("python").arg(...).output()`, rather than relying on Tauri's implementation."
+
+### Por qué solo pasa con workspaces grandes
+
+Workspaces con pocas sesiones y `firstMessage` cortos generan JSON <64KB, que cabe en un solo chunk del pipe. El proxy no se satura y todo llega bien. Solo cuando el output supera ~72KB (35+ sesiones con mensajes largos) se dispara el bug.
+
+### Implicación para el sidecar `pi`
+
+El sidecar `pi` (modo RPC) también pasa por el shell plugin de Tauri. Aunque su output es JSONL línea por línea (cada línea <8KB), un bug similar podría manifestarse si pi emite muchos eventos en ráfaga. **Recomendación**: si se ven eventos perdidos en el flujo de chat, migrar el spawn de `pi` al mismo patrón (`std::process::Command` + lectura manual del pipe), en vez de `app.shell().sidecar("pi").spawn()`.
+
+### Referencias
+
+- [tauri-apps/tauri#7684](https://github.com/tauri-apps/tauri/issues/7684) — bug original del event loop proxy
+- [tauri-apps/plugins-workspace#3090](https://github.com/tauri-apps/plugins-workspace/issues/3090) — `output()` inserta `\n` entre chunks
+- [tauri-apps/plugins-workspace#1632](https://github.com/tauri-apps/plugins-workspace/issues/1632) — datos sin `\n` final no se envían
+- [tauri-apps/plugins-workspace#1471](https://github.com/auri-apps/plugins-workspace/issues/1471) — encoding incorrecto de stdout
+- [PR #1231](https://github.com/tauri-apps/plugins-workspace/pull/1231) — `set_raw_out(true)` para output sin newline scanning
+- [PR #9698](https://github.com/tauri-apps/tauri/pull/9698) — fix parcial con retry de eventos (no resuelve outputs muy grandes)

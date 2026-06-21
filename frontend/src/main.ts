@@ -142,4 +142,12 @@ async function main(): Promise<void> {
   addEntry('system', 'xi ready');
 }
 
+// E2E testing: exponer state en window para que los tests de
+// WebDriverIO puedan navegar y mutar estado directamente.
+// Xi es una app de escritorio local — no hay riesgo de seguridad
+// en exponer el state interno (nadie más accede al WebView).
+const w = window as unknown as Record<string, unknown>;
+w.__XI_APP_STATE = appState;
+w.__XI_NAVIGATE = navigate;
+
 main();

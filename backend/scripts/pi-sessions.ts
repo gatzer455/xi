@@ -28,9 +28,9 @@
 
 import { SettingsManager, SessionManager } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
+import { readLeafId, getDefaultSessionDir } from "./sessions-helpers.ts";
 
 /** Sesión serializada para el frontend (Date → timestamp ms). */
 interface SessionInfoOutput {
@@ -72,48 +72,40 @@ function shortId(): string {
  * 2. `getSessionDir()` retorna el `sessionDir` del merge, o `undefined` si
  *    no está configurado en ningún nivel.
  * 3. Si no está configurado, caemos al default del SDK:
- *    `~/.pi/agent/sessions/<encoded-cwd>/`.
+ *    `~/.pi/agent/sessions/<encoded-cwd>/` (vía `getDefaultSessionDir`).
  * 4. Si está configurado pero es relativo (ej. `.pi/sessions`), lo resolvemos
  *    contra el cwd para que `SessionManager.list` reciba un path absoluto.
- *
- * NOTA: `getDefaultSessionDir` no se exporta del index de pi, y bun --compile
- * no resuelve sub-paths no listados en `package.json#exports`. Replicamos la
- * función localmente. Si pi cambia la lógica del default, replicar acá.
- * Ver: dist/core/session-manager.js:220-225 en @earendil-works/pi-coding-agent.
  */
-function getDefaultSessionDir(cwd: string): string {
-	const resolvedCwd = resolve(cwd);
-	const safePath = `--${resolvedCwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
-	return join(homedir(), ".pi", "agent", "sessions", safePath);
-}
-
 function resolveSessionDir(cwd: string): string {
-	const sm = SettingsManager.create(cwd);
-	const raw = sm.getSessionDir();
-	if (!raw) return getDefaultSessionDir(cwd);
-	if (!isAbsolute(raw)) return resolve(cwd, raw);
-	return raw;
-}
-
-/** Lee el `id` del último entry del JSONL (el "leaf"), o null si está vacío. */
-function readLeafId(jsonlContent: string): string | null {
-	const lines = jsonlContent.split("\n").filter((line) => line.trim());
-	if (lines.length === 0) return null;
-	const lastLine = lines[lines.length - 1];
-	if (!lastLine) return null;
-	try {
-		const entry = JSON.parse(lastLine) as { id?: unknown };
-		return typeof entry.id === "string" ? entry.id : null;
-	} catch {
-		return null;
-	}
+  const sm = SettingsManager.create(cwd);
+  const raw = sm.getSessionDir();
+  if (!raw) return getDefaultSessionDir(cwd);
+  if (!isAbsolute(raw)) return resolve(cwd, raw);
+  return raw;
 }
 
 async function cmdList(cwd: string): Promise<void> {
 	if (!cwd) die("list: missing argument: <cwd>");
 
 	const sessionDir = resolveSessionDir(cwd);
+
+	// Contar archivos JSONL antes de invocar SessionManager.list para
+	// detectar archivos que el manager skipea silenciosamente
+	// (corruptos, sin header válido, vacíos).
+	let totalFiles = 0;
+	try {
+		if (existsSync(sessionDir)) {
+			totalFiles = readdirSync(sessionDir).filter((f) => f.endsWith(".jsonl")).length;
+		}
+	} catch {
+		// Si falla el scan del directorio, no reportamos skipped —
+		// probablemente el directorio no existe todavía (workspace sin
+		// sesiones) o hay permisos. totalFiles queda en 0.
+	}
+
 	const sessions = await SessionManager.list(cwd, sessionDir);
+	const skippedCount = totalFiles - sessions.length;
+
 	const output: SessionInfoOutput[] = sessions.map((s) => ({
 		path: s.path,
 		id: s.id,
@@ -126,7 +118,15 @@ async function cmdList(cwd: string): Promise<void> {
 		firstMessage: s.firstMessage,
 	}));
 
-	console.log(JSON.stringify({ sessions: output }));
+	const result: { sessions: SessionInfoOutput[]; skipped?: { count: number } } = {
+		sessions: output,
+	};
+
+	if (skippedCount > 0) {
+		result.skipped = { count: skippedCount };
+	}
+
+	console.log(JSON.stringify(result));
 }
 
 function cmdDelete(sessionPath: string): void {
@@ -147,7 +147,19 @@ function cmdRename(sessionPath: string, newName: string): void {
 	// del árbol de entries que pi espera.
 	const content = readFileSync(sessionPath, "utf-8");
 	const lines = content.split("\n").filter((line) => line.trim());
-	const parentId = readLeafId(content);
+	// lines.join("\n") evita que readLeafId divida content de nuevo —
+	// el split ya se hizo arriba. readLeafId igual filtra líneas vacías
+	// internamente, así que el resultado es idéntico.
+	const parentId = readLeafId(lines.join("\n"));
+
+	// Si readLeafId devuelve null, el archivo está vacío o corrupto.
+	// En vez de crashear, el rename procede sin parentId — el entry
+	// session_info queda huérfano (sin vínculo al árbol). La sesión
+	// sigue funcionando, pero la UI no mostrará el nombre hasta que
+	// se reconstruya el índice. Es mejor que un panic silencioso.
+	if (parentId === null) {
+		console.warn(`rename: ${sessionPath}: empty or corrupt JSONL, session_info will be orphaned`);
+	}
 
 	const sessionInfoEntry = JSON.stringify({
 		type: "session_info",

@@ -27,6 +27,17 @@ export interface SessionInfo {
   firstMessage: string;
 }
 
+/** Archivos corruptos que pi-sessions no pudo leer. */
+export interface SkippedInfo {
+  count: number;
+}
+
+/** Resultado de list_sessions: sesiones + opcionalmente archivos saltados. */
+export interface ListSessionsResult {
+  sessions: SessionInfo[];
+  skipped?: SkippedInfo;
+}
+
 /**
  * Proyecto reciente. Persistido en `app_config_dir/recents.json`
  * (vía `get_recents` / `add_recent` en Rust). El frontend lo lee una

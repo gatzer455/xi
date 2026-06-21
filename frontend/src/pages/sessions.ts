@@ -22,26 +22,61 @@ import {
   newPiSession,
   getPiState,
 } from '../lib/pi/index.ts';
-import type { SessionInfo } from '../lib/pi/types.ts';
+import type { ListSessionsResult, SessionInfo, SkippedInfo } from '../lib/pi/types.ts';
 import { navigate } from '../lib/nav.ts';
 import { setActiveTab, type Session } from '../lib/state.ts';
 
 const POLL_INTERVAL_MS = 10_000;
 
-// Signals locales: viven mientras la página está montada.
-const sessions = signal<SessionInfo[]>([]);
-const loading = signal<boolean>(false);
-const error = signal<string | null>(null);
+// Signals locales: viven a nivel de módulo (no se recrean en cada mount).
+// Esto significa que conservan estado entre mounts — si el user entra
+// a un workspace que falla y luego cambia a uno válido, la UI se queda
+// pegada mostrando las sesiones o el error del workspace anterior.
+// El fix: resetear estos signals al inicio de SessionsPage() vía
+// `resetSessionsState()`, que también es testeable de forma aislada.
+export const sessions = signal<SessionInfo[]>([]);
+export const loading = signal<boolean>(false);
+export const error = signal<string | null>(null);
+/** Archivos corruptos que pi-sessions list encontró pero no pudo leer. */
+export const skipped = signal<SkippedInfo | null>(null);
 /** Path de la sesión cuyo nombre se está editando. null = nadie. */
-const renamingPath = signal<string | null>(null);
+export const renamingPath = signal<string | null>(null);
+
+/**
+ * Resetea los signals module-level a sus valores iniciales.
+ *
+ * Se llama al inicio de `SessionsPage()` para que cada mount arranque
+ * limpio, sin arrastrar sesiones, errores, o estado de rename del
+ * workspace anterior. Sin esto, el bug se manifestaba así: el user
+ * entraba a un workspace que fallaba (ej: truncamiento de pi-sessions),
+ * veía el error, cambiaba a un workspace válido, y la UI seguía
+ * mostrando el error viejo o las sesiones viejas hasta que el polling
+ * (10s) las refrescara.
+ *
+ * Exportada para testear sin necesidad de montar la página completa
+ * (que requiere mockear Tauri invoke).
+ */
+export function resetSessionsState(): void {
+  sessions.value = [];
+  loading.value = false;
+  error.value = null;
+  skipped.value = null;
+  renamingPath.value = null;
+}
 
 export function SessionsPage(): Page {
   const root = document.createElement('section');
   root.className = 'sessions-page';
   const scope = createScope();
 
+  // Reset de signals module-level: sin esto, la página conserva
+  // el estado del workspace anterior (sesiones, error, loading,
+  // rename). Cada mount debe arrancar limpio.
+  resetSessionsState();
+
   root.append(renderHeader());
-  root.append(renderErrorBanner());
+  root.append(renderSkipWarning(scope));
+  root.append(renderErrorBanner(scope));
   root.append(renderList());
   root.append(renderFooter());
 
@@ -90,13 +125,59 @@ async function loadSessions(): Promise<void> {
 
   loading.value = true;
   try {
-    sessions.value = await listSessions(cwd);
+    const result: ListSessionsResult = await listSessions(cwd);
+    sessions.value = result.sessions;
+    skipped.value = result.skipped ?? null;
     error.value = null;
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   } finally {
     loading.value = false;
   }
+}
+
+/**
+ * Crea un banner que se oculta/muestra según un signal.
+ *
+ * Patrón compartido entre `renderSkipWarning` y `renderErrorBanner`:
+ * ambos necesitan un div con display toggle, texto que se actualiza
+ * con el valor del signal, y opcionalmente botones extra.
+ *
+ * @param sig Signal a observar.
+ * @param className Clase CSS del banner.
+ * @param format Recibe el valor del signal y devuelve el texto a
+ *   mostrar, o null/'' para ocultar el banner.
+ * @param extras Callback opcional para agregar elementos al banner
+ *   (ej. botón de cerrar).
+ */
+function createSignalBanner<T>(
+  sig: import('../lib/signal.ts').Signal<T>,
+  className: string,
+  format: (value: T) => string | null,
+  scope: import('../lib/scope.ts').Scope,
+  extras?: (banner: HTMLElement) => void,
+): HTMLElement {
+  const banner = document.createElement('div');
+  banner.className = className;
+  banner.style.display = 'none';
+
+  const text = document.createElement('span');
+  const unsub = sig.subscribe((value) => {
+    const msg = format(value);
+    text.textContent = msg ?? '';
+    banner.style.display = msg ? 'block' : 'none';
+  });
+  // Sin scope.add(), esta suscripción nunca se limpia. Cada mount de
+  // SessionsPage() crea una nueva y la anterior queda colgada — el DOM
+  // se descartó pero el callback sigue referenciando text y banner,
+  // que el GC no puede recolectar porque la suscripción los mantiene
+  // vivos. Con scope.add(), dispose() las desregistra a todas.
+  scope.add(unsub);
+  banner.append(text);
+
+  if (extras) extras(banner);
+
+  return banner;
 }
 
 function renderHeader(): HTMLElement {
@@ -141,31 +222,27 @@ function renderHeader(): HTMLElement {
   return header;
 }
 
-function renderErrorBanner(): HTMLElement {
-  const banner = document.createElement('div');
-  banner.className = 'sessions-error';
+function renderSkipWarning(scope: import('../lib/scope.ts').Scope): HTMLElement {
+  return createSignalBanner(skipped, 'sessions-skip-warning', (s) => {
+    // SessionManager.list silencia archivos corruptos o sin header
+    // válído. El usuario debe saber que no se muestran todas las
+    // sesiones, aunque el error no sea fatal.
+    if (s && s.count > 0) {
+      return `⚠ ${s.count} archivo(s) de sesión no se pudieron leer (corruptos o vacíos)`;
+    }
+    return null;
+  }, scope);
+}
 
-  const text = document.createElement('span');
-  // NOTA: la suscripción a `error` (signal module-level) NO se
-  // trackea en el scope porque `error` vive en el módulo, no en
-  // la page. Es un bug preexistente: cada mount agrega una
-  // suscripción que solo se limpia si el scope la trackea. Acepto
-  // el memory leak menor (1 callback extra por mount) hasta que
-  // refactoricemos los signals locales a un scope.signal().
-  error.subscribe((e) => {
-    text.textContent = e ?? '';
-    banner.style.display = e ? 'block' : 'none';
+function renderErrorBanner(scope: import('../lib/scope.ts').Scope): HTMLElement {
+  return createSignalBanner(error, 'sessions-error', (e) => e ?? null, scope, (banner) => {
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', () => {
+      error.value = null;
+    });
+    banner.append(closeBtn);
   });
-  banner.append(text);
-
-  const closeBtn = document.createElement('button');
-  closeBtn.textContent = '✕';
-  closeBtn.addEventListener('click', () => {
-    error.value = null;
-  });
-  banner.append(closeBtn);
-
-  return banner;
 }
 
 function renderList(): HTMLElement {
