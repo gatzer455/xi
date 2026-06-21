@@ -31,10 +31,13 @@ jobs:
         include:
           - platform: macos-latest
             args: --target universal-apple-darwin
+            pi-target: macos
           - platform: ubuntu-22.04
             args: ""
+            pi-target: linux
           - platform: windows-latest
             args: ""
+            pi-target: windows
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -54,22 +57,17 @@ jobs:
         with:
           workspaces: ./backend -> target
 
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Install frontend deps
         run: cd frontend && npm ci
 
       - name: Build pi sidecar
-        # El sidecar `pi` se compila con `bun build --compile` (no
-        # usa cargo). Solo se builda en linux y macOS; windows puede
-        # ser problemático porque el binario target debe matchear
-        # el runner. Por simplicidad, dejamos que el build falle en
-        # windows si la compilación cross no es posible — para v1
-        # distribuimos linux + macOS.
-        run: ./scripts/build-pi.sh
-        continue-on-error: true
+        run: ./scripts/build-pi.sh --target ${{ matrix.pi-target }}
 
       - name: Build pi-sessions
-        run: ./scripts/build-pi-sessions.sh
-        continue-on-error: true
+        run: ./scripts/build-pi-sessions.sh --target ${{ matrix.pi-target }}
 
       - name: Tauri build + release
         uses: tauri-apps/tauri-action@v0

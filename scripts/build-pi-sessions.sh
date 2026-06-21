@@ -4,7 +4,7 @@
 # Espejo de build-pi.sh. Genera un binario standalone (no requiere bun en runtime)
 # que el backend de xi invoca como sub-proceso para list/delete/rename de sesiones.
 #
-# Uso: ./scripts/build-pi-sessions.sh
+# Uso: ./scripts/build-pi-sessions.sh [--target linux|windows|macos]
 #
 # Requiere: bun y npm instalados. Pi (npm package) se instala en un temp dir.
 
@@ -15,9 +15,60 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SRC="$PROJECT_ROOT/backend/scripts/pi-sessions.ts"
 OUT_DIR="$PROJECT_ROOT/backend"
 
-# Detectar target triple (mismo que el host donde corre xi, igual que pi).
-TARGET_TRIPLE=$(rustc --print host-tuple)
-OUT="$OUT_DIR/pi-sessions-$TARGET_TRIPLE"
+# ─── Parsear argumentos ───────────────────────────────────────────────────────
+TARGET=""
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --target)
+      TARGET="$2"
+      shift 2
+      ;;
+    *)
+      echo "Uso: $0 [--target linux|windows|macos]"
+      exit 1
+      ;;
+  esac
+done
+
+# ─── Detectar platform si no se especifica ────────────────────────────────────
+if [[ -z "$TARGET" ]]; then
+  OS=$(uname -s)
+  case $OS in
+    Linux)  TARGET="linux" ;;
+    Darwin) TARGET="macos" ;;
+    *)      echo "❌ OS no soportado: $OS"; exit 1 ;;
+  esac
+fi
+
+# ─── Mapear target a bun --target y Rust target triple ────────────────────────
+case $TARGET in
+  linux)
+    BUN_TARGET="bun-linux-x64"
+    RUST_TRIPLE="x86_64-unknown-linux-gnu"
+    BINARY_SUFFIX=""
+    ;;
+  windows)
+    BUN_TARGET="bun-windows-x64"
+    RUST_TRIPLE="x86_64-pc-windows-msvc"
+    BINARY_SUFFIX=".exe"
+    ;;
+  macos)
+    BUN_TARGET="bun-darwin-arm64"
+    RUST_TRIPLE="aarch64-apple-darwin"
+    BINARY_SUFFIX=""
+    ;;
+  *)
+    echo "❌ Target no soportado: $TARGET (usa: linux, windows, macos)"
+    exit 1
+    ;;
+esac
+
+OUT="$OUT_DIR/pi-sessions-$RUST_TRIPLE$BINARY_SUFFIX"
+
+echo "Target: $TARGET"
+echo "Bun target: $BUN_TARGET"
+echo "Rust triple: $RUST_TRIPLE"
 
 # Build en un temp dir para no contaminar el repo con node_modules.
 BUILD_DIR="/tmp/pi-sessions-build-$$"
@@ -42,12 +93,10 @@ cp "$SRC" "$BUILD_DIR/pi-sessions.ts"
 cp "$PROJECT_ROOT/backend/scripts/sessions-helpers.ts" "$BUILD_DIR/sessions-helpers.ts"
 ENTRY="$BUILD_DIR/pi-sessions.ts"
 
-echo "Compilando pi-sessions con bun..."
-# bun detecta el target (linux/darwin) del host donde se compila. No hace
-# falta pasar --target como en rustc — el target triple es solo para nombrar
-# el archivo de salida (mismo que usa build-pi.sh).
+echo "Compilando pi-sessions con bun (target: $BUN_TARGET)..."
 bun build "$ENTRY" \
 	--compile \
+	--target="$BUN_TARGET" \
 	--outfile "$OUT" 2>&1
 
 chmod +x "$OUT"
@@ -57,5 +106,5 @@ cd "$PROJECT_ROOT"
 rm -rf "$BUILD_DIR"
 
 echo ""
-echo "✓ pi-sessions compilado:"
+echo "✅ pi-sessions compilado:"
 ls -lh "$OUT"
