@@ -62,6 +62,9 @@ jobs:
       - name: Build pi-sessions
         run: ./scripts/build-pi-sessions.sh --target linux
 
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
       - name: Build frontend (needed for clippy — --all-targets incluye tests que requieren frontendDist)
         run: cd frontend && npm run build
 
