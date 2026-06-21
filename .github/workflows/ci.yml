@@ -62,6 +62,9 @@ jobs:
       - name: Build pi-sessions
         run: ./scripts/build-pi-sessions.sh --target linux
 
+      - name: Build frontend (needed for clippy — --all-targets incluye tests que requieren frontendDist)
+        run: cd frontend && npm run build
+
       - name: cargo fmt
         run: cargo fmt --all --manifest-path backend/Cargo.toml -- --check
 
@@ -180,6 +183,10 @@ jobs:
   # ──────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
+    # Por ahora los E2E tests no bloquean el CI porque requieren pi
+    # con API keys configuradas, lo que no está disponible en CI.
+    # Se pueden correr localmente con `npm run test:e2e`.
+    if: false
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
