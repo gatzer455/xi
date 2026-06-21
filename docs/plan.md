@@ -6,9 +6,9 @@ Interfaz de escritorio para pi, dirigida a usuarios no-técnicos. Tauri 2 + Vani
 
 ## Estado actual
 
-**Última etapa completada:** Tests unitarios + README + CHANGELOG + File Explorer
+**Última etapa completada:** Tests E2E + español neutro + pi-approve (extensión standalone)
 
-**Siguiente:** E2E tests → CI → pi-approve
+**Siguiente:** Integrar pi-approve en la UI de xi
 
 ---
 
@@ -33,6 +33,9 @@ Interfaz de escritorio para pi, dirigida a usuarios no-técnicos. Tauri 2 + Vani
 | ✨ | Tests unitarios (50 tests) | `2323a27` |
 | ✨ | README (Diataxis + retórica hispánica) | `a0b4d47` |
 | ✨ | CHANGELOG (Keep a Changelog) | `36b9f2c` |
+| ✨ | E2E tests + CI | `d9ae007` `a96ffd1` |
+| ✨ | Sesiones corruptas (skipped) + tests A–E | `d6e6c98` |
+| ✨ | Español neutro latino + crédito a pi | `0d07c41` |
 
 ---
 
@@ -40,16 +43,16 @@ Interfaz de escritorio para pi, dirigida a usuarios no-técnicos. Tauri 2 + Vani
 
 ### 🔴 Alta
 
-| # | Feature | Descripción | Dependencias |
-|---|---------|-------------|--------------|
-| 1 | E2E tests | `tauri-driver` + WebDriverIO, flujo completo | Tests unitarios |
-| 2 | CI | GitHub Actions (build + test en push) | E2E tests |
+| # | Feature | Descripción | Estado |
+|---|---------|-------------|--------|
+| 1 | **pi-approve en UI** | La extensión existe (`~/.pi/agent/extensions/pi-approve/`) y funciona en TUI, pero xi no muestra el dialog de aprobación cuando pi-approve intercepta un tool call. Necesita: (a) verificar que pi carga la extensión en modo rpc, (b) que `extension_ui_request` con method `select` se intercepta correctamente, (c) que el dialog se renderiza en el chat, (d) que la respuesta se envía de vuelta a pi. | Extensión lista, UI pendiente |
+| 2 | E2E tests | `tauri-driver` + WebDriverIO, flujo completo | `14` tests |
+| 3 | CI | GitHub Actions (build + test en push) | Workflow listo, falta push |
 
 ### 🟡 Media
 
 | # | Feature | Descripción | Dependencias |
 |---|---------|-------------|--------------|
-| 3 | pi-approve | Extension de permisos (desarrollar standalone) | UI handler hecho |
 | 4 | Nombre de sesiones | Auto: fecha, prompt al crear, o híbrido | Ninguna |
 | 5 | Versión real en settings | `app.getVersion()` en vez de hardcoded | Ninguna |
 | 6 | Release notes inline | Body del update en settings | Ninguna |
@@ -80,9 +83,9 @@ Interfaz de escritorio para pi, dirigida a usuarios no-técnicos. Tauri 2 + Vani
 
 ### Notas de implementación
 
-- **pi-tool-guard** → ahora se llama **pi-approve**
-- **Extension UI** → ya implementado (`extension-ui-handler`)
-- **Rewrite ask tool** → ya hecho (standalone en `~/.pi/agent/extensions/pi-ask/`)
+- **pi-approve** → extensión de pi para aprobar/rechazar tool calls peligrosos. Ya existe en `~/.pi/agent/extensions/pi-approve/`. Usa `ctx.ui.select()` para preguntar al usuario. El problema es que xi no muestra el dialog — necesita debugging.
+- **Extension UI** → ya implementado (`extension-ui-handler`), pero posiblemente no intercepta correctamente los requests de pi-approve.
+- **Rewrite ask tool** → ya hecho (standalone en `~/.pi/agent/extensions/pi-ask/`).
 
 ---
 
@@ -142,6 +145,7 @@ xi/
 
 | Tarea | Duración |
 |-------|----------|
-| E2E tests | 2-3 días |
-| CI | 1 día |
-| **Total** | **3-4 días** |
+| pi-approve UI fix | 1-2 días |
+| E2E tests | 1 día |
+| CI (push) | 1 hora |
+| **Total** | **2-3 días** |
