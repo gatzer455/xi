@@ -45,7 +45,7 @@ Interfaz de escritorio para pi, dirigida a usuarios no-técnicos. Tauri 2 + Vani
 
 | # | Feature | Descripción | Estado |
 |---|---------|-------------|--------|
-| 1 | **pi-approve en UI** | La extensión existe (`~/.pi/agent/extensions/pi-approve/`) y funciona en TUI, pero xi no muestra el dialog de aprobación cuando pi-approve intercepta un tool call. Necesita: (a) verificar que pi carga la extensión en modo rpc, (b) que `extension_ui_request` con method `select` se intercepta correctamente, (c) que el dialog se renderiza en el chat, (d) que la respuesta se envía de vuelta a pi. | Extensión lista, UI pendiente |
+| 1 | **pi-approve en UI** | La extensión existe (`~/.pi/agent/extensions/pi-approve/`) y funciona en TUI. Verificado: `tool_call` → `ctx.ui.select()` → dialog en xi → respuesta a pi. | ✅ Funciona |
 | 2 | E2E tests | `tauri-driver` + WebDriverIO, flujo completo | `14` tests |
 | 3 | CI | GitHub Actions (build + test en push) | Workflow listo, falta push |
 
@@ -83,7 +83,7 @@ Interfaz de escritorio para pi, dirigida a usuarios no-técnicos. Tauri 2 + Vani
 
 ### Notas de implementación
 
-- **pi-approve** → extensión de pi para aprobar/rechazar tool calls peligrosos. Ya existe en `~/.pi/agent/extensions/pi-approve/`. Usa `ctx.ui.select()` para preguntar al usuario. El problema es que xi no muestra el dialog — necesita debugging.
+- **pi-approve** → extensión de pi para aprobar/rechazar tool calls peligrosos. Ya existe en `~/.pi/agent/extensions/pi-approve/`. Usa `ctx.ui.select()` para preguntar al usuario. Verificado que funciona en xi.
 - **Extension UI** → ya implementado (`extension-ui-handler`), pero posiblemente no intercepta correctamente los requests de pi-approve.
 - **Rewrite ask tool** → ya hecho (standalone en `~/.pi/agent/extensions/pi-ask/`).
 
@@ -145,7 +145,7 @@ xi/
 
 | Tarea | Duración |
 |-------|----------|
-| pi-approve UI fix | 1-2 días |
+| pi-approve | ✅ Funciona |
 | E2E tests | 1 día |
 | CI (push) | 1 hora |
-| **Total** | **2-3 días** |
+| **Total** | **1-2 días** |
