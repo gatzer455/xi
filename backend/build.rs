@@ -53,7 +53,12 @@ fn resolve_paths() -> BuildPaths {
 }
 
 fn copy_sidecar(paths: &BuildPaths) {
-    let source = paths.manifest_dir.join(&paths.sidecar_name);
+    // Buscar en binaries/ (ubicación actual) o en manifest_dir (legacy)
+    let source = if paths.manifest_dir.join("binaries").join(&paths.sidecar_name).exists() {
+        paths.manifest_dir.join("binaries").join(&paths.sidecar_name)
+    } else {
+        paths.manifest_dir.join(&paths.sidecar_name)
+    };
     let dest = paths.target_profile_dir.join(&paths.sidecar_name);
 
     println!("cargo:rerun-if-changed={}", source.display());
@@ -87,7 +92,12 @@ fn copy_sidecar(paths: &BuildPaths) {
 /// compilado no existe, se loguea un warning (igual que con `pi`) y el
 /// fallo se verá en runtime.
 fn copy_pi_sessions(paths: &BuildPaths) {
-    let source = paths.manifest_dir.join(&paths.pi_sessions_name);
+    // Buscar en binaries/ (ubicación actual) o en manifest_dir (legacy)
+    let source = if paths.manifest_dir.join("binaries").join(&paths.pi_sessions_name).exists() {
+        paths.manifest_dir.join("binaries").join(&paths.pi_sessions_name)
+    } else {
+        paths.manifest_dir.join(&paths.pi_sessions_name)
+    };
     let dest = paths.target_profile_dir.join("pi-sessions");
 
     println!("cargo:rerun-if-changed={}", source.display());
