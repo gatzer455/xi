@@ -33,4 +33,13 @@ export default defineConfig({
     host: true,
     strictPort: true,
   },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    include: ['tests/**/*.test.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+    },
+  },
 });

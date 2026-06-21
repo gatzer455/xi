@@ -94,15 +94,11 @@ function renderHeader(): HTMLElement {
   const header = document.createElement('div');
   header.className = 'welcome-header';
 
-  const icon = document.createElement('div');
+  const icon = document.createElement('img');
   icon.className = 'welcome-icon';
-  icon.textContent = '✦';
+  icon.src = 'xi-icon.svg';
+  icon.alt = 'Xi';
   header.append(icon);
-
-  const title = document.createElement('h1');
-  title.className = 'welcome-title';
-  title.textContent = 'Xi';
-  header.append(title);
 
   const subtitle = document.createElement('p');
   subtitle.className = 'welcome-subtitle';

@@ -41,7 +41,7 @@ export function Header(): HTMLElement {
 function renderLogo(): HTMLElement {
   const img = document.createElement('img');
   img.className = 'top-bar-logo';
-  img.src = '/xi.png';
+  img.src = '/xi-icon.svg';
   img.alt = 'xi';
   img.width = 28;
   img.height = 28;
