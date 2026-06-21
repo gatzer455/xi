@@ -22,12 +22,15 @@ use std::path::PathBuf;
 /// para la feature de gestión de sesiones (Etapa 4). Si falta, se
 /// loguea un warning y la app compila, pero esa feature no funcionará.
 fn main() {
-    tauri_build::build();
+    // Copiar sidecars ANTES de tauri_build::build() porque Tauri
+    // verifica que externalBin exista durante su build.
     let paths = resolve_paths();
     copy_sidecar(&paths);
     copy_pi_sessions(&paths);
     copy_theme_dir(&paths);
     copy_pi_package_json(&paths);
+
+    tauri_build::build();
 }
 
 struct BuildPaths {
@@ -54,8 +57,16 @@ fn resolve_paths() -> BuildPaths {
 
 fn copy_sidecar(paths: &BuildPaths) {
     // Buscar en binaries/ (ubicación actual) o en manifest_dir (legacy)
-    let source = if paths.manifest_dir.join("binaries").join(&paths.sidecar_name).exists() {
-        paths.manifest_dir.join("binaries").join(&paths.sidecar_name)
+    let source = if paths
+        .manifest_dir
+        .join("binaries")
+        .join(&paths.sidecar_name)
+        .exists()
+    {
+        paths
+            .manifest_dir
+            .join("binaries")
+            .join(&paths.sidecar_name)
     } else {
         paths.manifest_dir.join(&paths.sidecar_name)
     };
@@ -93,8 +104,16 @@ fn copy_sidecar(paths: &BuildPaths) {
 /// fallo se verá en runtime.
 fn copy_pi_sessions(paths: &BuildPaths) {
     // Buscar en binaries/ (ubicación actual) o en manifest_dir (legacy)
-    let source = if paths.manifest_dir.join("binaries").join(&paths.pi_sessions_name).exists() {
-        paths.manifest_dir.join("binaries").join(&paths.pi_sessions_name)
+    let source = if paths
+        .manifest_dir
+        .join("binaries")
+        .join(&paths.pi_sessions_name)
+        .exists()
+    {
+        paths
+            .manifest_dir
+            .join("binaries")
+            .join(&paths.pi_sessions_name)
     } else {
         paths.manifest_dir.join(&paths.pi_sessions_name)
     };
