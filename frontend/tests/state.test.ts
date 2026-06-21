@@ -101,8 +101,9 @@ describe('appState', () => {
       // Tab 1 tiene mensajes
       appState.tabMessages.value = {};
       setActiveTab('tab-1');
+      const ts = Date.now();
       appState.messages.value = [
-        { id: '1', role: 'user' as const, content: 'Msg 1', timestamp: Date.now() },
+        { id: '1', role: 'user' as const, content: 'Msg 1', timestamp: ts },
       ];
 
       // Cambiar a tab 2
@@ -110,7 +111,7 @@ describe('appState', () => {
 
       // Tab 1 debería tener sus mensajes guardados
       expect(appState.tabMessages.value['tab-1']).toEqual([
-        { id: '1', role: 'user' as const, content: 'Msg 1', timestamp: Date.now() },
+        { id: '1', role: 'user' as const, content: 'Msg 1', timestamp: ts },
       ]);
     });
 

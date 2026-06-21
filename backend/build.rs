@@ -134,7 +134,11 @@ fn copy_theme_dir(paths: &BuildPaths) {
     let entries = match fs::read_dir(&source_dir) {
         Ok(e) => e,
         Err(err) => {
-            println!("cargo:warning=Failed to read {}: {}", source_dir.display(), err);
+            println!(
+                "cargo:warning=Failed to read {}: {}",
+                source_dir.display(),
+                err
+            );
             return;
         }
     };
@@ -144,7 +148,9 @@ fn copy_theme_dir(paths: &BuildPaths) {
         if !path.is_file() {
             continue;
         }
-        let Some(name) = path.file_name() else { continue };
+        let Some(name) = path.file_name() else {
+            continue;
+        };
         let dest = dest_dir.join(name);
         copy_if_newer(&path, &dest);
     }
