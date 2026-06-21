@@ -1,0 +1,180 @@
+name: CI
+
+# Por qué: este workflow se dispara en cada PR y merge a main.
+# Verifica que el código compile, pase tests unitarios, E2E, y
+# formato/clippy. Es la primera línea de defensa antes de merge.
+#
+# Estructura de jobs:
+#   1. lint      — fmt + clippy (rápido, ~10s con cache)
+#   2. test      — unit tests frontend + backend (~5s)
+#   3. build     — cargo build + vite build (~2-3 min con cache)
+#   4. e2e       — WebdriverIO + tauri-driver (~6s + compilación)
+#
+# Tiempo total estimado: ~3-4 min (con cache en runs subsiguientes)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancelar runs anteriores del mismo PR. Si hacés 3 pushes
+# rápidos, solo el último corre — evita desperdiciar CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Lint: formato + clippy. Corre rápido (~10s con cache).
+  # Si falla, el PR no se puede merge.
+  # ──────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./backend -> target
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: cargo fmt
+        run: cargo fmt --all --manifest-path backend/Cargo.toml -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --manifest-path backend/Cargo.toml -- -D warnings
+
+  # ──────────────────────────────────────────────────────────────
+  # Test: unit tests frontend (vitest) + backend (cargo test).
+  # Son rápidos (~5s) pero verifican toda la lógica de negocio.
+  # ──────────────────────────────────────────────────────────────
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./backend -> target
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Frontend tests
+        run: cd frontend && npm run test:run
+
+      - name: Backend tests
+        run: cd backend && cargo test
+
+  # ──────────────────────────────────────────────────────────────
+  # Build: compilación completa del app. Verifica que todo
+  # compile sin errores (Rust + Vite). Con cache ~2-3 min.
+  # ──────────────────────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./backend -> target
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Build frontend
+        run: cd frontend && npm run build
+
+      - name: Build backend
+        run: cd backend && cargo build
+
+  # ──────────────────────────────────────────────────────────────
+  # E2E: tests de integración completos. Requiere compilar el
+  # debug build de Tauri + lanzar tauri-driver. Más lento pero
+  # verifica que la app real funciona end-to-end.
+  # ──────────────────────────────────────────────────────────────
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ./backend -> target
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend deps
+        run: cd frontend && npm ci
+
+      - name: Install E2E deps
+        run: cd e2e && npm ci
+
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked
+
+      - name: E2E tests
+        run: npm run test:e2e
