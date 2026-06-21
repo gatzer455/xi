@@ -10,7 +10,7 @@ describe('Pantalla de bienvenida', () => {
   it('debería mostrar el subtítulo que explica qué es xi', async () => {
     const subtitle = await $('.welcome-subtitle');
     const text = await subtitle.getText();
-    expect(text).toContain('agente de código');
+    expect(text).toContain('asistente de inteligencia artificial');
   });
 
   it('debería tener el botón CTA para seleccionar carpeta', async () => {

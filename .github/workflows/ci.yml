@@ -186,10 +186,10 @@ jobs:
   # ──────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
-    # Por ahora los E2E tests no bloquean el CI porque requieren pi
-    # con API keys configuradas, lo que no está disponible en CI.
-    # Se pueden correr localmente con `npm run test:e2e`.
-    if: false
+    # Nota: los tests básicos (app, welcome, settings) no requieren
+    # pi con API keys. Solo sessions.spec.ts necesita pi-sessions
+    # sidecar, que se compila en CI.
+    # Si algún test falla, se reintenta 1 vez (config en wdio.conf.ts).
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -233,6 +233,9 @@ jobs:
 
       - name: Build pi-sessions
         run: ./scripts/build-pi-sessions.sh --target linux
+
+      - name: Build frontend (needed for Tauri dev mode)
+        run: cd frontend && npm run build
 
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked
