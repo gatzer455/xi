@@ -50,6 +50,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Build pi sidecar (needed for clippy — Tauri valida externalBin)
+        run: ./scripts/build-pi.sh --target linux
+
+      - name: Build pi-sessions
+        run: ./scripts/build-pi-sessions.sh --target linux
+
       - name: cargo fmt
         run: cargo fmt --all --manifest-path backend/Cargo.toml -- --check
 
