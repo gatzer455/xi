@@ -90,6 +90,12 @@ export function ChatPage(): Page {
   // stick-to-bottom — no se llama pinToBottom otra vez.
   let hasPinnedOnFirstRender = false;
 
+  // Flag para pausar el ResizeObserver cuando el usuario expande/
+  // colapsa un <details> manualmente. Sin esto, el toggle cambia
+  // la altura de messagesInner y el ResizeObserver scrollea al
+  // fondo automáticamente (scroll-jacking).
+  let pauseAutoScroll = false;
+
   /** ¿El usuario está cerca del fondo del scroll? */
   function isNearBottom(): boolean {
     const distance = messagesContainer.scrollHeight
@@ -143,11 +149,27 @@ export function ChatPage(): Page {
     });
   }
 
+  // Pausar auto-scroll cuando el usuario expande/colapsa un
+  // <details> manualmente. Usamos event delegation en messagesInner
+  // para capturar todos los toggle de thinking, tool calls, y results.
+  messagesInner.addEventListener('toggle', (e) => {
+    // Solo pausar si el evento viene de un <details> (no de otros
+    // elementos que puedan tener toggle)
+    if (e.target instanceof HTMLDetailsElement) {
+      pauseAutoScroll = true;
+      // Reanudar después de 300ms — tiempo suficiente para que el
+      // browser complete el layout del toggle y el ResizeObserver
+      // dispare, pero sin scrollear.
+      setTimeout(() => { pauseAutoScroll = false; }, 300);
+    }
+  }, true); // capture: true para interceptar antes del bubble
+
   /** Re-pin reactivo: cuando el contenido crece async (markdown,
    *  fonts web, imágenes), re-scrolleamos al fondo SOLO si el
    *  usuario está "near bottom". Si scrolleó arriba, respetamos
    *  su posición. */
   const resizeObserver = new ResizeObserver(() => {
+    if (pauseAutoScroll) return;  // Pausado por toggle manual
     if (isNearBottom()) {
       endSentinel.scrollIntoView({ block: 'end', behavior: 'instant' });
     }
