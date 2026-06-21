@@ -1,0 +1,260 @@
+/* ═══ components.css — Piezas reutilizables del chat ═══
+   Estilos para los bloques que componen una conversación:
+   mensajes (user/assistant), thinking blocks, tool calls,
+   y tool results. Cada componente es autocontenido — puede
+   vivir dentro de un mensaje o en cualquier otro contexto.
+
+   Orden de carga: después de layout.css.
+   Dependencias: tokens.css, base.css, layout.css.
+   Dependientes: pages.css. */
+
+/* ═══ MESSAGES ═══
+   User: right-aligned, subtle bubble.
+   Assistant: left-aligned, no bubble.
+   ToolResult: full width, pegado al tool call anterior.
+   No avatars — clean, professional (like Claude/Gemini). */
+.message {
+  display: flex;
+  max-width: 100%;
+}
+.message.user { justify-content: flex-end; }
+.message.assistant { justify-content: flex-start; }
+
+.message-avatar { display: none; }  /* Mantener para compat */
+
+.message-content {
+  flex: 1;
+  min-width: 0;
+  max-width: 700px;
+}
+.message.user .message-content { max-width: 600px; }
+
+/* toolResult: full width, sin max-width */
+.message.toolResult {
+  max-width: 100%;
+  width: 100%;
+  padding: 0 var(--space-6);
+}
+.message.toolResult .tool-result-card {
+  max-width: 700px;
+}
+
+
+.message-text {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  word-break: break-word;
+}
+.message.user .message-text {
+  background: var(--color-user-msg-bg);
+  color: var(--color-text);
+}
+.message.assistant .message-text {
+  background: transparent;
+  padding: 0;
+}
+
+/* Markdown content inside messages */
+.message-content p { margin-bottom: var(--space-2); }
+.message-content p:last-child { margin-bottom: 0; }
+.message-content ul, .message-content ol { margin: var(--space-2) 0; padding-left: var(--space-6); }
+.message-content li { margin-bottom: var(--space-1); }
+.message-content code {
+  background: var(--color-surface-2);
+  padding: 0.125em 0.375em;
+  border-radius: var(--radius-sm);
+  font-size: 0.875em;
+}
+.message-content pre {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  overflow-x: auto;
+  margin: var(--space-2) 0;
+}
+.message-content pre code { background: none; padding: 0; }
+.message-content blockquote {
+  border-left: 3px solid var(--color-accent);
+  padding-left: var(--space-3);
+  color: var(--color-text-muted);
+  margin: var(--space-2) 0;
+}
+
+/* ═══ THINKING BLOCKS ═══
+   Bloque colapsable para el razonamiento de pi. Mismo patrón
+   que las cards de la sidebar: surface, border, radius, padding. */
+.thinking-block {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.thinking-summary {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font-weight: 500;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.thinking-summary::-webkit-details-marker { display: none; }
+.thinking-summary::before {
+  content: '▸';
+  font-style: normal;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  width: 12px;
+  flex-shrink: 0;
+}
+details[open] > .thinking-summary::before { content: '▾'; }
+
+.thinking-body {
+  padding: 0 var(--space-3) var(--space-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-style: normal;
+}
+
+/* ═══ TOOL CALLS ═══
+   Card colapsable para herramientas de pi. Header con
+   nombre + status badge. Background según estado. */
+.tool-call {
+  margin: 0;
+  border-radius: var(--radius-sm);
+  font-size: 1em;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: background 0.15s ease;
+}
+.tool-call--pending {
+  background: var(--color-tool-pending-bg);
+  border-color: var(--color-border-muted);
+}
+.tool-call--success { background: var(--color-tool-success-bg); }
+.tool-call--error {
+  background: var(--color-tool-error-bg);
+  border-color: var(--color-warning);
+}
+
+.tool-call-header {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  list-style: none;
+  font-weight: 500;
+  user-select: none;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+}
+.tool-call-header::-webkit-details-marker { display: none; }
+
+.tool-call-icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+  font-weight: bold;
+  font-family: var(--font-mono);
+}
+
+.tool-call-name {
+  flex: 1;
+  color: var(--color-tool-title);
+  word-break: break-all;
+}
+
+.tool-call-status {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.tool-call-status--pending {
+  background: var(--color-info-bg);
+  color: var(--color-warning);
+}
+.tool-call-status--success {
+  background: var(--color-diff-added);
+  color: var(--color-accent-fg);
+}
+.tool-call-status--error {
+  background: var(--color-diff-removed);
+  color: var(--color-accent-fg);
+}
+
+.tool-call-body {
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 400px;
+  overflow-y: auto;
+  border-top: 1px solid var(--color-border-muted);
+}
+
+/* ═══ TOOL RESULT CARD ═══
+   Mini-card colapsable para mensajes de tipo toolResult.
+   Es hermana del tool call que la produjo. */
+.tool-result-card {
+  background: var(--color-tool-success-bg);
+  border-radius: var(--radius-sm);
+  margin: 0;
+  font-size: 1em;
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: background 0.15s ease;
+  width: 100%;
+  max-width: 700px;
+}
+.tool-result-card.is-error {
+  background: var(--color-tool-error-bg);
+  border-color: var(--color-warning);
+}
+
+.tool-result-header {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  list-style: none;
+  font-weight: 500;
+  user-select: none;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+}
+.tool-result-name { flex: 1; font-weight: 500; }
+
+.tool-result-body {
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+  border-top: 1px solid var(--color-border-muted);
+}
+
+/* ═══ STREAMING CURSOR ═══
+   Bloque parpadeante al final del texto mientras isStreaming. */
+.streaming-cursor {
+  display: inline-block;
+  margin-left: 2px;
+  color: var(--color-accent);
+  animation: blink 1s steps(2, start) infinite;
+}
+@keyframes blink { to { visibility: hidden; } }

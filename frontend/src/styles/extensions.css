@@ -1,0 +1,11 @@
+/* ═══ extensions.css — Diálogos, modals, overlays ═══
+   Estilos para elementos que se superponen al contenido
+   principal: diálogos de confirmación, modals de extensiones,
+   y cualquier overlay que bloquee la interacción con el fondo.
+
+   Orden de carga: después de pages.css.
+   Dependencias: tokens.css, base.css.
+   Dependientes: ninguno (último en la cadena).
+
+   Nota: este archivo está vacío por ahora. Agregar estilos
+   acá cuando se implementen diálogos o modals. */

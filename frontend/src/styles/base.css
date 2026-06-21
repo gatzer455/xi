@@ -1,0 +1,51 @@
+/* ═══ base.css — Reset, tipografía base, app shell ═══
+   Estilos que aplican al DOM sin clases específicas: el reset
+   del box-model, la tipografía del body, y el layout raíz de
+   la app (#app). Todo selector acá es genérico — no apunta
+   a un componente particular.
+
+   Orden de carga: después de tokens.css (que define las vars).
+   Dependencias: tokens.css.
+   Dependientes: layout.css, components.css, pages.css. */
+
+/* ─── Reset ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: var(--font-size-base); }
+
+/* ─── Font size: scale ───
+   Cambia --font-size-base. Los text-* están en 'em' así que
+   se reescalan automáticamente. */
+:root[data-font-size='small']  { --font-size-base: 0.875rem; }  /* 14px */
+:root[data-font-size='medium'] { --font-size-base: 1rem; }      /* 16px (default) */
+:root[data-font-size='large']  { --font-size-base: 1.125rem; }  /* 18px */
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-bg);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+textarea { font-family: inherit; }
+code, pre { font-family: var(--font-mono); }
+
+/* ─── App shell ───
+   #app es flex-column. 3 hijos: #top-bar (header), #output-board
+   (contenido flexible), #input-bar (barra de input). */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#top-bar { flex: 0 0 auto; }
+#update-banner { flex: 0 0 auto; }
+#output-board { flex: 1; min-height: 0; overflow-y: auto; }
+#input-bar { flex: 0 0 auto; }
