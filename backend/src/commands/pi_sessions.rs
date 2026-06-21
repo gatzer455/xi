@@ -317,8 +317,7 @@ mod tests {
     /// Campos opcionales presentes.
     #[test]
     fn parse_json_con_campos_opcionales_presentes() {
-        let json = format!(
-            r#"{{"sessions":[{{
+        let json = r#"{{"sessions":[{{
               "path":"/tmp/s.jsonl",
               "id":"xyz",
               "cwd":"/tmp",
@@ -328,8 +327,7 @@ mod tests {
               "modified":2,
               "messageCount":5,
               "firstMessage":"hola"
-            }}]}}"#
-        );
+            }}]}}"#.to_string();
         let result = parse_sessions_list(&json).unwrap();
         assert_eq!(result.sessions[0].name.as_deref(), Some("Mi sesión"));
         assert_eq!(
