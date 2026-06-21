@@ -9,6 +9,7 @@
 import { appState, type FileEntry } from '../lib/state.ts';
 import type { Scope } from '../lib/scope.ts';
 import { listFiles } from '../lib/pi/tauri-commands.ts';
+import { icon, getFileIconName } from '../lib/icons.ts';
 
 export function FileList(scope: Scope): HTMLElement {
   const container = document.createElement('div');
@@ -57,7 +58,8 @@ function renderBreadcrumb(scope: Scope): HTMLElement {
   // Botón raíz
   const rootBtn = document.createElement('button');
   rootBtn.className = 'file-breadcrumb-item';
-  rootBtn.textContent = '📁 Proyecto';
+  const rootIcon = icon('folder-open', { size: 14, color: 'var(--color-text-muted)' });
+  rootBtn.append(rootIcon, ' Proyecto');
   rootBtn.addEventListener('click', () => {
     void navigateToDir(cwd);
   });
@@ -104,10 +106,10 @@ function renderFileItem(file: FileEntry): HTMLElement {
     item.classList.add('file-item--active');
   }
 
-  // Icono
-  const icon = document.createElement('span');
-  icon.className = 'file-item-icon';
-  icon.textContent = getFileIcon(file);
+  // Icono (Lucide SVG)
+  const iconName = getFileIcon(file);
+  const iconEl = icon(iconName, { size: 16, color: 'var(--color-text-muted)' });
+  iconEl.setAttribute('class', 'file-item-icon');
 
   // Nombre
   const name = document.createElement('span');
@@ -122,7 +124,7 @@ function renderFileItem(file: FileEntry): HTMLElement {
     size.textContent = formatSize(file.size);
   }
 
-  item.append(icon, name, size);
+  item.append(iconEl, name, size);
 
   // Click handler
   item.addEventListener('click', () => {
@@ -133,33 +135,7 @@ function renderFileItem(file: FileEntry): HTMLElement {
 }
 
 function getFileIcon(file: FileEntry): string {
-  if (file.is_dir) return '📁';
-
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-  const iconMap: Record<string, string> = {
-    md: '📝',
-    txt: '📄',
-    json: '📋',
-    yaml: '📋',
-    yml: '📋',
-    ts: '📘',
-    js: '📙',
-    jsx: '📘',
-    tsx: '📘',
-    rs: '🦀',
-    py: '🐍',
-    go: '🔵',
-    java: '☕',
-    html: '🌐',
-    css: '🎨',
-    scss: '🎨',
-    toml: '⚙️',
-    ini: '⚙️',
-    sh: '💻',
-    bash: '💻',
-  };
-
-  return iconMap[ext] ?? '📄';
+  return getFileIconName(file.is_dir, file.name);
 }
 
 function formatSize(bytes: number): string {

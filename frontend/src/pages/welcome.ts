@@ -24,6 +24,7 @@ import { navigate } from '../lib/nav.ts';
 import { getRecents } from '../lib/pi/index.ts';
 import type { Recent } from '../lib/pi/index.ts';
 import { loadAuthStatus } from '../lib/auth-status.ts';
+import { icon } from '../lib/icons.ts';
 
 // Signal local de la welcome. No se exporta; vive solo mientras la
 // página está montada. Si `openProject` falla, mostramos el mensaje.
@@ -164,7 +165,9 @@ function renderHelpLink(): HTMLElement {
 function renderCta(): HTMLElement {
   const button = document.createElement('button');
   button.className = 'welcome-cta';
-  button.textContent = '📁  Selecciona una carpeta primero';
+
+  const btnIcon = icon('folder-open', { size: 20 });
+  button.append(btnIcon, ' Seleccioná una carpeta primero');
 
   // El handler captura el error y lo muestra en el banner. No
   // navegamos a #/chat — eso pasa solo si `openProject` setea

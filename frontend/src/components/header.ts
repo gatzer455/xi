@@ -20,6 +20,7 @@
 import { appState, setActiveTab, type Session } from '../lib/state.ts';
 import { navigate } from '../lib/nav.ts';
 import { pickAndOpenProject } from '../lib/workdir.ts';
+import { icon } from '../lib/icons.ts';
 
 export function Header(): HTMLElement {
   const bar = document.createElement('div');
@@ -93,17 +94,17 @@ function renderTabs(): HTMLElement {
     if (tabs.length > 0) {
       const newBtn = document.createElement('button');
       newBtn.className = 'top-bar-new-btn';
-      newBtn.textContent = '+';
+      newBtn.append(icon('message-square-plus', { size: 16 }));
       newBtn.title = 'Ver historial de conversaciones';
       newBtn.addEventListener('click', () => navigate('sessions'));
       container.append(newBtn);
 
-      // Botón "📄" para el explorador de archivos.
+      // Botón para el explorador de archivos.
       // Solo visible si hay un proyecto abierto.
       if (appState.workingDir.value) {
         const explorerBtn = document.createElement('button');
         explorerBtn.className = 'top-bar-new-btn';
-        explorerBtn.textContent = '📄';
+        explorerBtn.append(icon('folder-tree', { size: 16 }));
         explorerBtn.title = 'Explorador de archivos';
         explorerBtn.addEventListener('click', () => navigate('explorer'));
         container.append(explorerBtn);
@@ -189,10 +190,9 @@ function renderSettings(): HTMLElement {
   const btn = document.createElement('button');
   btn.className = 'top-bar-settings';
 
-  const icon = document.createElement('span');
-  icon.className = 'top-bar-settings-icon';
-  icon.textContent = '⚙';
-  btn.append(icon);
+  const iconEl = icon('settings', { size: 16 });
+  iconEl.setAttribute('class', 'top-bar-settings-icon');
+  btn.append(iconEl);
 
   const label = document.createElement('span');
   label.textContent = 'Settings';

@@ -208,7 +208,7 @@ export function renderSelectDialog(
   selectBtn.textContent = 'Seleccionar';
   selectBtn.style.cssText = `
     padding: 8px 16px; border: none; border-radius: 4px;
-    background: var(--color-accent, #4a9eff); color: white;
+    background: var(--color-accent, #4a9eff); color: var(--color-accent-fg, #fff);
     cursor: pointer; font-size: 14px;
   `;
   selectBtn.addEventListener('click', () => {
@@ -285,7 +285,7 @@ export function renderConfirmDialog(
   yesBtn.textContent = 'Sí';
   yesBtn.style.cssText = `
     padding: 8px 16px; border: none; border-radius: 4px;
-    background: var(--color-accent, #4a9eff); color: white;
+    background: var(--color-accent, #4a9eff); color: var(--color-accent-fg, #fff);
     cursor: pointer; font-size: 14px;
   `;
   yesBtn.addEventListener('click', () => resolve({ confirmed: true }));
@@ -353,7 +353,7 @@ export function renderInputDialog(
   submitBtn.textContent = 'Enviar';
   submitBtn.style.cssText = `
     padding: 8px 16px; border: none; border-radius: 4px;
-    background: var(--color-accent, #4a9eff); color: white;
+    background: var(--color-accent, #4a9eff); color: var(--color-accent-fg, #fff);
     cursor: pointer; font-size: 14px;
   `;
   submitBtn.addEventListener('click', () => {
@@ -436,7 +436,7 @@ export function renderEditorDialog(
   submitBtn.textContent = 'Enviar';
   submitBtn.style.cssText = `
     padding: 8px 16px; border: none; border-radius: 4px;
-    background: var(--color-accent, #4a9eff); color: white;
+    background: var(--color-accent, #4a9eff); color: var(--color-accent-fg, #fff);
     cursor: pointer; font-size: 14px;
   `;
   submitBtn.addEventListener('click', () => resolve({ value: textarea.value }));

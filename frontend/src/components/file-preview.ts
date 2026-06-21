@@ -12,6 +12,7 @@ import { appState } from '../lib/state.ts';
 import type { Scope } from '../lib/scope.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
 import { writeFile } from '../lib/pi/tauri-commands.ts';
+import { icon } from '../lib/icons.ts';
 
 export function FilePreview(scope: Scope): HTMLElement {
   const container = document.createElement('div');
@@ -51,10 +52,14 @@ export function FilePreview(scope: Scope): HTMLElement {
 function renderEmpty(): HTMLElement {
   const empty = document.createElement('div');
   empty.className = 'file-preview-empty';
-  empty.innerHTML = `
-    <div class="file-preview-empty-icon">📄</div>
-    <div class="file-preview-empty-text">Seleccioná un archivo para verlo</div>
-  `;
+  const emptyIcon = icon('file', { size: 48, color: 'var(--color-text-muted)' });
+  emptyIcon.setAttribute('class', 'file-preview-empty-icon');
+  
+  const emptyText = document.createElement('div');
+  emptyText.className = 'file-preview-empty-text';
+  emptyText.textContent = 'Seleccioná un archivo para verlo';
+  
+  empty.append(emptyIcon, emptyText);
   return empty;
 }
 
@@ -97,7 +102,7 @@ function renderHeader(file: { name: string; path: string }): HTMLElement {
     // Modo lectura: Editar
     const editBtn = document.createElement('button');
     editBtn.className = 'file-preview-btn';
-    editBtn.textContent = 'Editar';
+    editBtn.append(icon('pencil', { size: 14 }), ' Editar');
     editBtn.addEventListener('click', () => {
       appState.isEditing.value = true;
     });
