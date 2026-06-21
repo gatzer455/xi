@@ -26,7 +26,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "externalBin": ["pi", "pi-sessions"],
+    "externalBin": ["binaries/pi", "binaries/pi-sessions"],
     "resources": {
       "binaries/package.json": "package.json"
     },

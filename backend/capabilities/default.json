@@ -11,11 +11,11 @@
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "name": "pi",
+          "name": "binaries/pi",
           "sidecar": true
         },
         {
-          "name": "pi-sessions",
+          "name": "binaries/pi-sessions",
           "sidecar": true
         }
       ]
