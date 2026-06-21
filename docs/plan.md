@@ -6,9 +6,9 @@ Interfaz de escritorio para pi, dirigida a usuarios no-técnicos. Tauri 2 + Vani
 
 ## Estado actual
 
-**Última etapa completada:** Etapa 9 (Onboarding) + Extension UI + File Explorer
+**Última etapa completada:** Tests unitarios + README + CHANGELOG + File Explorer
 
-**Siguiente:** Tests unitarios → README + CHANGELOG → E2E tests → CI
+**Siguiente:** E2E tests → CI → pi-approve
 
 ---
 
@@ -30,6 +30,9 @@ Interfaz de escritorio para pi, dirigida a usuarios no-técnicos. Tauri 2 + Vani
 | ✨ | Welcome → Sessions flow | `dbc9b49` |
 | ✨ | LaTeX math (temml + Noto Sans Math) | `928c42b` |
 | ✨ | File Explorer (ver + editar archivos) | `ad2d3e0` |
+| ✨ | Tests unitarios (50 tests) | `2323a27` |
+| ✨ | README (Diataxis + retórica hispánica) | `a0b4d47` |
+| ✨ | CHANGELOG (Keep a Changelog) | `36b9f2c` |
 
 ---
 
@@ -39,25 +42,19 @@ Interfaz de escritorio para pi, dirigida a usuarios no-técnicos. Tauri 2 + Vani
 
 | # | Feature | Descripción | Dependencias |
 |---|---------|-------------|--------------|
-| 1 | Tests unitarios | `cargo test` (backend) + `vitest` (frontend) | Ninguna |
-| 2 | README.md | Qué es, cómo instalar, cómo correr, cómo contribuir, licencia | Ninguna |
-| 3 | CHANGELOG.md | Conventional commits, history de xi | Ninguna |
+| 1 | E2E tests | `tauri-driver` + WebDriverIO, flujo completo | Tests unitarios |
+| 2 | CI | GitHub Actions (build + test en push) | E2E tests |
 
 ### 🟡 Media
 
 | # | Feature | Descripción | Dependencias |
 |---|---------|-------------|--------------|
-| 4 | E2E tests | `tauri-driver` + WebDriverIO, flujo completo | #1 |
-| 5 | CI | GitHub Actions (build + test en push) | #1, #4 |
-| 6 | pi-approve | Extension de permisos (desarrollar standalone) | UI handler hecho |
+| 3 | pi-approve | Extension de permisos (desarrollar standalone) | UI handler hecho |
+| 4 | Nombre de sesiones | Auto: fecha, prompt al crear, o híbrido | Ninguna |
+| 5 | Versión real en settings | `app.getVersion()` en vez de hardcoded | Ninguna |
+| 6 | Release notes inline | Body del update en settings | Ninguna |
 
-### 🟢 Baja
 
-| # | Feature | Descripción | Dependencias |
-|---|---------|-------------|--------------|
-| 7 | Nombre de sesiones | Auto: fecha, prompt al crear, o híbrido | Ninguna |
-| 8 | Versión real en settings | `app.getVersion()` en vez de hardcoded | Ninguna |
-| 9 | Release notes inline | Body del update en settings | Ninguna |
 
 ---
 
@@ -145,8 +142,6 @@ xi/
 
 | Tarea | Duración |
 |-------|----------|
-| Tests unitarios | 1-2 días |
-| README + CHANGELOG | 2-3 horas |
 | E2E tests | 2-3 días |
 | CI | 1 día |
-| **Total** | **4-6 días** |
+| **Total** | **3-4 días** |
