@@ -127,9 +127,11 @@ async function main(): Promise<void> {
     void getPiUpstreamVersion();
   }, 2500);
 
-  // 7. Montar debug panel
-  const debugContainer = initDebugPanel();
-  document.body.append(debugContainer);
+  // 7. Montar debug panel (solo en dev)
+  if (import.meta.env.DEV) {
+    const debugContainer = initDebugPanel();
+    document.body.append(debugContainer);
+  }
 
   // 8. Decidir vista inicial: si pi está corriendo con cwd, sessions;
   //    si no, welcome. El default de currentView es 'welcome'.

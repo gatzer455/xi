@@ -12,7 +12,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "types": ["vite/client"]
   },
   "include": ["src/**/*.ts"]
 }

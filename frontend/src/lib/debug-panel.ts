@@ -138,6 +138,9 @@ async function togglePanel(): Promise<void> {
 }
 
 export function addEntry(direction: LogEntry['direction'], message: string): void {
+  // No-op en production: el debug panel no está montado
+  if (!import.meta.env.DEV) return;
+
   const entry: LogEntry = { timestamp: Date.now(), direction, message };
 
   // Truncar mensajes muy largos para el log visual
