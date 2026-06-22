@@ -10,9 +10,9 @@ No hay fechas firmes. Lo que esta en Now puede cambiar de prioridad si aparece a
 
 | Que | Por que | Estado |
 |-----|---------|--------|
+| Refinamiento de markdown renderer | El renderizado actual es texto plano. Falta: syntax highlighting en code blocks, formato legible de tool calls (no JSON crudo), estilos markdown con tema pi-light, y manejo de casos borde (paths absolutos, code sin lenguaje) | Diseno listo en .develop/02-design/chat-rendering-pi-theme.md |
 | CI/CD estable | Las builds automaticas ya funcionan pero requieren ajustes para Windows y macOS en release | Todos los tests pasan. Release v0.1.1 publicado |
 | Refinamiento de extension UI | El handler de extensiones funciona, pero hay casos borde que probar | Funciona con pi-approve |
-| Nombre de sesiones | Pi asigna nombres por defecto. Hace falta decidir si se auto-generan con IA, por fecha, o se le pide al usuario al crear | Sin implementar |
 
 ---
 
