@@ -98,29 +98,25 @@
   padding-left: 1.8em;
   margin: 0.6em 0;
 }
-.md-list li {
+.md-ol {
+  padding-left: 2em;
+  margin: 0.6em 0;
+}
+.md-li {
   list-style: none;
   position: relative;
   margin: 0.25em 0;
   line-height: 1.55;
 }
-.md-list li::before {
+.md-list .md-li::before {
   content: '•';
   color: var(--color-md-list-bullet);
   position: absolute;
   left: -1.2em;
   font-weight: 700;
 }
-
-/* ── Ordered list ── */
-.md-ol {
-  padding-left: 2em;
-  margin: 0.6em 0;
-}
-.md-ol li {
+.md-ol .md-li {
   list-style: decimal;
-  margin: 0.25em 0;
-  line-height: 1.55;
 }
 
 /* ── Blockquote ── */
@@ -150,22 +146,22 @@
   margin: 0.8em 0;
   font-size: 0.925em;
   width: 100%;
-  border: 1px solid var(--color-md-code-block-border);
+  border: 1px solid var(--color-md-table-border, var(--color-md-code-block-border));
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
-.md-table th,
-.md-table td {
-  border: 1px solid var(--color-md-quote-border);
+.md-th,
+.md-td {
+  border: 1px solid var(--color-md-table-border, var(--color-md-quote-border));
   padding: 0.6em 0.9em;
   text-align: left;
   line-height: 1.5;
 }
-.md-table th {
+.md-th {
   background: var(--color-md-code-bg);
   font-weight: 600;
 }
-.md-table tr:nth-child(even) td {
+.md-tr:nth-child(even) .md-td {
   background: var(--color-md-code-bg);
 }
 
