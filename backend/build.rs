@@ -57,40 +57,44 @@ fn resolve_paths() -> BuildPaths {
 
 fn copy_sidecar(paths: &BuildPaths) {
     // Buscar en binaries/ (ubicación actual) o en manifest_dir (legacy)
-    let source = if paths
-        .manifest_dir
-        .join("binaries")
-        .join(&paths.sidecar_name)
-        .exists()
-    {
-        paths
-            .manifest_dir
-            .join("binaries")
-            .join(&paths.sidecar_name)
-    } else {
-        paths.manifest_dir.join(&paths.sidecar_name)
-    };
+    let source = find_sidecar(&paths.manifest_dir, &paths.sidecar_name, false);
     let dest = paths.target_profile_dir.join(&paths.sidecar_name);
 
     println!("cargo:rerun-if-changed={}", source.display());
     println!("cargo:rerun-if-changed=build.rs");
 
     if !source.exists() {
-        // En la práctica, este caso casi nunca se ejecuta: tauri_build
-        // ya falla antes con un error claro cuando el binario no está
-        // en `manifest_dir`. Pero si por algún motivo se llegara aquí
-        // (ej. el binario existe pero no es válido), dejamos un
-        // warning útil. El error accionable está documentado en
-        // `SETUP.md` ("Primer build").
         println!(
-            "cargo:warning=Sidecar source not found at {}. If this is a fresh clone, run ./scripts/build-pi.sh first (see SETUP.md).",
-            source.display()
+            "cargo:warning=Sidecar source not found at {} (with or without .exe). If this is a fresh clone, run ./scripts/build-pi.sh first (see SETUP.md).",
+            paths.manifest_dir.join("binaries").join(&paths.sidecar_name).display()
         );
         return;
     }
 
     fs::create_dir_all(&paths.target_profile_dir).expect("Failed to create target profile dir");
     copy_if_newer(&source, &dest);
+}
+
+fn find_sidecar(manifest_dir: &PathBuf, name: &str, is_sessions: bool) -> PathBuf {
+    // En Windows bun produce binarios con .exe; en linux/macos no.
+    let extensions = if cfg!(target_os = "windows") { vec!["".to_string(), ".exe".to_string()] } else { vec!["".to_string()] };
+    
+    // Primero buscar en binaries/
+    for ext in &extensions {
+        let p = manifest_dir.join("binaries").join(format!("{}{}", name, ext));
+        if p.exists() {
+            return p;
+        }
+    }
+    // Fallback a manifest_dir (legacy)
+    for ext in &extensions {
+        let p = manifest_dir.join(format!("{}{}", name, ext));
+        if p.exists() {
+            return p;
+        }
+    }
+    // Devolver el path sin extensión (no existe, pero build.rs lo maneja)
+    manifest_dir.join("binaries").join(name)
 }
 
 /// Copia el binario `pi-sessions` (nuestro script CLI para gestión de
@@ -104,19 +108,7 @@ fn copy_sidecar(paths: &BuildPaths) {
 /// fallo se verá en runtime.
 fn copy_pi_sessions(paths: &BuildPaths) {
     // Buscar en binaries/ (ubicación actual) o en manifest_dir (legacy)
-    let source = if paths
-        .manifest_dir
-        .join("binaries")
-        .join(&paths.pi_sessions_name)
-        .exists()
-    {
-        paths
-            .manifest_dir
-            .join("binaries")
-            .join(&paths.pi_sessions_name)
-    } else {
-        paths.manifest_dir.join(&paths.pi_sessions_name)
-    };
+    let source = find_sidecar(&paths.manifest_dir, &paths.pi_sessions_name, true);
     let dest = paths.target_profile_dir.join("pi-sessions");
 
     println!("cargo:rerun-if-changed={}", source.display());
