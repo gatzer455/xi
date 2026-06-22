@@ -6,6 +6,34 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y
 
 ---
 
+## [0.1.1] - 2026-06-22
+
+Primer release con CI/CD funcional y empaquetado para las tres plataformas.
+
+### Added
+
+- CI/CD en GitHub Actions con builds para Linux, Windows y macOS
+- Release automatico al pushear tag v*
+- Empaquetado para Linux (.deb), Windows (.exe, .msi) y macOS (.dmg, Intel y ARM)
+- docs/features.md: catalogo de funcionalidades implementadas
+- docs/roadmap.md: roadmap en formato Now/Next/Later
+- docs/ci-failures.md y docs/ci-research.md: documentacion de problemas de CI
+
+### Fixed
+
+- externalBin de pi corregido a "binaries/pi" (Tauri 2 busca en subdirectorio)
+- Build de frontend incluido antes de tests de backend (necesario para --all-targets)
+- pi-sessions ahora se compila al directorio correcto (backend/binaries/)
+- E2E tests: texto de bienvenida actualizado, WebKitWebDriver agregado
+- Clippy: falso positivo useless_format permitido con comentario explicativo
+- Release: linuxdeploy reemplazado por --bundles deb (bypass de FUSE en CI)
+- Release: Windows ahora ejecuta build-pi.sh con shell bash (no PowerShell)
+- Release: macOS compila para Apple Silicon e Intel por separado (ya no universal)
+- build.rs: busca sidecars con extension .exe en Windows
+- Firma criptografica regenerada con contrasena conocida
+
+---
+
 ## [0.1.0] - 2026-06-21
 
 Versión inicial de xi. Interfaz de escritorio para pi, dirigida a personas sin conocimientos técnicos.

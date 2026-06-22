@@ -1,62 +1,53 @@
 # xi
 
-Interfaz de escritorio para [pi](https://github.com/earendil-works/pi-coding-agent), dirigida a personas sin conocimientos técnicos. Tauri 2 + Vanilla TypeScript.
+Interfaz de escritorio para [pi](https://github.com/earendil-works/pi-coding-agent), un agente de inteligencia artificial creado por Mario Zechner.
 
-xi no es un producto independiente: es la ventana que pi necesitaba para llegar a personas que no usan la terminal. Pi es el motor — xi es la interfaz. Todo el procesamiento de lenguaje natural, la gestión de sesiones y la inteligencia artificial la hace pi. xi se encarga de mostrarle al usuario una pantalla amigable donde puede conversar con pi sin preocuparse de la terminal, los comandos o la configuración técnica.
+xi no es un producto independiente. Es una ventana para que personas sin experiencia técnica puedan usar pi sin tocar la terminal. Pi es el motor de lenguaje natural, la gestion de sesiones y la inteligencia artificial. Xi se encarga de mostrar una pantalla donde el usuario conversa con pi sin ver comandos ni configuraciones tecnicas.
 
-La aplicación es opinionada: viene con las configuraciones por defecto del desarrollador de xi. Esto significa que la aplicación ya viene con una configuración específica, que sin embargo es cambiable si uno ya entiende pi. Si el usuario quiere cambiar algo, puede hacerlo desde la pantalla de ajustes, pero no es obligatorio.
+La aplicacion viene con valores por defecto que quien desarrolla xi considera sensatos. Si el usuario quiere cambiarlos, puede hacerlo desde la pantalla de ajustes. No es obligatorio.
 
 ---
 
-## Requisitos previos
-
-Antes de instalar xi, necesitas:
+## Requisitos
 
 - **Node.js** v18 o superior (recomendado: v22)
-- **Rust** 1.77.2 o superior (recomendado: estable actual)
-- **npm**, **pnpm** o **yarn**
-- **Linux**: las librerías de sistema que Tauri necesita (ver [docs/dev.md](docs/dev.md))
+- **Rust** 1.77.2 o superior
+- **npm** o **pnpm**
+- **Linux**: las librerias de sistema que Tauri necesita (ver [docs/dev.md](docs/dev.md))
 
 ---
 
-## Instalación
-
-### 1. Clonar el repositorio
+## Instalacion
 
 ```bash
-git clone https://github.com/earendil-works/xi.git
+git clone https://github.com/gatzer455/xi.git
 cd xi
+cd frontend && npm install
+cd .. && npm install -D @tauri-apps/cli
 ```
 
-### 2. Instalar dependencias del frontend
-
-```bash
-cd frontend
-npm install
-```
-
-### 3. Instalar Tauri CLI
-
-```bash
-cd ..
-npm install -D @tauri-apps/cli
-```
-
-### 4. Verificar que todo compila
+Para verificar que todo compila:
 
 ```bash
 cd frontend && npx vite build
 cd ../backend && cargo check
 ```
 
-### 5. Ejecutar en modo desarrollo
+Para ejecutar en modo desarrollo:
 
 ```bash
-cd ..
 npm run dev
 ```
 
-La primera vez, Rust descarga y compila las dependencias. Esto tarda entre 3 y 8 minutos. Las veces siguientes, la compilación toma unos segundos.
+La primera vez, Rust descarga y compila las dependencias. Tarda entre 3 y 8 minutos. Las veces siguientes, la compilacion toma segundos.
+
+---
+
+## Lo que ya funciona
+
+Las funcionalidades implementadas estan documentadas en [docs/features.md](docs/features.md). Incluyen chat con streaming, gestion de sesiones, configuracion de proveedores, explorador de archivos, actualizaciones automaticas y soporte para extensiones de pi.
+
+El plan de desarrollo, con lo que sigue, esta en [docs/roadmap.md](docs/roadmap.md).
 
 ---
 
@@ -64,81 +55,51 @@ La primera vez, Rust descarga y compila las dependencias. Esto tarda entre 3 y 8
 
 ```
 xi/
-├── frontend/          ← Interfaz de usuario (TypeScript + Vite)
-│   └── src/
-│       ├── lib/       ← Signal, state, routing, markdown
-│       ├── components/← Componentes UI
-│       ├── pages/     ← Chat, sesiones, ajustes, bienvenida, explorador
-│       └── styles/    ← Tokens CSS, temml
-│
-├── backend/           ← Núcleo Tauri (Rust)
-│   └── src/commands/  ← Comandos IPC
-│
-├── docs/              ← Documentación del proyecto
-│   ├── plan.md        ← Plan de desarrollo
-│   ├── dev.md         ← Setup para developers
-│   └── discoveries.md ← Decisiones técnicas
-│
-└── .develop/          ← Pipeline de diseño
-    ├── 01-idea/
-    ├── 02-design/
-    └── 03-reqs/
+  frontend/            Interfaz de usuario (TypeScript + Vite)
+    src/
+      lib/             Seniales, estado, ruteo, markdown
+      components/      Componentes de interfaz
+      pages/           Chat, sesiones, ajustes, bienvenida, explorador
+      styles/          Tokens CSS, temml
+  backend/             Nucleo Tauri (Rust)
+    src/commands/      Comandos IPC
+  docs/                Documentacion
+  .develop/            Pipeline de diseno (idea, diseno, requisitos)
 ```
 
 ---
 
-## Stack tecnológico
+## Stack
 
-| Capa | Tecnología | Propósito |
-|------|-----------|-----------|
-| Desktop | Tauri 2 | Shell nativo, IPC, ventana |
-| Backend | Rust | Lógica de negocio, filesystem |
-| Frontend | TypeScript + Vite | Interfaz de usuario |
-| Motor | pi (sidecar) | Procesamiento de lenguaje natural |
-| Markdown | markdown-it + temml | Renderizado con soporte matemático |
-| State | Signals propias (~25 LOC) | Reactividad sin dependencias |
-
-**Dependencias de runtime en frontend:** ninguna. Todo el código es propio.
-
----
-
-## Funcionalidades
-
-- **Chat con pi**: conversación en tiempo real con streaming de tokens
-- **Gestión de sesiones**: crear, listar, renombrar y eliminar sesiones
-- **Configuración**: modelo, nivel de razonamiento, tema, tamaño de fuente
-- **Proveedores**: configuración de API keys para 7 proveedores
-- **Explorador de archivos**: navegar y editar archivos del proyecto
-- **Soporte matemático**: renderizado de LaTeX con MathML
-- **Auto-update**: actualizaciones con firma criptográfica
+| Capa | Tecnologia |
+|------|------------|
+| Desktop | Tauri 2 |
+| Backend | Rust |
+| Frontend | TypeScript + Vite |
+| Motor | pi (sidecar compilado con bun) |
+| Markdown | markdown-it + temml |
+| State | Seniales propias (~25 lineas) |
+| Routing | Hash-based propio (~80 lineas) |
 
 ---
 
-## Testing
+## Desarrollo
 
 ```bash
-# Frontend (vitest)
-cd frontend
-npm test            # modo watch
-npm run test:run    # ejecución única
+# Tests del frontend
+cd frontend && npm test
 
-# Backend (cargo)
-cd backend
-cargo test
+# Tests del backend
+cd backend && cargo test
+
+# Tests E2E (requiere tauri-driver)
+npm run test:e2e
 ```
 
----
-
-## Documentación
-
-| Documento | Contenido |
-|-----------|-----------|
-| [docs/dev.md](docs/dev.md) | Setup de desarrollo, dependencias del sistema |
-| [docs/plan.md](docs/plan.md) | Plan de desarrollo, decisiones técnicas |
-| [docs/discoveries.md](docs/discoveries.md) | Descubrimientos durante el desarrollo |
+Ver [docs/dev.md](docs/dev.md) para el setup completo de desarrollo.
 
 ---
 
 ## Licencia
 
-Por definir.
+MIT
