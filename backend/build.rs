@@ -77,11 +77,17 @@ fn copy_sidecar(paths: &BuildPaths) {
 
 fn find_sidecar(manifest_dir: &PathBuf, name: &str, is_sessions: bool) -> PathBuf {
     // En Windows bun produce binarios con .exe; en linux/macos no.
-    let extensions = if cfg!(target_os = "windows") { vec!["".to_string(), ".exe".to_string()] } else { vec!["".to_string()] };
-    
+    let extensions = if cfg!(target_os = "windows") {
+        vec!["".to_string(), ".exe".to_string()]
+    } else {
+        vec!["".to_string()]
+    };
+
     // Primero buscar en binaries/
     for ext in &extensions {
-        let p = manifest_dir.join("binaries").join(format!("{}{}", name, ext));
+        let p = manifest_dir
+            .join("binaries")
+            .join(format!("{}{}", name, ext));
         if p.exists() {
             return p;
         }
