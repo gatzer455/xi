@@ -33,7 +33,7 @@ jobs:
             args: --target universal-apple-darwin
             pi-target: macos
           - platform: ubuntu-22.04
-            args: ""
+            args: --bundles deb
             pi-target: linux
           - platform: windows-latest
             args: ""
