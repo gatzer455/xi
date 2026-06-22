@@ -30,8 +30,11 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            args: --target universal-apple-darwin
+            args: --target aarch64-apple-darwin
             pi-target: macos
+          - platform: macos-latest
+            args: --target x86_64-apple-darwin
+            pi-target: macos-intel
           - platform: ubuntu-22.04
             args: --bundles deb
             pi-target: linux
@@ -82,9 +85,11 @@ jobs:
         run: cd frontend && npm ci
 
       - name: Build pi sidecar
+        shell: bash
         run: ./scripts/build-pi.sh --target ${{ matrix.pi-target }}
 
       - name: Build pi-sessions
+        shell: bash
         run: ./scripts/build-pi-sessions.sh --target ${{ matrix.pi-target }}
 
       - name: Tauri build + release

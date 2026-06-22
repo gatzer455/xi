@@ -71,8 +71,13 @@ case $TARGET in
     RUST_TRIPLE="aarch64-apple-darwin"
     BINARY_SUFFIX=""
     ;;
+  macos-intel)
+    BUN_TARGET="bun-darwin-x64"
+    RUST_TRIPLE="x86_64-apple-darwin"
+    BINARY_SUFFIX=""
+    ;;
   *)
-    echo "❌ Target no soportado: $TARGET (usa: linux, windows, macos)"
+    echo "❌ Target no soportado: $TARGET (usa: linux, windows, macos, macos-intel)"
     exit 1
     ;;
 esac
