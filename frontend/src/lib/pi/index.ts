@@ -40,3 +40,5 @@ export type {
 } from './event-parser.ts';
 
 export { applyEvent } from './state-sync.ts';
+
+export { ensurePiRunning } from './lifecycle.ts';
