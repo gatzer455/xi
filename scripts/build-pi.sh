@@ -27,6 +27,14 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 BINARIES_DIR="$BACKEND_DIR/binaries"
 PI_PKG="$PROJECT_ROOT/node_modules/@earendil-works/pi-coding-agent"
+
+# Guard: verificar que pi está instalado antes de intentar leerlo.
+if [ ! -f "$PI_PKG/package.json" ]; then
+  echo "❌ @earendil-works/pi-coding-agent no encontrado en node_modules/"
+  echo "   Corre 'npm install' primero."
+  exit 1
+fi
+
 BUILD_DIR="/tmp/pi-build-$$"
 
 # ─── Parsear argumentos ───────────────────────────────────────────────────────

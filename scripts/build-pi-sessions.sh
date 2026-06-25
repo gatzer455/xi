@@ -13,9 +13,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SRC="$PROJECT_ROOT/backend/scripts/pi-sessions.ts"
-SESSIONS_HELPERS="$PROJECT_ROOT/backend/scripts/sessions-helpers.ts"
 OUT_DIR="$PROJECT_ROOT/backend/binaries"
-PI_PKG="$PROJECT_ROOT/node_modules/@earendil-works/pi-coding-agent"
 
 # ─── Parsear argumentos ───────────────────────────────────────────────────────
 TARGET=""
