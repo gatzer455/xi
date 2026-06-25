@@ -1,6 +1,6 @@
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Hook de build: prepara lo que el sidecar de pi necesita para correr
 /// en `tauri dev`.
@@ -75,7 +75,7 @@ fn copy_sidecar(paths: &BuildPaths) {
     copy_if_newer(&source, &dest);
 }
 
-fn find_sidecar(manifest_dir: &PathBuf, name: &str, is_sessions: bool) -> PathBuf {
+fn find_sidecar(manifest_dir: &Path, name: &str, _is_sessions: bool) -> PathBuf {
     // En Windows bun produce binarios con .exe; en linux/macos no.
     let extensions = if cfg!(target_os = "windows") {
         vec!["".to_string(), ".exe".to_string()]

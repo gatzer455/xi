@@ -4,7 +4,8 @@
   "private": true,
   "description": "xi — UI vanilla TypeScript. Sin frameworks, sin dependencias de runtime.",
   "scripts": {
-    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "dev": "tsc --noEmit && vite",
     "build": "vite build",
     "test": "vitest",
     "test:run": "vitest run",

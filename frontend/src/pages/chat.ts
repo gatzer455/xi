@@ -36,36 +36,46 @@
  * agrega espacio para que el último mensaje no quede pegado al borde.
  */
 
-import { appState, type ExtensionDialogState } from '../lib/state.ts';
-import { createScope, type Page } from '../lib/scope.ts';
-import { ChatBubble } from '../components/chat-bubble.ts';
-import { renderSelectDialog, renderConfirmDialog, renderInputDialog, renderEditorDialog } from '../components/extension-ui-dialog.ts';
-import { setDialogRenderer, clearDialogRenderer } from '../lib/pi/extension-ui-handler.ts';
-import { navigate } from '../lib/nav.ts';
+import { appState, type ExtensionDialogState } from "../lib/state.ts";
+import { createScope, type Page } from "../lib/scope.ts";
+import { ChatBubble } from "../components/chat-bubble.ts";
+import {
+  renderSelectDialog,
+  renderConfirmDialog,
+  renderInputDialog,
+  renderEditorDialog,
+} from "../components/extension-ui-dialog.ts";
+import {
+  setDialogRenderer,
+  clearDialogRenderer,
+} from "../lib/pi/extension-ui-handler.ts";
+import { navigate } from "../lib/nav.ts";
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 const NEAR_BOTTOM_PX = 100;
 
 export function ChatPage(): Page {
-  const root = document.createElement('div');
-  root.className = 'chat-area';
+  const root = document.createElement("div");
+  root.className = "chat-area";
   const scope = createScope();
 
   // ═══ Header (modelo actual) ═══
-  const header = document.createElement('div');
-  header.className = 'chat-header';
+  const header = document.createElement("div");
+  header.className = "chat-header";
 
-  const title = document.createElement('h1');
-  title.className = 'chat-header-title';
-  title.textContent = 'xi';
+  const title = document.createElement("h1");
+  title.className = "chat-header-title";
+  title.textContent = "xi";
   header.append(title);
 
-  const modelBadge = document.createElement('span');
-  modelBadge.className = 'chat-header-model';
-  modelBadge.textContent = 'sin modelo';
-  scope.add(appState.currentModel.subscribe(model => {
-    modelBadge.textContent = model ? model.name : 'sin modelo';
-  }));
+  const modelBadge = document.createElement("span");
+  modelBadge.className = "chat-header-model";
+  modelBadge.textContent = "sin modelo";
+  scope.add(
+    appState.currentModel.subscribe((model) => {
+      modelBadge.textContent = model ? model.name : "sin modelo";
+    }),
+  );
   header.append(modelBadge);
 
   root.append(header);
@@ -75,40 +85,43 @@ export function ChatPage(): Page {
   // En welcome se quito para que el usuario no vea un bloqueante
   // antes de elegir carpeta. Aca en chat ya tiene sentido porque
   // esta intentando conversar.
-  const authBanner = document.createElement('div');
-  authBanner.className = 'chat-auth-banner';
-  authBanner.style.display = 'none';
+  const authBanner = document.createElement("div");
+  authBanner.className = "chat-auth-banner";
+  authBanner.style.display = "none";
 
-  const authMsg = document.createElement('span');
-  authMsg.textContent = '⚠ No hay modelo configurado. Configurá tu API key en Ajustes para empezar a conversar.';
+  const authMsg = document.createElement("span");
+  authMsg.textContent =
+    "⚠ No hay modelo configurado. Configurá tu API key en Ajustes para empezar a conversar.";
   authBanner.append(authMsg);
 
-  const authBtn = document.createElement('button');
-  authBtn.type = 'button';
-  authBtn.className = 'chat-auth-banner-btn';
-  authBtn.textContent = 'Ir a Ajustes';
-  authBtn.addEventListener('click', () => navigate('settings'));
+  const authBtn = document.createElement("button");
+  authBtn.type = "button";
+  authBtn.className = "chat-auth-banner-btn";
+  authBtn.textContent = "Ir a Ajustes";
+  authBtn.addEventListener("click", () => navigate("settings"));
   authBanner.append(authBtn);
 
-  scope.add(appState.hasAnyProvider.subscribe((hasAny) => {
-    authBanner.style.display = hasAny ? 'none' : 'flex';
-  }));
+  scope.add(
+    appState.hasAnyProvider.subscribe((hasAny) => {
+      authBanner.style.display = hasAny ? "none" : "flex";
+    }),
+  );
 
   root.append(authBanner);
 
   // ═══ Messages ═══
-  const messagesContainer = document.createElement('div');
-  messagesContainer.className = 'chat-messages';
+  const messagesContainer = document.createElement("div");
+  messagesContainer.className = "chat-messages";
 
-  const messagesInner = document.createElement('div');
-  messagesInner.className = 'chat-messages-inner';
+  const messagesInner = document.createElement("div");
+  messagesInner.className = "chat-messages-inner";
 
   // Sentinel: anclaje invisible al final de los mensajes. Vivir
   // siempre como último hijo de messagesInner (incluso en estado
   // vacío). scrollIntoView sobre el sentinel es robusto a cambios
   // async del scrollHeight — el browser recalcula cada vez.
-  const endSentinel = document.createElement('div');
-  endSentinel.className = 'chat-end-sentinel';
+  const endSentinel = document.createElement("div");
+  endSentinel.className = "chat-end-sentinel";
 
   // Flag para el pin inicial. Se setea en true después del primer
   // render y nunca se resetea (cada vez que se monta la página,
@@ -125,9 +138,10 @@ export function ChatPage(): Page {
 
   /** ¿El usuario está cerca del fondo del scroll? */
   function isNearBottom(): boolean {
-    const distance = messagesContainer.scrollHeight
-      - messagesContainer.scrollTop
-      - messagesContainer.clientHeight;
+    const distance =
+      messagesContainer.scrollHeight -
+      messagesContainer.scrollTop -
+      messagesContainer.clientHeight;
     return distance <= NEAR_BOTTOM_PX;
   }
 
@@ -171,7 +185,7 @@ export function ChatPage(): Page {
         // continuar. Sin esto, scrollIntoView mide alturas
         // incorrectas.
         void messagesContainer.offsetHeight;
-        endSentinel.scrollIntoView({ block: 'end', behavior: 'instant' });
+        endSentinel.scrollIntoView({ block: "end", behavior: "instant" });
       });
     });
   }
@@ -179,26 +193,32 @@ export function ChatPage(): Page {
   // Pausar auto-scroll cuando el usuario expande/colapsa un
   // <details> manualmente. Usamos event delegation en messagesInner
   // para capturar todos los toggle de thinking, tool calls, y results.
-  messagesInner.addEventListener('toggle', (e) => {
-    // Solo pausar si el evento viene de un <details> (no de otros
-    // elementos que puedan tener toggle)
-    if (e.target instanceof HTMLDetailsElement) {
-      pauseAutoScroll = true;
-      // Reanudar después de 300ms — tiempo suficiente para que el
-      // browser complete el layout del toggle y el ResizeObserver
-      // dispare, pero sin scrollear.
-      setTimeout(() => { pauseAutoScroll = false; }, 300);
-    }
-  }, true); // capture: true para interceptar antes del bubble
+  messagesInner.addEventListener(
+    "toggle",
+    (e) => {
+      // Solo pausar si el evento viene de un <details> (no de otros
+      // elementos que puedan tener toggle)
+      if (e.target instanceof HTMLDetailsElement) {
+        pauseAutoScroll = true;
+        // Reanudar después de 300ms — tiempo suficiente para que el
+        // browser complete el layout del toggle y el ResizeObserver
+        // dispare, pero sin scrollear.
+        setTimeout(() => {
+          pauseAutoScroll = false;
+        }, 300);
+      }
+    },
+    true,
+  ); // capture: true para interceptar antes del bubble
 
   /** Re-pin reactivo: cuando el contenido crece async (markdown,
    *  fonts web, imágenes), re-scrolleamos al fondo SOLO si el
    *  usuario está "near bottom". Si scrolleó arriba, respetamos
    *  su posición. */
   const resizeObserver = new ResizeObserver(() => {
-    if (pauseAutoScroll) return;  // Pausado por toggle manual
+    if (pauseAutoScroll) return; // Pausado por toggle manual
     if (isNearBottom()) {
-      endSentinel.scrollIntoView({ block: 'end', behavior: 'instant' });
+      endSentinel.scrollIntoView({ block: "end", behavior: "instant" });
     }
   });
 
@@ -224,42 +244,68 @@ export function ChatPage(): Page {
     // Remover dialog anterior si existe
     removeExtensionDialog();
 
-    activeDialogContainer = document.createElement('div');
-    activeDialogContainer.className = 'extension-dialog-wrapper';
+    activeDialogContainer = document.createElement("div");
+    activeDialogContainer.className = "extension-dialog-wrapper";
 
     let dialogElement: HTMLElement;
 
     switch (dialog.method) {
-      case 'select':
+      case "select":
         dialogElement = renderSelectDialog(
-          { type: 'extension_ui_request', id: dialog.id, method: 'select', title: dialog.title, options: dialog.options ?? [] },
+          {
+            type: "extension_ui_request",
+            id: dialog.id,
+            method: "select",
+            title: dialog.title,
+            options: dialog.options ?? [],
+          },
           dialog.resolve,
           dialog.reject,
         );
         break;
-      case 'confirm':
+      case "confirm":
         dialogElement = renderConfirmDialog(
-          { type: 'extension_ui_request', id: dialog.id, method: 'confirm', title: dialog.title, message: dialog.message ?? '' },
+          {
+            type: "extension_ui_request",
+            id: dialog.id,
+            method: "confirm",
+            title: dialog.title,
+            message: dialog.message ?? "",
+          },
           dialog.resolve,
           dialog.reject,
         );
         break;
-      case 'input':
+      case "input":
         dialogElement = renderInputDialog(
-          { type: 'extension_ui_request', id: dialog.id, method: 'input', title: dialog.title, placeholder: dialog.placeholder },
+          {
+            type: "extension_ui_request",
+            id: dialog.id,
+            method: "input",
+            title: dialog.title,
+            placeholder: dialog.placeholder,
+          },
           dialog.resolve,
           dialog.reject,
         );
         break;
-      case 'editor':
+      case "editor":
         dialogElement = renderEditorDialog(
-          { type: 'extension_ui_request', id: dialog.id, method: 'editor', title: dialog.title, prefill: dialog.prefill },
+          {
+            type: "extension_ui_request",
+            id: dialog.id,
+            method: "editor",
+            title: dialog.title,
+            prefill: dialog.prefill,
+          },
           dialog.resolve,
           dialog.reject,
         );
         break;
       default:
-        console.error(`[chat] Unknown extension dialog method: ${dialog.method}`);
+        console.error(
+          `[chat] Unknown extension dialog method: ${dialog.method}`,
+        );
         dialog.reject();
         return;
     }
@@ -271,23 +317,37 @@ export function ChatPage(): Page {
 
     // Scroll al dialog
     requestAnimationFrame(() => {
-      activeDialogContainer?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+      activeDialogContainer?.scrollIntoView({
+        block: "end",
+        behavior: "smooth",
+      });
     });
 
     // Escape para cancelar
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        document.removeEventListener('keydown', handleKeyDown);
+      if (e.key === "Escape") {
+        document.removeEventListener("keydown", handleKeyDown);
         dialog.reject();
       }
     };
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
 
-    // Limpiar listener cuando el dialog se remueve
-    scope.add(() => document.removeEventListener('keydown', handleKeyDown));
+    // Registrar cleanup en scope (se ejecuta al dispose de página)
+    // y también guardarlo en dialogKeydownCleanup para limpiarlo
+    // antes si el dialog se cierra por otra vía.
+    const cleanup = () =>
+      document.removeEventListener("keydown", handleKeyDown);
+    scope.add(cleanup);
+    dialogKeydownCleanup = cleanup;
   }
 
+  // Se setea al renderizar un dialog. removeExtensionDialog lo
+  // llama para limpiar el listener de teclado antes de tiempo.
+  let dialogKeydownCleanup: (() => void) | null = null;
+
   function removeExtensionDialog(): void {
+    dialogKeydownCleanup?.();
+    dialogKeydownCleanup = null;
     if (activeDialogContainer) {
       activeDialogContainer.remove();
       activeDialogContainer = null;
@@ -307,14 +367,16 @@ export function ChatPage(): Page {
       const wrappedResolve = (value: Record<string, unknown>) => {
         const answer = formatDialogResponse(request.method, value);
         if (answer) {
-          askResponses.push({ question: request.title, answer });
+          const question = "title" in request ? request.title : request.message;
+          askResponses.push({ question, answer });
         }
         appState.activeExtensionDialog.value = null;
         resolve(value);
       };
 
       const wrappedReject = () => {
-        askResponses.push({ question: request.title, answer: '(cancelled)' });
+        const question = "title" in request ? request.title : request.message;
+        askResponses.push({ question, answer: "(cancelled)" });
         appState.activeExtensionDialog.value = null;
         reject();
       };
@@ -322,11 +384,11 @@ export function ChatPage(): Page {
       appState.activeExtensionDialog.value = {
         id: request.id,
         method: request.method,
-        title: ('title' in request) ? request.title : '',
-        message: ('message' in request) ? request.message : undefined,
-        options: ('options' in request) ? request.options : undefined,
-        placeholder: ('placeholder' in request) ? request.placeholder : undefined,
-        prefill: ('prefill' in request) ? request.prefill : undefined,
+        title: "title" in request ? request.title : "",
+        message: "message" in request ? request.message : undefined,
+        options: "options" in request ? request.options : undefined,
+        placeholder: "placeholder" in request ? request.placeholder : undefined,
+        prefill: "prefill" in request ? request.prefill : undefined,
         resolve: wrappedResolve,
         reject: wrappedReject,
       };
@@ -335,18 +397,20 @@ export function ChatPage(): Page {
 
   // Cuando el dialog se cierra (se resuelve o cancela), si hay
   // respuestas acumuladas, agregar un solo bloque formateado al chat.
-  scope.add(appState.activeExtensionDialog.subscribe((dialog) => {
-    if (dialog) {
-      renderExtensionDialog(dialog);
-    } else {
-      removeExtensionDialog();
-      // Mostrar respuestas acumuladas como un solo tool result
-      if (askResponses.length > 0) {
-        addAskResult(askResponses);
-        askResponses = [];
+  scope.add(
+    appState.activeExtensionDialog.subscribe((dialog) => {
+      if (dialog) {
+        renderExtensionDialog(dialog);
+      } else {
+        removeExtensionDialog();
+        // Mostrar respuestas acumuladas como un solo tool result
+        if (askResponses.length > 0) {
+          addAskResult(askResponses);
+          askResponses = [];
+        }
       }
-    }
-  }));
+    }),
+  );
 
   scope.add(appState.messages.subscribe(renderMessages));
 
@@ -370,18 +434,20 @@ export function ChatPage(): Page {
  * se muestra un bloque formateado con todas las preguntas y respuestas.
  * Se ve como un output de tool, no como un message del usuario.
  */
-function addAskResult(responses: Array<{ question: string; answer: string }>): void {
+function addAskResult(
+  responses: Array<{ question: string; answer: string }>,
+): void {
   const id = `ask-result-${Date.now()}`;
-  const lines = responses.map(r => `**${r.question}** → ${r.answer}`);
-  const content = lines.join('\n');
+  const lines = responses.map((r) => `**${r.question}** → ${r.answer}`);
+  const content = lines.join("\n");
 
   const message = {
     id,
-    role: 'toolResult' as const,
+    role: "toolResult" as const,
     content,
     timestamp: Date.now(),
     toolResult: {
-      toolName: 'ask',
+      toolName: "ask",
       isError: false,
     },
   };
@@ -393,16 +459,19 @@ function addAskResult(responses: Array<{ question: string; answer: string }>): v
  *
  * Convierte el objeto de respuesta a un string legible.
  */
-function formatDialogResponse(method: string, value: Record<string, unknown>): string {
+function formatDialogResponse(
+  method: string,
+  value: Record<string, unknown>,
+): string {
   switch (method) {
-    case 'select':
-      return String(value.value ?? '');
-    case 'confirm':
-      return value.confirmed ? 'Sí' : 'No';
-    case 'input':
-      return String(value.value ?? '');
-    case 'editor':
-      return String(value.value ?? '');
+    case "select":
+      return String(value.value ?? "");
+    case "confirm":
+      return value.confirmed ? "Sí" : "No";
+    case "input":
+      return String(value.value ?? "");
+    case "editor":
+      return String(value.value ?? "");
     default:
       return JSON.stringify(value);
   }
@@ -410,24 +479,24 @@ function formatDialogResponse(method: string, value: Record<string, unknown>): s
 
 /** Renderiza la pantalla de bienvenida (estado vacío). */
 function renderWelcome(): HTMLElement {
-  const welcome = document.createElement('div');
-  welcome.className = 'welcome';
+  const welcome = document.createElement("div");
+  welcome.className = "welcome";
 
-  const icon = document.createElement('div');
-  icon.className = 'welcome-icon';
-  icon.textContent = '✦';
+  const icon = document.createElement("div");
+  icon.className = "welcome-icon";
+  icon.textContent = "✦";
   welcome.append(icon);
 
-  const welcomeTitle = document.createElement('h2');
-  welcomeTitle.className = 'welcome-title';
-  welcomeTitle.textContent = '¿En qué puedo ayudarte?';
+  const welcomeTitle = document.createElement("h2");
+  welcomeTitle.className = "welcome-title";
+  welcomeTitle.textContent = "¿En qué puedo ayudarte?";
   welcome.append(welcomeTitle);
 
-  const subtitle = document.createElement('p');
-  subtitle.className = 'welcome-subtitle';
+  const subtitle = document.createElement("p");
+  subtitle.className = "welcome-subtitle";
   subtitle.textContent = appState.workingDir.value
-    ? 'Escribe un mensaje para comenzar una conversación con pi.'
-    : 'Selecciona una carpeta de trabajo para comenzar.';
+    ? "Escribe un mensaje para comenzar una conversación con pi."
+    : "Selecciona una carpeta de trabajo para comenzar.";
   welcome.append(subtitle);
 
   return welcome;

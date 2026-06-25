@@ -60,6 +60,13 @@ export interface Session {
 // Estado global
 // ═══════════════════════════════════════════════════════
 
+/** Tipo del estado global. Se exporta para que los mocks
+ *  puedan verificarse contra la forma real en tiempo de
+ *  compilación (type-level test). Si se agrega un campo a
+ *  appState, el mock en mocks/state.ts fallará si no lo
+ *  incluye. */
+export type AppState = typeof appState;
+
 export const appState = {
   /** Directorio de trabajo actual. null = no seleccionado. */
   workingDir: signal<string | null>(null),

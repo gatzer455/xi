@@ -68,6 +68,9 @@ jobs:
       - name: Build frontend (needed for clippy — --all-targets incluye tests que requieren frontendDist)
         run: cd frontend && npm run build
 
+      - name: TypeScript type-check
+        run: cd frontend && npm run typecheck
+
       - name: cargo fmt
         run: cargo fmt --all --manifest-path backend/Cargo.toml -- --check
 
@@ -241,4 +244,9 @@ jobs:
         run: cargo install tauri-driver --locked
 
       - name: E2E tests
-        run: npm run test:e2e
+        env:
+          # Software rendering para WebKitGTK headless en CI.
+          # Sin esto, xvfb + WebKit falla con dmabuf errors en
+          # runners de GitHub Ubuntu 22.04.
+          WEBKIT_DISABLE_DMABUF_RENDERER: 1
+        run: xvfb-run --auto-servernum npm run test:e2e

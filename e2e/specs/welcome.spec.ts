@@ -34,7 +34,7 @@ describe('Pantalla de bienvenida', () => {
 
   it('debería tener botón para ir a configuración', async () => {
     const btn = await $('.welcome-auth-banner-btn');
-    const exists = await btn.isExisting();
-    expect(exists).toBe(true);
+    await btn.waitForExist({ timeout: 10000 });
+    expect(await btn.isExisting()).toBe(true);
   });
 });

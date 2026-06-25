@@ -16,30 +16,31 @@
  * 3. Link "¿Necesitas ayuda?" al pie.
  */
 
-import { signal } from '../lib/signal.ts';
-import { createScope, type Scope, type Page } from '../lib/scope.ts';
-import { appState } from '../lib/state.ts';
-import { pickAndOpenProject, openProject } from '../lib/workdir.ts';
-import { navigate } from '../lib/nav.ts';
-import { getRecents } from '../lib/pi/index.ts';
-import type { Recent } from '../lib/pi/index.ts';
-import { loadAuthStatus } from '../lib/auth-status.ts';
-import { icon } from '../lib/icons.ts';
-
-// Signal local de la welcome. No se exporta; vive solo mientras la
-// página está montada. Si `openProject` falla, mostramos el mensaje.
-const error = signal<string | null>(null);
+import { signal, type Signal } from "../lib/signal.ts";
+import { createScope, type Scope, type Page } from "../lib/scope.ts";
+import { appState } from "../lib/state.ts";
+import { pickAndOpenProject, openProject } from "../lib/workdir.ts";
+import { navigate } from "../lib/nav.ts";
+import { getRecents } from "../lib/pi/index.ts";
+import type { Recent } from "../lib/pi/index.ts";
+import { loadAuthStatus } from "../lib/auth-status.ts";
+import { icon } from "../lib/icons.ts";
 
 export function WelcomePage(): Page {
-  const root = document.createElement('div');
-  root.className = 'welcome-page';
+  const root = document.createElement("div");
+  root.className = "welcome-page";
   const scope = createScope();
 
-  root.append(renderErrorBanner(scope));
+  // Signal local por instancia: cada mount tiene su propio estado de
+  // error. Sin esto, un error de un mount anterior persiste al
+  // remontar la página y la UI muestra un banner fantasma.
+  const error = signal<string | null>(null);
+
+  root.append(renderErrorBanner(scope, error));
   root.append(renderHeader());
-  root.append(renderWelcomeHeader());
-  root.append(renderCta());
-  root.append(renderRecentsSection(scope));
+  root.append(renderAuthBanner(scope));
+  root.append(renderCta(error));
+  root.append(renderRecentsSection(scope, error));
   root.append(renderHelpLink());
 
   // Cargar el estado de providers al mount. Fire-and-forget — el
@@ -60,11 +61,13 @@ export function WelcomePage(): Page {
   // desde sessions), NO navegamos — solo navegamos cuando workingDir
   // CAMBIA de null a un valor (el usuario eligió un proyecto).
   const initialDir = appState.workingDir.value;
-  scope.add(appState.workingDir.subscribe((dir) => {
-    if (dir && dir !== initialDir) {
-      navigate('sessions');
-    }
-  }));
+  scope.add(
+    appState.workingDir.subscribe((dir) => {
+      if (dir && dir !== initialDir) {
+        navigate("sessions");
+      }
+    }),
+  );
 
   return { root, dispose: () => scope.dispose() };
 }
@@ -73,41 +76,79 @@ export function WelcomePage(): Page {
 // Secciones
 // ───────────────────────────────────────────────────────
 
-function renderErrorBanner(scope: Scope): HTMLElement {
-  const banner = document.createElement('div');
-  banner.className = 'welcome-error';
-  banner.style.display = 'none';
+function renderErrorBanner(scope: Scope, error: Signal<string | null>): HTMLElement {
+  const banner = document.createElement("div");
+  banner.className = "welcome-error";
+  banner.style.display = "none";
 
-  scope.add(error.subscribe((msg) => {
-    if (msg) {
-      banner.textContent = msg;
-      banner.style.display = 'flex';
-    } else {
-      banner.style.display = 'none';
-    }
-  }));
+  scope.add(
+    error.subscribe((msg) => {
+      if (msg) {
+        banner.textContent = msg;
+        banner.style.display = "flex";
+      } else {
+        banner.style.display = "none";
+      }
+    }),
+  );
 
   return banner;
 }
 
 function renderHeader(): HTMLElement {
-  const header = document.createElement('div');
-  header.className = 'welcome-header';
+  const header = document.createElement("div");
+  header.className = "welcome-header";
 
-  const icon = document.createElement('img');
-  icon.className = 'welcome-icon';
-  icon.src = 'xi-icon.svg';
-  icon.alt = 'Xi';
+  const icon = document.createElement("img");
+  icon.className = "welcome-icon";
+  icon.src = "xi-icon.svg";
+  icon.alt = "Xi";
   header.append(icon);
 
-  const subtitle = document.createElement('p');
-  subtitle.className = 'welcome-subtitle';
+  const subtitle = document.createElement("p");
+  subtitle.className = "welcome-subtitle";
   subtitle.textContent =
-    'Xi es un asistente de inteligencia artificial. Abre un proyecto y pídele lo que necesites: ' +
-    'redactar documentos, analizar archivos, responder preguntas, lo que necesites.';
+    "Xi es un asistente de inteligencia artificial. Abre un proyecto y pídele lo que necesites: " +
+    "redactar documentos, analizar archivos, responder preguntas, lo que necesites.";
   header.append(subtitle);
 
   return header;
+}
+
+/** Banderita de "no auth" — solo se muestra si configuredProviders
+ *  está vacío Y la carga inicial terminó. Mientras loadAuthStatus
+ *  corre, la banderita está oculta (no debe haber flash de "no auth"
+ *  cuando sí hay providers). visibility:hidden reserva el espacio
+ *  para evitar layout shift. */
+function renderAuthBanner(scope: Scope): HTMLElement {
+  const banner = document.createElement("div");
+  banner.className = "welcome-auth-banner";
+
+  // Estado inicial: mientras no sepamos si hay providers, escondemos
+  // la banderita. La suscripción a hasAnyProvider la actualiza.
+  banner.style.visibility = "hidden";
+
+  const message = document.createElement("span");
+  message.textContent = "⚠ No hay modelo configurado. Configurá tu API key para empezar.";
+  banner.append(message);
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "welcome-auth-banner-btn";
+  button.textContent = "Ir a Configuración";
+  button.addEventListener("click", () => navigate("settings"));
+  banner.append(button);
+
+  // Suscripción: aparece solo si NO hay providers. Si hay 1+, se
+  // esconde. La banderita se actualiza también si el user vuelve
+  // de settings (loadAuthStatus se re-ejecuta al mount).
+  scope.add(
+    appState.hasAnyProvider.subscribe((hasAny) => {
+      banner.style.visibility = hasAny ? "hidden" : "visible";
+    }),
+  );
+
+  return banner;
 }
 
 /** Link al pie: "¿Necesitas ayuda?" — abre la doc de pi en una
@@ -115,27 +156,27 @@ function renderHeader(): HTMLElement {
  *  oficial del sidecar. Cuando tengamos docs propias de xi, las
  *  ponemos primero. */
 function renderHelpLink(): HTMLElement {
-  const link = document.createElement('a');
-  link.className = 'welcome-help-link';
-  link.href = 'https://pi.dev/docs';
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  link.textContent = '¿Necesitas ayuda? →';
+  const link = document.createElement("a");
+  link.className = "welcome-help-link";
+  link.href = "https://pi.dev/docs";
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "¿Necesitas ayuda? →";
   return link;
 }
 
-function renderCta(): HTMLElement {
-  const button = document.createElement('button');
-  button.className = 'welcome-cta';
+function renderCta(error: Signal<string | null>): HTMLElement {
+  const button = document.createElement("button");
+  button.className = "welcome-cta";
 
-  const btnIcon = icon('folder-open', { size: 20 });
-  button.append(btnIcon, ' Seleccioná una carpeta primero');
+  const btnIcon = icon("folder-open", { size: 20 });
+  button.append(btnIcon, " Seleccioná una carpeta primero");
 
   // El handler captura el error y lo muestra en el banner. No
   // navegamos a #/chat — eso pasa solo si `openProject` setea
   // `appState.workingDir`, lo cual es detectado por la suscripción
   // en `WelcomePage`.
-  button.addEventListener('click', async () => {
+  button.addEventListener("click", async () => {
     try {
       await pickAndOpenProject();
     } catch (err) {
@@ -146,26 +187,26 @@ function renderCta(): HTMLElement {
   return button;
 }
 
-function renderRecentsSection(scope: Scope): HTMLElement {
-  const section = document.createElement('div');
-  section.className = 'welcome-recents';
+function renderRecentsSection(scope: Scope, error: Signal<string | null>): HTMLElement {
+  const section = document.createElement("div");
+  section.className = "welcome-recents";
 
-  const title = document.createElement('h2');
-  title.className = 'welcome-recents-title';
-  title.textContent = 'O abre un proyecto reciente';
+  const title = document.createElement("h2");
+  title.className = "welcome-recents-title";
+  title.textContent = "O abre un proyecto reciente";
   section.append(title);
 
-  const grid = document.createElement('div');
-  grid.className = 'recents-grid';
+  const grid = document.createElement("div");
+  grid.className = "recents-grid";
 
   const renderGrid = (recents: Recent[]): void => {
     if (recents.length === 0) {
-      section.style.display = 'none';
+      section.style.display = "none";
       grid.replaceChildren();
       return;
     }
-    section.style.display = 'flex';
-    grid.replaceChildren(...recents.map(renderRecentCard));
+    section.style.display = "flex";
+    grid.replaceChildren(...recents.map((r) => renderRecentCard(r, error)));
   };
 
   // Render inicial. Si la signal está vacía (caso primera vez),
@@ -181,7 +222,7 @@ function renderRecentsSection(scope: Scope): HTMLElement {
       .catch((err) => {
         // Si falla la carga, no rompemos la welcome. La sección
         // queda oculta (sin recientes).
-        console.error('Failed to load recents in welcome:', err);
+        console.error("Failed to load recents in welcome:", err);
       });
   }
 
@@ -196,28 +237,28 @@ function renderRecentsSection(scope: Scope): HTMLElement {
 // renderRecentCard — extraído para no anidar el map dentro de 4 niveles
 // ───────────────────────────────────────────────────────
 
-function renderRecentCard(recent: Recent): HTMLElement {
-  const card = document.createElement('button');
-  card.className = 'recent-card';
+function renderRecentCard(recent: Recent, error: Signal<string | null>): HTMLElement {
+  const card = document.createElement("button");
+  card.className = "recent-card";
   card.dataset.path = recent.path;
 
-  const name = document.createElement('div');
-  name.className = 'recent-name';
+  const name = document.createElement("div");
+  name.className = "recent-name";
   name.textContent = recent.name;
   card.append(name);
 
-  const path = document.createElement('div');
-  path.className = 'recent-path';
+  const path = document.createElement("div");
+  path.className = "recent-path";
   path.textContent = truncatePath(recent.path);
   path.title = recent.path;
   card.append(path);
 
-  const time = document.createElement('div');
-  time.className = 'recent-time';
+  const time = document.createElement("div");
+  time.className = "recent-time";
   time.textContent = formatRelativeTime(recent.lastOpened);
   card.append(time);
 
-  card.addEventListener('click', async () => {
+  card.addEventListener("click", async () => {
     try {
       await openProject(recent.path);
       // La navegación a #/chat la dispara la suscripción a
@@ -243,20 +284,20 @@ function formatRelativeTime(ts: number): string {
   const diffMs = Date.now() - ts;
   const minutes = Math.floor(diffMs / 60_000);
 
-  if (minutes < 1) return 'hace un momento';
+  if (minutes < 1) return "hace un momento";
   if (minutes < 60) return `hace ${minutes} min`;
 
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `hace ${hours} h`;
 
   const days = Math.floor(hours / 24);
-  if (days < 7) return `hace ${days} día${days > 1 ? 's' : ''}`;
+  if (days < 7) return `hace ${days} día${days > 1 ? "s" : ""}`;
 
   const weeks = Math.floor(days / 7);
   if (weeks < 4) return `hace ${weeks} sem`;
 
   const months = Math.floor(days / 30);
-  return `hace ${months} mes${months > 1 ? 'es' : ''}`;
+  return `hace ${months} mes${months > 1 ? "es" : ""}`;
 }
 
 /**
@@ -266,5 +307,5 @@ function formatRelativeTime(ts: number): string {
  */
 function truncatePath(fullPath: string, maxLen = 40): string {
   if (fullPath.length <= maxLen) return fullPath;
-  return '…' + fullPath.slice(-(maxLen - 1));
+  return "…" + fullPath.slice(-(maxLen - 1));
 }

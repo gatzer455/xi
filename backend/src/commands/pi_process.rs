@@ -200,6 +200,11 @@ impl PiProcess {
                     CommandEvent::Terminated(status) => {
                         eprintln!("[pi] terminated with code {:?}", status.code);
                         let _ = app_clone.emit("pi:terminated", status.code);
+                        // Limpiar child para que send() retorne el error
+                        // estructurado en vez de escribir a un proceso muerto.
+                        let mut proc = process_state.lock().unwrap();
+                        proc.child = None;
+                        proc.cwd = None;
                         break;
                     }
                     _ => {}
@@ -213,9 +218,17 @@ impl PiProcess {
         Ok(())
     }
 
-    /// Enviar un comando JSONL a pi via stdin
+    /// Enviar un comando JSONL a pi via stdin.
+    ///
+    /// Si pi no está corriendo, el error incluye el comando que se
+    /// intentó enviar (campo `type` del JSON) para que el frontend
+    /// pueda mostrarlo y el desarrollador pueda diagnosticar sin
+    /// abrir el debugger. Es un error estructurado con contexto.
     pub fn send(&mut self, json_line: &str) -> Result<(), String> {
-        let child = self.child.as_mut().ok_or("pi process not running")?;
+        let child = self
+            .child
+            .as_mut()
+            .ok_or_else(|| format_command_not_running_error(json_line))?;
 
         child
             .write(format!("{}\n", json_line).as_bytes())
@@ -265,4 +278,30 @@ fn try_parse_extension_ui_request(line: &str) -> Option<serde_json::Value> {
         return None;
     }
     Some(val)
+}
+
+/// Construye un error estructurado cuando se intenta mandar un
+/// comando a pi sin que el sidecar esté corriendo.
+///
+/// Extrae el campo `type` del JSON para identificar qué comando
+/// se intentó. Si el JSON no parsea o no tiene `type`, usa
+/// "unknown". El mensaje incluye el tipo de comando y una
+/// sugerencia de fix (llamar a `start_pi` primero).
+///
+/// NO incluye el JSON completo porque puede contener datos
+/// sensibles del usuario (prompts, archivos, etc.). Solo
+/// exponemos el `type` para diagnóstico.
+///
+/// Esto aplica la regla "errores estructurados con contexto" del
+/// code-style: el error permite entender la causa sin abrir el
+/// debugger y sin reproducir el bug desde cero.
+fn format_command_not_running_error(json_line: &str) -> String {
+    let cmd_type = serde_json::from_str::<serde_json::Value>(json_line)
+        .ok()
+        .and_then(|v| v.get("type").and_then(|t| t.as_str()).map(String::from))
+        .unwrap_or_else(|| "unknown".to_string());
+    format!(
+        "pi process not running. Cannot send command type=\"{cmd_type}\". \
+         Fix: call start_pi(cwd) before sending commands to pi."
+    )
 }
