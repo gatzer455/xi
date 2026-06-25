@@ -57,7 +57,7 @@ function renderEmpty(): HTMLElement {
   
   const emptyText = document.createElement('div');
   emptyText.className = 'file-preview-empty-text';
-  emptyText.textContent = 'Seleccioná un archivo para verlo';
+  emptyText.textContent = 'Selecciona un archivo para verlo';
   
   empty.append(emptyIcon, emptyText);
   return empty;
