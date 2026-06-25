@@ -249,6 +249,48 @@ details[open] > .thinking-summary::before { content: '▾'; }
   border-top: 1px solid var(--color-border-muted);
 }
 
+/* ═══ COMPACTION DIVIDER ═══
+   Marca de compaction en el chat: pi comprimió N tokens de historial.
+   Se renderiza como un divider horizontal colapsable. Es un system
+   event, no un mensaje del user/assistant — va full-width y centrado. */
+.message.compaction {
+  justify-content: center;
+  max-width: 100%;
+  margin: var(--space-3) 0;
+}
+.compaction-divider {
+  width: 100%;
+  max-width: 700px;
+  border-top: 1px dashed var(--color-border);
+  padding-top: var(--space-2);
+}
+.compaction-summary {
+  list-style: none;
+  cursor: pointer;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  padding: var(--space-1) 0;
+  user-select: none;
+}
+.compaction-summary:hover { color: var(--color-text); }
+.compaction-summary::-webkit-details-marker { display: none; }
+.compaction-body {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 /* ═══ STREAMING CURSOR ═══
    Bloque parpadeante al final del texto mientras isStreaming. */
 .streaming-cursor {

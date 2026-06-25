@@ -4,7 +4,7 @@
  * Una signal es una caja con un valor que notifica a suscriptores
  * cuando cambia. No hay VDOM, no hay diffing, no hay scheduling.
  *
- * Cada signal conoce a quién notificar. Cuando hacés
+ * Cada signal conoce a quién notificar. Cuando haces
  * `count.value = 7`, el setter recorre la lista de suscriptores
  * y ejecuta sus callbacks.
  *

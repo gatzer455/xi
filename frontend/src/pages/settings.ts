@@ -32,6 +32,7 @@ import {
   deleteApiKey,
   type ProviderInfo,
 } from '../lib/pi/tauri-commands.ts';
+import { ensurePiRunning } from '../lib/pi/index.ts';
 import { loadAuthStatus } from '../lib/auth-status.ts';
 import {
   applyThemeToDOM,
@@ -84,7 +85,7 @@ export function SettingsPage(): Page {
   // en memoria. Sin esto, el modelo puede estar desactualizado si
   // el usuario cambió de sesión o pi restarteó con un default.
   if (appState.activeTabId.value) {
-    void getPiState();
+    void ensurePiRunning().then(() => getPiState());
   }
 
   // Back button: el shell del top bar sigue siendo el navegador principal.
@@ -191,7 +192,7 @@ function renderProviderSection(scope: Scope): HTMLElement {
   );
   control.append(tabs);
 
-  // Status: "Tenés X providers configurados" o "No hay providers
+  // Status: "Tienes X providers configurados" o "No hay providers
   // configurados". Se actualiza via suscripción a la signal.
   const statusText = document.createElement('div');
   statusText.className = 'settings-provider-status';
@@ -224,9 +225,9 @@ function renderProviderSection(scope: Scope): HTMLElement {
       const editable = configured.filter((p) => p.hasKey).length;
       const total = configured.length;
       if (editable === total) {
-        statusText.textContent = `Tenés ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''}. Marcados con ✓ abajo.`;
+        statusText.textContent = `Tienes ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''}. Marcados con ✓ abajo.`;
       } else {
-        statusText.textContent = `Tenés ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''} (${editable} con API key). Marcados con ✓ abajo.`;
+        statusText.textContent = `Tienes ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''} (${editable} con API key). Marcados con ✓ abajo.`;
       }
     }
     // Hint + placeholder + botones según el provider activo.
@@ -893,9 +894,14 @@ function renderModelSelectReady(): HTMLElement {
  *  no hay providers configurados y pi responde con error), mostramos
  *  un mensaje útil. Sin esto, el usuario queda en "Cargando…"
  *  indefinidamente. */
-function loadModels(): void {
+async function loadModels(): Promise<void> {
   modelsLoading.value = true;
   modelsError.value = null;
+
+  // Asegurar que pi esté corriendo antes de pedirle modelos.
+  // Sin esto, si pi terminó después de restaurar una sesión,
+  // getAvailableModels falla con "pi process not running".
+  await ensurePiRunning();
   getAvailableModels();
 
   // Si en 5s no se popula la lista y seguimos en loading, mostrar

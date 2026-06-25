@@ -175,10 +175,35 @@ function parseAgentMessage(raw: unknown): ChatMessage | null {
     case 'bashExecution':
       // BashExecutionMessage se mapea como toolResult con toolName='bash'.
       return parseBashExecutionMessage(msg, timestamp);
+    case 'compactionSummary':
+      // Pi comprimió historial viejo en un resumen. Lo mostramos como
+      // divider colapsable para que el user sepa que hubo compaction.
+      return parseCompactionSummary(msg, timestamp);
+    case 'branchSummary':
+      // Fork point — pi agregó un resumen del branch padre. Lo ignoramos
+      // por ahora (el contenido está en la sesión original).
+      return null;
     default:
       addEntry('system', `[state-sync] unknown AgentMessage.role: ${role}`);
       return null;
   }
+}
+
+/**
+ * CompactionSummary: { role, summary: string, tokensBefore: number, timestamp }
+ * Mapeamos a ChatMessage con role 'compaction' y el resumen como content
+ * (para que esté disponible si el user expande el divider).
+ */
+function parseCompactionSummary(msg: Record<string, unknown>, timestamp: number): ChatMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: 'compaction',
+    content: typeof msg.summary === 'string' ? msg.summary : '',
+    timestamp,
+    compaction: {
+      tokensBefore: typeof msg.tokensBefore === 'number' ? msg.tokensBefore : 0,
+    },
+  };
 }
 
 function parseUserMessage(msg: Record<string, unknown>, timestamp: number): ChatMessage {

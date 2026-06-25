@@ -89,13 +89,32 @@ md.renderer.rules.bullet_list_open  = addClass('md-list');
 md.renderer.rules.ordered_list_open = addClass('md-ol');
 md.renderer.rules.list_item_open    = addClass('md-li');
 md.renderer.rules.blockquote_open   = addClass('md-quote');
-md.renderer.rules.hr                = addClass('md-hr');
+// hr es self-closing (nesting=0): addClass no aplica. Igual que code_inline,
+// envolvemos el default.
+const defaultHr = md.renderer.rules.hr!;
+md.renderer.rules.hr = (tokens, idx, options, env, self) => {
+  tokens[idx].attrPush(['class', 'md-hr']);
+  return defaultHr(tokens, idx, options, env, self);
+};
 
 // ── Inline formatting
 md.renderer.rules.strong_open = addClass('md-strong');
 md.renderer.rules.em_open     = addClass('md-em');
 md.renderer.rules.s_open      = addClass('md-del');
-md.renderer.rules.code_inline = addClass('md-code');
+
+// ── code_inline: self-closing (nesting=0) — `addClass` no aplica porque
+// solo agrega clase si nesting===1. Hay que envolver el default rule
+// (patrón oficial de la doc, igual que link_open). Sin esto, `self.renderToken`
+// solo emite `<code>` sin contenido ni cierre, y el HTML queda roto:
+// <li>Usa <code> para debuggear</li>
+// y los <code> huérfanos hacen que el browser cierre mal los tags
+// siguientes, achicando el texto progresivamente. Ver:
+//   https://github.com/markdown-it/markdown-it/issues/1068
+const defaultCodeInline = md.renderer.rules.code_inline!;
+md.renderer.rules.code_inline = (tokens, idx, options, env, self) => {
+  tokens[idx].attrPush(['class', 'md-code']);
+  return defaultCodeInline(tokens, idx, options, env, self);
+};
 
 // ── Links: el <a> lleva clase, el href se mantiene
 md.renderer.rules.link_open = (tokens, idx, _options, _env, self) => {

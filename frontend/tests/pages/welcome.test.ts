@@ -103,7 +103,7 @@ describe("WelcomePage", () => {
     const page = WelcomePage();
     const cta = page.root.querySelector<HTMLElement>(".welcome-cta");
     expect(cta).toBeTruthy();
-    expect(cta?.textContent).toContain("Seleccioná una carpeta primero");
+    expect(cta?.textContent).toContain("Selecciona una carpeta primero");
     page.dispose();
   });
 

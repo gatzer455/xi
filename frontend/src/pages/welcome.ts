@@ -170,7 +170,7 @@ function renderCta(error: Signal<string | null>): HTMLElement {
   button.className = "welcome-cta";
 
   const btnIcon = icon("folder-open", { size: 20 });
-  button.append(btnIcon, " Seleccioná una carpeta primero");
+  button.append(btnIcon, " Selecciona una carpeta primero");
 
   // El handler captura el error y lo muestra en el banner. No
   // navegamos a #/chat — eso pasa solo si `openProject` setea

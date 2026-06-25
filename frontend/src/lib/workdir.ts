@@ -27,12 +27,21 @@ import { addRecent } from './pi/tauri-commands.ts';
  * **no** se agrega a recents si `startPi` falla.
  */
 export async function openProject(path: string): Promise<void> {
+  // Si es la misma carpeta que ya tenemos abierta, no reiniciamos
+  if (appState.workingDir.value === path) return;
+
   await stopPi();
-  appState.workingDir.value = path;
+
+  // Cerrar todas las tabs y sesiones — al cambiar de proyecto
+  // las conversaciones anteriores no tienen sentido.
+  appState.openTabs.value = [];
+  appState.tabMessages.value = {};
+  appState.activeTabId.value = null;
+  appState.session.value = null;
   appState.messages.value = [];
-  // NO arrancamos pi acá — pi se arranca cuando el usuario
-  // crea o selecciona una sesión en la pantalla de sessions.
-  // Esto evita spawnear pi sin session_path.
+
+  appState.workingDir.value = path;
+
   addRecent(path).catch((err) => {
     console.error('Failed to save recent:', err);
   });
