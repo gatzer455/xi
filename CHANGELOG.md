@@ -6,6 +6,54 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y
 
 ---
 
+## [0.1.2] - 2026-06-25
+
+Bugfixes y quality gates. Pi ahora arranca correctamente al crear sesiones
+nuevas, los sidecars se resuelven en Windows, y no se puede mergear código
+con errores de type-check.
+
+### Added
+
+- **Quality gates**: `tsc --noEmit` antes de `vite` en `npm run dev`, tests de
+  página (WelcomePage + ChatPage con mocks), type-check en CI
+- **ensure-sidecars.js**: versión Node.js cross-platform del script de build
+  automático de sidecars (reemplaza el .sh que requería bash)
+- **Tipo AppState exportado**: `mocks/state.ts` verificado con `satisfies`
+- **Error signal por instancia**: cada mount de WelcomePage tiene su propio
+  estado de error, no persiste entre montajes
+- **Soporte arm64 en ensure-sidecars**: detecta `uname -m` para el triple Rust
+  correcto
+
+### Changed
+
+- **Flujo de sesión nueva**: `startPi(cwd)` ahora se llama antes de
+  `newPiSession()` (fix crítico: sin esto, mandaba `new_session` a un pi que
+  no estaba corriendo)
+- **Auth banner**: `renderAuthBanner(scope)` reemplaza a
+  `renderWelcomeHeader()` (que nunca estuvo definida)
+- **Escape key listener en dialogs**: se limpia al cerrar el dialog, no solo
+  al hacer dispose de la página
+- **Dev startup**: `npm run dev` ahora usa `node ensure-sidecars.js` en vez
+  de `bash ensure-sidecars.sh` (funciona en Windows sin bash)
+
+### Fixed
+
+- **Pi no arrancaba al crear sesión nueva** (#3)
+- **pi-sessions no se encontraba en Windows**: falta de extensión .exe en
+  build.rs y pi_sessions.rs
+- **TypeScript errors**: `renderWelcomeHeader` undefined, `title` no existe en
+  `ExtensionUINotifyRequest`
+- **E2E flaky en CI**: `wdio:enforceWebDriverClassic` para evitar BiDi,
+  `WEBKIT_DISABLE_DMABUF_RENDERER` para software rendering,
+  `waitForExist` en vez de `isExisting()`
+- **Error filtraba JSON del prompt**: `format_command_not_running_error` ya no
+  incluye el payload en el mensaje de error
+- **Sidecar no limpiaba child al terminar**: `self.child` se resetea en
+  `CommandEvent::Terminated`
+- **compactionSummary**: resolución de resumen de compresión
+- **Iconos RGBA**: conversión correcta de iconos
+- **i18n**: terminología neutral latinoamericana
+
 ## [0.1.1] - 2026-06-22
 
 Primer release con CI/CD funcional y empaquetado para las tres plataformas.
