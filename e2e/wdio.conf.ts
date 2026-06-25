@@ -31,6 +31,12 @@ export const config: WebdriverIO.Config = {
   capabilities: [
     {
       maxInstances: 1,
+      // wdio 9+ inyecta webSocketUrl:true (BiDi) en alwaysMatch.
+      // Ubuntu 22.04 CI trae webkit2gtk-driver pre-2.46 que no
+      // soporta BiDi. Esta flag obliga a wdio a usar WebDriver
+      // clásico, que tauri-driver reenvía correctamente.
+      // Ver: https://github.com/tauri-apps/tauri/issues/15415
+      'wdio:enforceWebDriverClassic': true,
       'tauri:options': {
         application: TAURI_APP,
       },

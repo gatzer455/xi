@@ -14,12 +14,15 @@ describe('Página de configuración', () => {
     // Navegar a settings desde la welcome. El botón "Ir a
     // Configuración" vive dentro de un banner que puede estar
     // oculto (visibility:hidden cuando hay providers configurados).
-    // Usamos executeScript + click() para bypassar el check de
-    // interactabilidad de WebDriver — el botón existe en el DOM
-    // y su handler de click funciona sin importar la visibilidad.
+    // Primero esperamos a que el botón exista en DOM (en CI lento,
+    // isExisting() con wdio+tauri-driver puede fallar por race
+    // condition del WebKitWebDriver). Luego hacemos click via
+    // executeScript para bypassar el check de interactabilidad.
+    const btn = await $('.welcome-auth-banner-btn');
+    await btn.waitForExist({ timeout: 10000 });
     await browser.execute(() => {
-      const btn = document.querySelector('.welcome-auth-banner-btn');
-      if (btn instanceof HTMLElement) btn.click();
+      const el = document.querySelector('.welcome-auth-banner-btn');
+      if (el instanceof HTMLElement) el.click();
     });
     // Esperar a que la página de settings se monte.
     const settingsTitle = await $('.settings-title');
@@ -68,9 +71,8 @@ describe('Página de configuración', () => {
       const back = document.querySelector('.settings-back');
       if (back instanceof HTMLElement) back.click();
     });
-    await browser.pause(500);
     const welcome = await $('.welcome-page, .welcome-subtitle');
-    const exists = await welcome.isExisting();
-    expect(exists).toBe(true);
+    await welcome.waitForExist({ timeout: 5000 });
+    expect(await welcome.isExisting()).toBe(true);
   });
 });
