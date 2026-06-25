@@ -332,11 +332,22 @@ export function ChatPage(): Page {
     };
     document.addEventListener("keydown", handleKeyDown);
 
-    // Limpiar listener cuando el dialog se remueve
-    scope.add(() => document.removeEventListener("keydown", handleKeyDown));
+    // Registrar cleanup en scope (se ejecuta al dispose de página)
+    // y también guardarlo en dialogKeydownCleanup para limpiarlo
+    // antes si el dialog se cierra por otra vía.
+    const cleanup = () =>
+      document.removeEventListener("keydown", handleKeyDown);
+    scope.add(cleanup);
+    dialogKeydownCleanup = cleanup;
   }
 
+  // Se setea al renderizar un dialog. removeExtensionDialog lo
+  // llama para limpiar el listener de teclado antes de tiempo.
+  let dialogKeydownCleanup: (() => void) | null = null;
+
   function removeExtensionDialog(): void {
+    dialogKeydownCleanup?.();
+    dialogKeydownCleanup = null;
     if (activeDialogContainer) {
       activeDialogContainer.remove();
       activeDialogContainer = null;

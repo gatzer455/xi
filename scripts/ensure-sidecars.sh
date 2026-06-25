@@ -26,10 +26,24 @@ else
   esac
 fi
 
-# Mapear target a triple de Rust
+# Mapear target a triple de Rust.
+# NOTA: también existe ensure-sidecars.js (Node.js, cross-platform).
+# Este script .sh se mantiene para entornos sin Node.
 case "$TARGET" in
-  linux)  TRIPLE="x86_64-unknown-linux-gnu" ;;
-  macos)  TRIPLE="aarch64-apple-darwin" ;;
+  linux)
+    if [[ "$(uname -m)" == "aarch64" ]]; then
+      TRIPLE="aarch64-unknown-linux-gnu"
+    else
+      TRIPLE="x86_64-unknown-linux-gnu"
+    fi
+    ;;
+  macos)
+    if [[ "$(uname -m)" == "arm64" ]]; then
+      TRIPLE="aarch64-apple-darwin"
+    else
+      TRIPLE="x86_64-apple-darwin"
+    fi
+    ;;
   windows) TRIPLE="x86_64-pc-windows-msvc" ;;
   *)      echo "Unknown target: $TARGET"; exit 1 ;;
 esac

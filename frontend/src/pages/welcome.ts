@@ -16,7 +16,7 @@
  * 3. Link "¿Necesitas ayuda?" al pie.
  */
 
-import { signal } from "../lib/signal.ts";
+import { signal, type Signal } from "../lib/signal.ts";
 import { createScope, type Scope, type Page } from "../lib/scope.ts";
 import { appState } from "../lib/state.ts";
 import { pickAndOpenProject, openProject } from "../lib/workdir.ts";
@@ -26,20 +26,21 @@ import type { Recent } from "../lib/pi/index.ts";
 import { loadAuthStatus } from "../lib/auth-status.ts";
 import { icon } from "../lib/icons.ts";
 
-// Signal local de la welcome. No se exporta; vive solo mientras la
-// página está montada. Si `openProject` falla, mostramos el mensaje.
-const error = signal<string | null>(null);
-
 export function WelcomePage(): Page {
   const root = document.createElement("div");
   root.className = "welcome-page";
   const scope = createScope();
 
-  root.append(renderErrorBanner(scope));
+  // Signal local por instancia: cada mount tiene su propio estado de
+  // error. Sin esto, un error de un mount anterior persiste al
+  // remontar la página y la UI muestra un banner fantasma.
+  const error = signal<string | null>(null);
+
+  root.append(renderErrorBanner(scope, error));
   root.append(renderHeader());
   root.append(renderAuthBanner(scope));
-  root.append(renderCta());
-  root.append(renderRecentsSection(scope));
+  root.append(renderCta(error));
+  root.append(renderRecentsSection(scope, error));
   root.append(renderHelpLink());
 
   // Cargar el estado de providers al mount. Fire-and-forget — el
@@ -75,7 +76,7 @@ export function WelcomePage(): Page {
 // Secciones
 // ───────────────────────────────────────────────────────
 
-function renderErrorBanner(scope: Scope): HTMLElement {
+function renderErrorBanner(scope: Scope, error: Signal<string | null>): HTMLElement {
   const banner = document.createElement("div");
   banner.className = "welcome-error";
   banner.style.display = "none";
@@ -164,7 +165,7 @@ function renderHelpLink(): HTMLElement {
   return link;
 }
 
-function renderCta(): HTMLElement {
+function renderCta(error: Signal<string | null>): HTMLElement {
   const button = document.createElement("button");
   button.className = "welcome-cta";
 
@@ -186,7 +187,7 @@ function renderCta(): HTMLElement {
   return button;
 }
 
-function renderRecentsSection(scope: Scope): HTMLElement {
+function renderRecentsSection(scope: Scope, error: Signal<string | null>): HTMLElement {
   const section = document.createElement("div");
   section.className = "welcome-recents";
 
@@ -205,7 +206,7 @@ function renderRecentsSection(scope: Scope): HTMLElement {
       return;
     }
     section.style.display = "flex";
-    grid.replaceChildren(...recents.map(renderRecentCard));
+    grid.replaceChildren(...recents.map((r) => renderRecentCard(r, error)));
   };
 
   // Render inicial. Si la signal está vacía (caso primera vez),
@@ -236,7 +237,7 @@ function renderRecentsSection(scope: Scope): HTMLElement {
 // renderRecentCard — extraído para no anidar el map dentro de 4 niveles
 // ───────────────────────────────────────────────────────
 
-function renderRecentCard(recent: Recent): HTMLElement {
+function renderRecentCard(recent: Recent, error: Signal<string | null>): HTMLElement {
   const card = document.createElement("button");
   card.className = "recent-card";
   card.dataset.path = recent.path;

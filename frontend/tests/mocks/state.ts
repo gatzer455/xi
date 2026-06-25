@@ -13,6 +13,7 @@
  */
 
 import type { Signal } from "../../src/lib/signal.ts";
+import type { AppState } from "../../src/lib/state.ts";
 
 /**
  * Crea una Signal<T> mockeada con valor inicial controlable.
@@ -61,7 +62,7 @@ export function createMockAppState(overrides: {
   const currentModel = mockSignal(overrides.currentModel ?? null);
   const recents = mockSignal(overrides.recents ?? []);
 
-  return {
+  const result = {
     hasAnyProvider,
     workingDir,
     currentModel,
@@ -93,5 +94,6 @@ export function createMockAppState(overrides: {
     updateDismissed: mockSignal(false),
     updateError: mockSignal(null),
     activeExtensionDialog: mockSignal(null),
-  };
+  } satisfies AppState;
+  return result;
 }

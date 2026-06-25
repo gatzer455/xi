@@ -200,6 +200,11 @@ impl PiProcess {
                     CommandEvent::Terminated(status) => {
                         eprintln!("[pi] terminated with code {:?}", status.code);
                         let _ = app_clone.emit("pi:terminated", status.code);
+                        // Limpiar child para que send() retorne el error
+                        // estructurado en vez de escribir a un proceso muerto.
+                        let mut proc = process_state.lock().unwrap();
+                        proc.child = None;
+                        proc.cwd = None;
                         break;
                     }
                     _ => {}
@@ -280,8 +285,12 @@ fn try_parse_extension_ui_request(line: &str) -> Option<serde_json::Value> {
 ///
 /// Extrae el campo `type` del JSON para identificar qué comando
 /// se intentó. Si el JSON no parsea o no tiene `type`, usa
-/// "unknown". El mensaje incluye el comando y una sugerencia de
-/// fix (llamar a `start_pi` primero).
+/// "unknown". El mensaje incluye el tipo de comando y una
+/// sugerencia de fix (llamar a `start_pi` primero).
+///
+/// NO incluye el JSON completo porque puede contener datos
+/// sensibles del usuario (prompts, archivos, etc.). Solo
+/// exponemos el `type` para diagnóstico.
 ///
 /// Esto aplica la regla "errores estructurados con contexto" del
 /// code-style: el error permite entender la causa sin abrir el
@@ -293,7 +302,6 @@ fn format_command_not_running_error(json_line: &str) -> String {
         .unwrap_or_else(|| "unknown".to_string());
     format!(
         "pi process not running. Cannot send command type=\"{cmd_type}\". \
-         Fix: call start_pi(cwd) before sending commands to pi. \
-         (attempted to send: {json_line})"
+         Fix: call start_pi(cwd) before sending commands to pi."
     )
 }
