@@ -140,12 +140,9 @@ Versión inicial de xi. Interfaz de escritorio para pi, dirigida a personas sin 
 
 ---
 
-## [Unreleased]
+## [0.1.3] - 2026-06-25
 
-### Added
-
-- CHANGELOG.md
-- Reorganización de docs (plan.md, dev.md)
+Pi ahora incluye los temas necesarios para arrancar. Versión pineada.
 
 ### Changed
 
@@ -168,3 +165,10 @@ Versión inicial de xi. Interfaz de escritorio para pi, dirigida a personas sin 
 - **Build de pi-sessions**: ahora compila directo desde el proyecto raíz donde
   `node_modules` ya está resuelto, evitando errores de resolución de módulos
   en el directorio temporal
+
+## [Unreleased]
+
+### Added
+
+- CHANGELOG.md
+- Reorganización de docs (plan.md, dev.md)
