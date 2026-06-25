@@ -511,6 +511,13 @@ async function createNewTab(): Promise<void> {
  */
 async function syncPiSessionInBackground(tabId: string): Promise<void> {
   try {
+    const cwd = appState.workingDir.value;
+    if (!cwd) {
+      throw new Error('No hay carpeta de trabajo seleccionada');
+    }
+    // Pi debe estar corriendo antes de pedirle una sesión nueva.
+    // startPi sin sessionPath arranca pi sin sesión (--mode rpc).
+    await startPi(cwd);
     await newPiSession();
     await getPiState();
     // Aplicar metadatos de pi a la tab correspondiente.
