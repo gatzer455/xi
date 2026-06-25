@@ -2,7 +2,7 @@
  * welcome.spec.ts — E2E de la pantalla de bienvenida.
  *
  * Verifica que la welcome muestra los elementos esperados al arrancar:
- * subtítulo explicativo, CTA "Seleccioná una carpeta", sección de
+ * subtítulo explicativo, CTA "Selecciona una carpeta", sección de
  * recientes, link de ayuda y botón de ir a configuración.
  */
 
