@@ -45,6 +45,9 @@ function renderLogo(): HTMLElement {
   img.alt = 'xi';
   img.width = 28;
   img.height = 28;
+  img.style.cursor = 'pointer';
+  img.title = 'Inicio';
+  img.addEventListener('click', () => navigate('welcome'));
   return img;
 }
 
