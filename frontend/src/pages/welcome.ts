@@ -37,7 +37,7 @@ export function WelcomePage(): Page {
 
   root.append(renderErrorBanner(scope));
   root.append(renderHeader());
-  root.append(renderAuthBanner(scope));
+  root.append(renderWelcomeHeader());
   root.append(renderCta());
   root.append(renderRecentsSection(scope));
   root.append(renderHelpLink());
@@ -108,40 +108,6 @@ function renderHeader(): HTMLElement {
   header.append(subtitle);
 
   return header;
-}
-
-/** Banderita de "no auth" — solo se muestra si configuredProviders
- *  está vacío Y la carga inicial terminó. Mientras loadAuthStatus
- *  corre, la banderita está oculta (no debe haber flash de "no auth"
- *  cuando sí hay providers). visibility:hidden reserva el espacio
- *  para evitar layout shift. */
-function renderAuthBanner(scope: Scope): HTMLElement {
-  const banner = document.createElement('div');
-  banner.className = 'welcome-auth-banner';
-
-  // Estado inicial: mientras no sepamos si hay providers, escondemos
-  // la banderita. La suscripción a hasAnyProvider la actualiza.
-  banner.style.visibility = 'hidden';
-
-  const message = document.createElement('span');
-  message.textContent = '⚠ No hay modelo configurado. Configurá tu API key para empezar.';
-  banner.append(message);
-
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'welcome-auth-banner-btn';
-  button.textContent = 'Ir a Configuración';
-  button.addEventListener('click', () => navigate('settings'));
-  banner.append(button);
-
-  // Suscripción: aparece solo si NO hay providers. Si hay 1+, se
-  // esconde. La banderita se actualiza también si el user vuelve
-  // de settings (loadAuthStatus se re-ejecuta al mount).
-  scope.add(appState.hasAnyProvider.subscribe((hasAny) => {
-    banner.style.visibility = hasAny ? 'hidden' : 'visible';
-  }));
-
-  return banner;
 }
 
 /** Link al pie: "¿Necesitas ayuda?" — abre la doc de pi en una

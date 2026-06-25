@@ -102,7 +102,17 @@ fn resolve_sidecar_path(_app: &AppHandle) -> Result<PathBuf, String> {
         exe_dir.to_path_buf()
     };
 
-    let bin_path = base_dir.join(PI_SESSIONS_BIN);
+    // En Windows los ejecutables terminan en .exe. El instalador de
+    // Tauri copia el sidecar con extension, pero nuestro join() no la
+    // agrega. `std::process::Command` no resuelve .exe implicitamente
+    // en paths absolutos, asi que hay que hacerlo explicito.
+    let bin_name = if cfg!(target_os = "windows") {
+        format!("{PI_SESSIONS_BIN}.exe")
+    } else {
+        PI_SESSIONS_BIN.to_string()
+    };
+
+    let bin_path = base_dir.join(bin_name);
     if !bin_path.exists() {
         return Err(format!(
             "pi-sessions binary not found at {}",

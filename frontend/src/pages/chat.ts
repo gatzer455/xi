@@ -41,6 +41,7 @@ import { createScope, type Page } from '../lib/scope.ts';
 import { ChatBubble } from '../components/chat-bubble.ts';
 import { renderSelectDialog, renderConfirmDialog, renderInputDialog, renderEditorDialog } from '../components/extension-ui-dialog.ts';
 import { setDialogRenderer, clearDialogRenderer } from '../lib/pi/extension-ui-handler.ts';
+import { navigate } from '../lib/nav.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 const NEAR_BOTTOM_PX = 100;
@@ -68,6 +69,32 @@ export function ChatPage(): Page {
   header.append(modelBadge);
 
   root.append(header);
+
+  // ═══ Banner: no hay API key configurada ═══
+  // Se muestra solo si no hay ningun provider configurado.
+  // En welcome se quito para que el usuario no vea un bloqueante
+  // antes de elegir carpeta. Aca en chat ya tiene sentido porque
+  // esta intentando conversar.
+  const authBanner = document.createElement('div');
+  authBanner.className = 'chat-auth-banner';
+  authBanner.style.display = 'none';
+
+  const authMsg = document.createElement('span');
+  authMsg.textContent = '⚠ No hay modelo configurado. Configurá tu API key en Ajustes para empezar a conversar.';
+  authBanner.append(authMsg);
+
+  const authBtn = document.createElement('button');
+  authBtn.type = 'button';
+  authBtn.className = 'chat-auth-banner-btn';
+  authBtn.textContent = 'Ir a Ajustes';
+  authBtn.addEventListener('click', () => navigate('settings'));
+  authBanner.append(authBtn);
+
+  scope.add(appState.hasAnyProvider.subscribe((hasAny) => {
+    authBanner.style.display = hasAny ? 'none' : 'flex';
+  }));
+
+  root.append(authBanner);
 
   // ═══ Messages ═══
   const messagesContainer = document.createElement('div');

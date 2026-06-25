@@ -115,7 +115,13 @@ fn find_sidecar(manifest_dir: &PathBuf, name: &str, is_sessions: bool) -> PathBu
 fn copy_pi_sessions(paths: &BuildPaths) {
     // Buscar en binaries/ (ubicación actual) o en manifest_dir (legacy)
     let source = find_sidecar(&paths.manifest_dir, &paths.pi_sessions_name, true);
-    let dest = paths.target_profile_dir.join("pi-sessions");
+    // En Windows los ejecutables necesitan .exe; en linux/macos no.
+    let dest_name = if cfg!(target_os = "windows") {
+        "pi-sessions.exe"
+    } else {
+        "pi-sessions"
+    };
+    let dest = paths.target_profile_dir.join(dest_name);
 
     println!("cargo:rerun-if-changed={}", source.display());
     // Rebuild si cambia el source de TS (para que el dev recuerde
