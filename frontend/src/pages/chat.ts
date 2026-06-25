@@ -307,14 +307,16 @@ export function ChatPage(): Page {
       const wrappedResolve = (value: Record<string, unknown>) => {
         const answer = formatDialogResponse(request.method, value);
         if (answer) {
-          askResponses.push({ question: request.title, answer });
+          const question = 'title' in request ? request.title : request.message;
+          askResponses.push({ question, answer });
         }
         appState.activeExtensionDialog.value = null;
         resolve(value);
       };
 
       const wrappedReject = () => {
-        askResponses.push({ question: request.title, answer: '(cancelled)' });
+        const question = 'title' in request ? request.title : request.message;
+        askResponses.push({ question, answer: '(cancelled)' });
         appState.activeExtensionDialog.value = null;
         reject();
       };

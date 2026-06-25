@@ -68,6 +68,9 @@ jobs:
       - name: Build frontend (needed for clippy — --all-targets incluye tests que requieren frontendDist)
         run: cd frontend && npm run build
 
+      - name: TypeScript type-check
+        run: cd frontend && npx tsc --noEmit
+
       - name: cargo fmt
         run: cargo fmt --all --manifest-path backend/Cargo.toml -- --check
 

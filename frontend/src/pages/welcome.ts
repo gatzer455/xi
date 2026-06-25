@@ -37,7 +37,6 @@ export function WelcomePage(): Page {
 
   root.append(renderErrorBanner(scope));
   root.append(renderHeader());
-  root.append(renderWelcomeHeader());
   root.append(renderCta());
   root.append(renderRecentsSection(scope));
   root.append(renderHelpLink());
