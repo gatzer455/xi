@@ -100,7 +100,10 @@ echo "Rust triple: $RUST_TRIPLE"
 # pineada, a diferencia del viejo approach que descargaba @latest.
 # NOTA: no usamos require() porque pi no exporta ./package.json en su
 # exports map. Leemos el archivo directamente.
-PI_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$PI_PKG/package.json','utf8')).version)")
+# node -e hereda el CWD de bash, que en MSYS ya resuelve correctamente
+# el path. Usamos path relativo para evitar problemas de conversión
+# MSYS→Windows.
+PI_VERSION=$(cd "$PROJECT_ROOT" && node -e "console.log(JSON.parse(require('fs').readFileSync('node_modules/@earendil-works/pi-coding-agent/package.json','utf8')).version)")
 echo "Versión de pi pineada: $PI_VERSION"
 
 # Crear directorio temporal y copiar lo necesario
