@@ -474,36 +474,6 @@
 .recent-path { font-size: var(--text-sm); color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recent-time { font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-1); }
 
-.welcome-auth-banner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-6);
-  max-width: 600px;
-  width: 100%;
-  background: var(--color-warning-soft, var(--color-card-bg));
-  border: 1px solid var(--color-warning, var(--color-accent));
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  color: var(--color-text);
-  text-align: center;
-}
-
-.welcome-auth-banner-btn {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-accent);
-  color: var(--color-accent-fg);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: filter 0.1s;
-}
-.welcome-auth-banner-btn:hover { filter: brightness(0.9); }
-.welcome-auth-banner-btn:active { filter: brightness(0.8); }
-
 .welcome-help-link {
   font-size: var(--text-sm);
   color: var(--color-text-muted);

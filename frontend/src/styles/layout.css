@@ -284,6 +284,37 @@
   border-radius: var(--radius-sm);
 }
 
+/* Banner de auth que reemplazo al de welcome.
+   Se muestra en el chat cuando no hay provider configurado,
+   no en la pantalla de bienvenida. */
+.chat-auth-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-warning-bg, #fff3cd);
+  border-bottom: 1px solid var(--color-warning-border, #ffc107);
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}
+.chat-auth-banner span {
+  flex: 1;
+  color: var(--color-warning-text, #856404);
+}
+.chat-auth-banner-btn {
+  background: var(--color-primary, #0d6efd);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.chat-auth-banner-btn:hover {
+  opacity: 0.9;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
