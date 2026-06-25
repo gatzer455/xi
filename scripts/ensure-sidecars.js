@@ -11,7 +11,7 @@
 
 import { execSync } from "child_process";
 import { existsSync } from "fs";
-import { resolve, dirname } from "path";
+import { resolve, dirname, sep } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -63,11 +63,28 @@ const EXT = TARGET === "windows" ? ".exe" : "";
 const PI_BIN = resolve(BINARIES_DIR, `pi-${TRIPLE}${EXT}`);
 const SESSIONS_BIN = resolve(BINARIES_DIR, `pi-sessions-${TRIPLE}${EXT}`);
 
+// Buscar bash: en Windows puede estar en varios lugares.
+function findBash() {
+  if (process.platform !== "win32") return "bash";
+  const candidates = [
+    "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+    "C:\\Program Files\\Git\\bin\\bash.exe",
+    "C:\\ProgramData\\chocolatey\\bin\\bash.exe",
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  // Fallback: asumir que bash está en PATH (git bash, WSL, etc.)
+  return "bash";
+}
+
+const BASH = findBash();
+
 let needsBuild = false;
 
 if (!existsSync(PI_BIN)) {
   console.log(`⚠️  sidecar pi-${TRIPLE} no encontrado. Buildendo...`);
-  execSync(`node ${resolve(__dirname, "build-pi.js")} --target ${TARGET}`, {
+  execSync(`"${BASH}" ${resolve(__dirname, "build-pi.sh")} --target ${TARGET}`, {
     stdio: "inherit",
     cwd: PROJECT_DIR,
   });
@@ -76,7 +93,7 @@ if (!existsSync(PI_BIN)) {
 
 if (!existsSync(SESSIONS_BIN)) {
   console.log(`⚠️  sidecar pi-sessions-${TRIPLE} no encontrado. Buildendo...`);
-  execSync(`node ${resolve(__dirname, "build-pi-sessions.js")} --target ${TARGET}`, {
+  execSync(`"${BASH}" ${resolve(__dirname, "build-pi-sessions.sh")} --target ${TARGET}`, {
     stdio: "inherit",
     cwd: PROJECT_DIR,
   });

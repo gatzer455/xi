@@ -80,40 +80,13 @@ echo "Target: $TARGET"
 echo "Bun target: $BUN_TARGET"
 echo "Rust triple: $RUST_TRIPLE"
 
-# Build en un temp dir para no contaminar el repo con node_modules.
-BUILD_DIR="/tmp/pi-sessions-build-$$"
-mkdir -p "$BUILD_DIR"
-cd "$BUILD_DIR"
-
-cat > package.json << 'EOF'
-{
-  "name": "pi-sessions-build",
-  "version": "0.0.0",
-  "private": true
-}
-EOF
-
-echo "Instalando @earendil-works/pi-coding-agent..."
-npm install @earendil-works/pi-coding-agent@latest >/dev/null 2>&1
-
-# Copiamos el entry point y el helper module al BUILD_DIR para que bun resuelva
-# el import `./sessions-helpers.ts` y `@earendil-works/pi-coding-agent`
-# desde `node_modules/` adyacente. (Mismo truco que usa build-pi.sh con `pi-entry.js`.)
-cp "$SRC" "$BUILD_DIR/pi-sessions.ts"
-cp "$PROJECT_ROOT/backend/scripts/sessions-helpers.ts" "$BUILD_DIR/sessions-helpers.ts"
-ENTRY="$BUILD_DIR/pi-sessions.ts"
-
 echo "Compilando pi-sessions con bun (target: $BUN_TARGET)..."
-bun build "$ENTRY" \
+bun build "$SRC" \
 	--compile \
 	--target="$BUN_TARGET" \
 	--outfile "$OUT" 2>&1
 
 chmod +x "$OUT"
-
-# Limpiar
-cd "$PROJECT_ROOT"
-rm -rf "$BUILD_DIR"
 
 echo ""
 echo "✅ pi-sessions compilado:"

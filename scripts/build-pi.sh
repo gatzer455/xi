@@ -26,6 +26,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 BINARIES_DIR="$BACKEND_DIR/binaries"
+PI_PKG="$PROJECT_ROOT/node_modules/@earendil-works/pi-coding-agent"
+
+# Guard: verificar que pi está instalado antes de intentar leerlo.
+if [ ! -f "$PI_PKG/package.json" ]; then
+  echo "❌ @earendil-works/pi-coding-agent no encontrado en node_modules/"
+  echo "   Corre 'npm install' primero."
+  exit 1
+fi
+
 BUILD_DIR="/tmp/pi-build-$$"
 
 # ─── Parsear argumentos ───────────────────────────────────────────────────────
@@ -86,33 +95,31 @@ echo "Target: $TARGET"
 echo "Bun target: $BUN_TARGET"
 echo "Rust triple: $RUST_TRIPLE"
 
-# Crear directorio temporal
+# Extraer la versión real del package.json de pi (instalado via
+# devDependencies en package.json del proyecto). Esta versión queda
+# pineada, a diferencia del viejo approach que descargaba @latest.
+# NOTA: no usamos require() porque pi no exporta ./package.json en su
+# exports map. Leemos el archivo directamente.
+PI_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$PI_PKG/package.json','utf8')).version)")
+echo "Versión de pi pineada: $PI_VERSION"
+
+# Crear directorio temporal y copiar lo necesario
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
 
-# Instalar pi via npm. El --silent reduce ruido, la versión real la
-# extraemos del package.json resultante (no de stdout).
-npm install @earendil-works/pi-coding-agent@latest --silent 2>&1 | tail -3
+# Copiar el package.json de pi (necesario para --compile-autoload-package-json).
+# El nombre debe matchear el de pi para que el binario se identifique
+# correctamente (pi chequea PACKAGE_NAME en config.js).
+cp "$PI_PKG/package.json" package.json
 
-# Extraer la versión real del package que npm instaló.
-PI_VERSION=$(node -p "require('./node_modules/@earendil-works/pi-coding-agent/package.json').version")
-echo "Versión de pi instalada: $PI_VERSION"
-
-# Reemplazar el package.json del proyecto. El nombre debe matchear
-# el de pi para que el binario se identifique correctamente (pi
-# chequea PACKAGE_NAME en config.js). La versión se inyecta desde
-# PI_VERSION — sin esto, --version retorna "0.0.0".
-cat > package.json <<EOF
-{
-  "name": "@earendil-works/pi-coding-agent",
-  "version": "$PI_VERSION",
-  "type": "module"
-}
-EOF
-
+# Crear entry point que carga pi desde la copia local
 cat > pi-entry.js << 'ENTRY'
 require('./node_modules/@earendil-works/pi-coding-agent/dist/cli.js');
 ENTRY
+
+# Copiar node_modules necesarios para el build
+mkdir -p node_modules/@earendil-works
+cp -r "$PI_PKG" node_modules/@earendil-works/pi-coding-agent
 
 # Compilar con bun. --compile-autoload-package-json hace que bun
 # mantenga accesible el package.json del cwd en runtime.
@@ -131,7 +138,7 @@ cp package.json "$BINARIES_DIR/package.json"
 # pi ejecuta getBuiltinThemes antes de parsear flags). Sin estos
 # archivos, pi crashea con ENOENT al arrancar.
 mkdir -p "$BINARIES_DIR/theme"
-cp node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/*.json "$BINARIES_DIR/theme/"
+cp "$PI_PKG/dist/modes/interactive/theme/"*.json "$BINARIES_DIR/theme/"
 
 chmod +x "$BINARIES_DIR/pi-$RUST_TRIPLE$BINARY_SUFFIX"
 

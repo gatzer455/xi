@@ -1,6 +1,6 @@
 {
   "name": "xi",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Interfaz de escritorio para pi — dirigida a usuarios no-técnicos",
   "scripts": {
@@ -14,6 +14,7 @@
     "test:e2e:install": "cd e2e && npm install"
   },
   "devDependencies": {
+    "@earendil-works/pi-coding-agent": "0.80.2",
     "@tauri-apps/cli": "^2.11.2"
   }
 }
