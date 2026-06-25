@@ -149,8 +149,22 @@ Versión inicial de xi. Interfaz de escritorio para pi, dirigida a personas sin 
 
 ### Changed
 
-- Ninguno
+- **Versión de pi pineada**: `@earendil-works/pi-coding-agent` como devDependency
+  en `package.json` (v0.80.2). Build scripts usan `node_modules/` local en
+  vez de descargar `@latest`, eliminando dependencia de internet en el build
+  y asegurando builds reproducibles.
+- `build-pi.sh` y `build-pi-sessions.sh`: refactor para usar la copia local
+  del paquete de pi en `node_modules/` en vez de `npm install @latest`
+- `ensure-sidecars.js`: referencia corregida a `build-pi.sh` (apuntaba a
+  `build-pi.js` que no existía)
 
 ### Fixed
 
-- Ninguno
+- **Pi crasheaba al iniciar**: faltaban los archivos de tema (`theme/dark.json`,
+  `theme/light.json`) en el bundle. Sin estos, pi ejecuta `getBuiltinThemes`
+  antes de parsear `--no-themes` y falla con ENOENT.
+  - `build-pi.sh` ahora copia los temas a `backend/binaries/theme/`
+  - `tauri.conf.json` los incluye como recursos del bundle
+- **Build de pi-sessions**: ahora compila directo desde el proyecto raíz donde
+  `node_modules` ya está resuelto, evitando errores de resolución de módulos
+  en el directorio temporal

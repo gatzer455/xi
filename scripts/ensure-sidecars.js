@@ -67,7 +67,7 @@ let needsBuild = false;
 
 if (!existsSync(PI_BIN)) {
   console.log(`⚠️  sidecar pi-${TRIPLE} no encontrado. Buildendo...`);
-  execSync(`node ${resolve(__dirname, "build-pi.js")} --target ${TARGET}`, {
+  execSync(`bash ${resolve(__dirname, "build-pi.sh")} --target ${TARGET}`, {
     stdio: "inherit",
     cwd: PROJECT_DIR,
   });
@@ -76,7 +76,7 @@ if (!existsSync(PI_BIN)) {
 
 if (!existsSync(SESSIONS_BIN)) {
   console.log(`⚠️  sidecar pi-sessions-${TRIPLE} no encontrado. Buildendo...`);
-  execSync(`node ${resolve(__dirname, "build-pi-sessions.js")} --target ${TARGET}`, {
+  execSync(`bash ${resolve(__dirname, "build-pi-sessions.sh")} --target ${TARGET}`, {
     stdio: "inherit",
     cwd: PROJECT_DIR,
   });
