@@ -191,7 +191,7 @@ function renderProviderSection(scope: Scope): HTMLElement {
   );
   control.append(tabs);
 
-  // Status: "Tenés X providers configurados" o "No hay providers
+  // Status: "Tienes X providers configurados" o "No hay providers
   // configurados". Se actualiza via suscripción a la signal.
   const statusText = document.createElement('div');
   statusText.className = 'settings-provider-status';
@@ -224,9 +224,9 @@ function renderProviderSection(scope: Scope): HTMLElement {
       const editable = configured.filter((p) => p.hasKey).length;
       const total = configured.length;
       if (editable === total) {
-        statusText.textContent = `Tenés ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''}. Marcados con ✓ abajo.`;
+        statusText.textContent = `Tienes ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''}. Marcados con ✓ abajo.`;
       } else {
-        statusText.textContent = `Tenés ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''} (${editable} con API key). Marcados con ✓ abajo.`;
+        statusText.textContent = `Tienes ${total} provider${total > 1 ? 's' : ''} configurado${total > 1 ? 's' : ''} (${editable} con API key). Marcados con ✓ abajo.`;
       }
     }
     // Hint + placeholder + botones según el provider activo.
