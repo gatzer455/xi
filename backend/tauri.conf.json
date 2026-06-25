@@ -28,7 +28,10 @@
     "targets": "all",
     "externalBin": ["binaries/pi", "binaries/pi-sessions"],
     "resources": {
-      "binaries/package.json": "package.json"
+      "binaries/package.json": "package.json",
+      "binaries/theme/dark.json": "theme/dark.json",
+      "binaries/theme/light.json": "theme/light.json",
+      "binaries/theme/theme-schema.json": "theme/theme-schema.json"
     },
     "createUpdaterArtifacts": true,
     "icon": [

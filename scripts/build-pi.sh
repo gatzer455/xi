@@ -126,6 +126,13 @@ bun build pi-entry.js --compile --target="$BUN_TARGET" --compile-autoload-packag
 mkdir -p "$BINARIES_DIR"
 cp pi "$BINARIES_DIR/pi-$RUST_TRIPLE$BINARY_SUFFIX"
 cp package.json "$BINARIES_DIR/package.json"
+
+# Copiar temas que pi necesita al iniciar (incluso con --no-themes,
+# pi ejecuta getBuiltinThemes antes de parsear flags). Sin estos
+# archivos, pi crashea con ENOENT al arrancar.
+mkdir -p "$BINARIES_DIR/theme"
+cp node_modules/@earendil-works/pi-coding-agent/dist/modes/interactive/theme/*.json "$BINARIES_DIR/theme/"
+
 chmod +x "$BINARIES_DIR/pi-$RUST_TRIPLE$BINARY_SUFFIX"
 
 echo ""
