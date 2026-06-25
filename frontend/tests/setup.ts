@@ -35,15 +35,15 @@ globalThis.ResizeObserver = MockResizeObserver;
 
 // scrollIntoView: jsdom no lo implementa y algunas librerias lo usan.
 // Guardado con typeof check porque algunos tests usan @vitest-environment node.
-if (typeof Element !== 'undefined') {
+if (typeof Element !== "undefined") {
   Element.prototype.scrollIntoView = () => {
     // noop
   };
 }
 
 // matchMedia: jsdom no lo implementa.
-if (typeof globalThis.matchMedia === 'undefined') {
-  Object.defineProperty(globalThis, 'matchMedia', {
+if (typeof globalThis.matchMedia === "undefined") {
+  Object.defineProperty(globalThis, "matchMedia", {
     writable: true,
     value: (query: string) => ({
       matches: false,

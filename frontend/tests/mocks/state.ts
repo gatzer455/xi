@@ -12,7 +12,7 @@
  * ```
  */
 
-import type { Signal } from '../../src/lib/signal.ts';
+import type { Signal } from "../../src/lib/signal.ts";
 
 /**
  * Crea una Signal<T> mockeada con valor inicial controlable.
@@ -31,12 +31,14 @@ export function mockSignal<T>(initial: T): Signal<T> {
     set value(next: T) {
       if (next === value) return;
       value = next;
-      subscribers.forEach(fn => fn(value));
+      subscribers.forEach((fn) => fn(value));
     },
     subscribe(fn: (v: T) => void) {
       subscribers.add(fn);
       fn(value);
-      return () => { subscribers.delete(fn); };
+      return () => {
+        subscribers.delete(fn);
+      };
     },
   };
 }
@@ -68,13 +70,13 @@ export function createMockAppState(overrides: {
     session: mockSignal(null),
     messages: mockSignal([]),
     isStreaming: mockSignal(false),
-    thinkingLevel: mockSignal('medium' as const),
+    thinkingLevel: mockSignal("medium" as const),
     isCompacting: mockSignal(false),
     online: mockSignal(true),
-    currentView: mockSignal('welcome' as const),
-    previousView: mockSignal('welcome' as const),
+    currentView: mockSignal("welcome" as const),
+    previousView: mockSignal("welcome" as const),
     files: mockSignal([]),
-    explorerPath: mockSignal(''),
+    explorerPath: mockSignal(""),
     selectedFile: mockSignal(null),
     fileContent: mockSignal(null),
     isEditing: mockSignal(false),
@@ -82,11 +84,11 @@ export function createMockAppState(overrides: {
     activeTabId: mockSignal(null),
     tabMessages: mockSignal({}),
     availableModels: mockSignal([]),
-    theme: mockSignal('dark' as const),
-    fontSize: mockSignal('medium' as const),
-    updateStatus: mockSignal('idle' as const),
+    theme: mockSignal("dark" as const),
+    fontSize: mockSignal("medium" as const),
+    updateStatus: mockSignal("idle" as const),
     updateReady: mockSignal(null),
-    piVersion: mockSignal('unknown'),
+    piVersion: mockSignal("unknown"),
     configuredProviders: mockSignal([]),
     updateDismissed: mockSignal(false),
     updateError: mockSignal(null),

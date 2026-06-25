@@ -11,7 +11,7 @@
  * debe vivir dentro del return de vi.hoisted().
  */
 
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect, vi } from "vitest";
 
 // vi.hoisted() se ejecuta antes que los factories de vi.mock().
 // Aca definimos mockSignal y las signals compartidas. Todo lo que
@@ -21,11 +21,13 @@ const mock = vi.hoisted(() => {
     let value = initial;
     const subscribers = new Set<(v: T) => void>();
     return {
-      get value() { return value; },
+      get value() {
+        return value;
+      },
       set value(v: T) {
         if (v === value) return;
         value = v;
-        subscribers.forEach(fn => fn(value));
+        subscribers.forEach((fn) => fn(value));
       },
       subscribe(fn: (v: T) => void) {
         subscribers.add(fn);
@@ -45,13 +47,13 @@ const mock = vi.hoisted(() => {
       messages: mockSignal([]),
       isStreaming: mockSignal(false),
       currentModel: mockSignal(null),
-      thinkingLevel: mockSignal('medium'),
+      thinkingLevel: mockSignal("medium"),
       isCompacting: mockSignal(false),
       online: mockSignal(true),
-      currentView: mockSignal('chat'),
-      previousView: mockSignal('welcome'),
+      currentView: mockSignal("chat"),
+      previousView: mockSignal("welcome"),
       files: mockSignal([]),
-      explorerPath: mockSignal(''),
+      explorerPath: mockSignal(""),
       selectedFile: mockSignal(null),
       fileContent: mockSignal(null),
       isEditing: mockSignal(false),
@@ -59,11 +61,11 @@ const mock = vi.hoisted(() => {
       activeTabId: mockSignal(null),
       tabMessages: mockSignal({}),
       availableModels: mockSignal([]),
-      theme: mockSignal('dark'),
-      fontSize: mockSignal('medium'),
-      updateStatus: mockSignal('idle'),
+      theme: mockSignal("dark"),
+      fontSize: mockSignal("medium"),
+      updateStatus: mockSignal("idle"),
       updateReady: mockSignal(null),
-      piVersion: mockSignal('unknown'),
+      piVersion: mockSignal("unknown"),
       configuredProviders: mockSignal([]),
       updateDismissed: mockSignal(false),
       updateError: mockSignal(null),
@@ -75,97 +77,99 @@ const mock = vi.hoisted(() => {
   return { createMockAppState, hasAnyProvider };
 });
 
-vi.mock('../../src/lib/state.ts', () => ({
+vi.mock("../../src/lib/state.ts", () => ({
   appState: mock.createMockAppState(),
 }));
 
-vi.mock('../../src/lib/pi/extension-ui-handler.ts', () => ({
+vi.mock("../../src/lib/pi/extension-ui-handler.ts", () => ({
   setDialogRenderer: vi.fn(),
   clearDialogRenderer: vi.fn(),
 }));
 
-import { ChatPage } from '../../src/pages/chat.ts';
+import { ChatPage } from "../../src/pages/chat.ts";
 
-describe('ChatPage', () => {
+describe("ChatPage", () => {
   beforeEach(() => {
     mock.hasAnyProvider.value = false;
   });
 
-  test('mounts without error', () => {
+  test("mounts without error", () => {
     expect(() => {
       const page = ChatPage();
       expect(page.root).toBeInstanceOf(HTMLElement);
-      expect(page.root.className).toBe('chat-area');
+      expect(page.root.className).toBe("chat-area");
       page.dispose();
     }).not.toThrow();
   });
 
-  test('renders header with title', () => {
+  test("renders header with title", () => {
     const page = ChatPage();
-    expect(page.root.querySelector('.chat-header')).toBeTruthy();
-    expect(page.root.querySelector('.chat-header-title')).toBeTruthy();
+    expect(page.root.querySelector(".chat-header")).toBeTruthy();
+    expect(page.root.querySelector(".chat-header-title")).toBeTruthy();
     page.dispose();
   });
 
-  test('renders messages container', () => {
+  test("renders messages container", () => {
     const page = ChatPage();
-    const msgs = page.root.querySelector('.chat-messages');
+    const msgs = page.root.querySelector(".chat-messages");
     expect(msgs).toBeTruthy();
     page.dispose();
   });
 
-  test('shows auth banner when no provider configured', () => {
+  test("shows auth banner when no provider configured", () => {
     mock.hasAnyProvider.value = false;
     const page = ChatPage();
-    const banner = page.root.querySelector<HTMLElement>('.chat-auth-banner');
+    const banner = page.root.querySelector<HTMLElement>(".chat-auth-banner");
     expect(banner).toBeTruthy();
-    expect(banner?.style.display).toBe('flex');
-    expect(banner?.textContent).toContain('No hay modelo configurado');
+    expect(banner?.style.display).toBe("flex");
+    expect(banner?.textContent).toContain("No hay modelo configurado");
     page.dispose();
   });
 
-  test('hides auth banner when provider is configured', () => {
+  test("hides auth banner when provider is configured", () => {
     mock.hasAnyProvider.value = true;
     const page = ChatPage();
-    const banner = page.root.querySelector<HTMLElement>('.chat-auth-banner');
+    const banner = page.root.querySelector<HTMLElement>(".chat-auth-banner");
     expect(banner).toBeTruthy();
-    expect(banner?.style.display).toBe('none');
+    expect(banner?.style.display).toBe("none");
     page.dispose();
   });
 
-  test('auth banner visibility reacts to signal changes', () => {
+  test("auth banner visibility reacts to signal changes", () => {
     const page = ChatPage();
-    const banner = page.root.querySelector<HTMLElement>('.chat-auth-banner');
+    const banner = page.root.querySelector<HTMLElement>(".chat-auth-banner");
     expect(banner).toBeTruthy();
 
     mock.hasAnyProvider.value = false;
-    expect(banner?.style.display).toBe('flex');
+    expect(banner?.style.display).toBe("flex");
 
     mock.hasAnyProvider.value = true;
-    expect(banner?.style.display).toBe('none');
+    expect(banner?.style.display).toBe("none");
 
     mock.hasAnyProvider.value = false;
-    expect(banner?.style.display).toBe('flex');
+    expect(banner?.style.display).toBe("flex");
 
     page.dispose();
   });
 
-  test('auth banner has navigate-to-settings button', () => {
+  test("auth banner has navigate-to-settings button", () => {
     mock.hasAnyProvider.value = false;
     const page = ChatPage();
-    const btn = page.root.querySelector<HTMLButtonElement>('.chat-auth-banner-btn');
+    const btn = page.root.querySelector<HTMLButtonElement>(
+      ".chat-auth-banner-btn",
+    );
     expect(btn).toBeTruthy();
-    expect(btn?.textContent).toBe('Ir a Ajustes');
+    expect(btn?.textContent).toBe("Ir a Ajustes");
     page.dispose();
   });
 
-  test('has no active extension dialog by default', () => {
+  test("has no active extension dialog by default", () => {
     const page = ChatPage();
-    expect(page.root.querySelector('.extension-dialog-wrapper')).toBeNull();
+    expect(page.root.querySelector(".extension-dialog-wrapper")).toBeNull();
     page.dispose();
   });
 
-  test('dispose cleans up subscriptions', () => {
+  test("dispose cleans up subscriptions", () => {
     const page = ChatPage();
     page.dispose();
     expect(page.root.isConnected).toBe(false);

@@ -19,7 +19,7 @@
  * a variables del modulo.
  */
 
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach } from "vitest";
 
 // ─── vi.hoisted: definido antes que los factories de vi.mock ──────────────
 
@@ -28,11 +28,13 @@ const mock = vi.hoisted(() => {
     let value = initial;
     const subscribers = new Set<(v: T) => void>();
     return {
-      get value() { return value; },
+      get value() {
+        return value;
+      },
       set value(v: T) {
         if (v === value) return;
         value = v;
-        subscribers.forEach(fn => fn(value));
+        subscribers.forEach((fn) => fn(value));
       },
       subscribe(fn: (v: T) => void) {
         subscribers.add(fn);
@@ -44,7 +46,7 @@ const mock = vi.hoisted(() => {
 
   // workingDir seteado — necesario para que createNewTab no
   // aborte con "Selecciona una carpeta de trabajo primero".
-  const workingDir = mockSignal('/home/test/project');
+  const workingDir = mockSignal("/home/test/project");
 
   function createMockAppState() {
     return {
@@ -53,13 +55,13 @@ const mock = vi.hoisted(() => {
       messages: mockSignal([]),
       isStreaming: mockSignal(false),
       currentModel: mockSignal(null),
-      thinkingLevel: mockSignal('medium' as const),
+      thinkingLevel: mockSignal("medium" as const),
       isCompacting: mockSignal(false),
       online: mockSignal(true),
-      currentView: mockSignal('sessions' as const),
-      previousView: mockSignal('welcome' as const),
+      currentView: mockSignal("sessions" as const),
+      previousView: mockSignal("welcome" as const),
       files: mockSignal([]),
-      explorerPath: mockSignal(''),
+      explorerPath: mockSignal(""),
       selectedFile: mockSignal(null),
       fileContent: mockSignal(null),
       isEditing: mockSignal(false),
@@ -67,11 +69,11 @@ const mock = vi.hoisted(() => {
       activeTabId: mockSignal(null),
       tabMessages: mockSignal({}),
       availableModels: mockSignal([]),
-      theme: mockSignal('dark' as const),
-      fontSize: mockSignal('medium' as const),
-      updateStatus: mockSignal('idle' as const),
+      theme: mockSignal("dark" as const),
+      fontSize: mockSignal("medium" as const),
+      updateStatus: mockSignal("idle" as const),
       updateReady: mockSignal(null),
-      piVersion: mockSignal('unknown'),
+      piVersion: mockSignal("unknown"),
       configuredProviders: mockSignal([]),
       recents: mockSignal([]),
       hasAnyProvider: mockSignal(true),
@@ -102,25 +104,25 @@ const mock = vi.hoisted(() => {
 
 // ─── vi.mock: factories que usan lo definido arriba ──────────────────────
 
-vi.mock('../../src/lib/state.ts', () => ({
+vi.mock("../../src/lib/state.ts", () => ({
   appState: mock.createMockAppState(),
   setActiveTab: vi.fn(),
 }));
 
-vi.mock('../../src/lib/nav.ts', () => ({
+vi.mock("../../src/lib/nav.ts", () => ({
   navigate: vi.fn(),
 }));
 
 // Mock del paquete pi: startPi y newPiSession trackean el orden.
 // listSessions y el resto son no-ops async para no romper el flow.
-vi.mock('../../src/lib/pi/index.ts', () => ({
-  startPi: mock.track('startPi'),
-  stopPi: mock.track('stopPi'),
-  sendPrompt: mock.track('sendPrompt'),
-  abortPi: mock.track('abortPi'),
-  getPiState: mock.track('getPiState'),
-  getPiMessages: mock.track('getPiMessages'),
-  newPiSession: mock.track('newPiSession'),
+vi.mock("../../src/lib/pi/index.ts", () => ({
+  startPi: mock.track("startPi"),
+  stopPi: mock.track("stopPi"),
+  sendPrompt: mock.track("sendPrompt"),
+  abortPi: mock.track("abortPi"),
+  getPiState: mock.track("getPiState"),
+  getPiMessages: mock.track("getPiMessages"),
+  newPiSession: mock.track("newPiSession"),
   getPiStatus: vi.fn(() => Promise.resolve({ running: false, cwd: null })),
   listSessions: vi.fn(() =>
     Promise.resolve({ sessions: [], skipped: { count: 0, files: [] } }),
@@ -131,9 +133,9 @@ vi.mock('../../src/lib/pi/index.ts', () => ({
   addRecent: vi.fn(() => Promise.resolve()),
 }));
 
-import { SessionsPage, resetSessionsState } from '../../src/pages/sessions.ts';
+import { SessionsPage, resetSessionsState } from "../../src/pages/sessions.ts";
 
-describe('Flujo de sesión nueva — orden de llamadas', () => {
+describe("Flujo de sesión nueva — orden de llamadas", () => {
   beforeEach(() => {
     // Limpiar el registro de llamadas entre tests.
     mock.callLog.length = 0;
@@ -145,7 +147,7 @@ describe('Flujo de sesión nueva — orden de llamadas', () => {
     const page = SessionsPage();
 
     // Buscar el botón "+ Nueva conversación" en el header.
-    const newBtn = page.root.querySelector('.sessions-new');
+    const newBtn = page.root.querySelector(".sessions-new");
     expect(newBtn).toBeTruthy();
 
     // Disparar el click — reproduce el flujo del usuario.
@@ -153,19 +155,19 @@ describe('Flujo de sesión nueva — orden de llamadas', () => {
 
     // syncPiSessionInBackground es async. Esperar a que las
     // llamadas tracked se completen con un microtask flush.
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     // El invariante: startPi debe aparecer en el log antes que
     // newPiSession. Si alguien quita el "await startPi(cwd)" del
     // fix y solo deja newPiSession, este test falla.
-    const startPiCall = mock.callLog.find(c => c.name === 'startPi');
-    const newSessionCall = mock.callLog.find(c => c.name === 'newPiSession');
+    const startPiCall = mock.callLog.find((c) => c.name === "startPi");
+    const newSessionCall = mock.callLog.find((c) => c.name === "newPiSession");
 
-    expect(startPiCall, 'startPi debió llamarse').toBeTruthy();
-    expect(newSessionCall, 'newPiSession debió llamarse').toBeTruthy();
+    expect(startPiCall, "startPi debió llamarse").toBeTruthy();
+    expect(newSessionCall, "newPiSession debió llamarse").toBeTruthy();
     expect(
       startPiCall!.index,
-      'startPi debe llamarse ANTES que newPiSession ' +
+      "startPi debe llamarse ANTES que newPiSession " +
         `(startPi=${startPiCall!.index}, newSession=${newSessionCall!.index})`,
     ).toBeLessThan(newSessionCall!.index);
 

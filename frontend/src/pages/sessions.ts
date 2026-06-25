@@ -9,9 +9,9 @@
  * de rename abierto (no pisamos lo que el usuario está escribiendo).
  */
 
-import { signal } from '../lib/signal.ts';
-import { createScope, type Page } from '../lib/scope.ts';
-import { appState } from '../lib/state.ts';
+import { signal } from "../lib/signal.ts";
+import { createScope, type Page } from "../lib/scope.ts";
+import { appState } from "../lib/state.ts";
 import {
   listSessions,
   deleteSession,
@@ -21,10 +21,14 @@ import {
   getPiMessages,
   newPiSession,
   getPiState,
-} from '../lib/pi/index.ts';
-import type { ListSessionsResult, SessionInfo, SkippedInfo } from '../lib/pi/types.ts';
-import { navigate } from '../lib/nav.ts';
-import { setActiveTab, type Session } from '../lib/state.ts';
+} from "../lib/pi/index.ts";
+import type {
+  ListSessionsResult,
+  SessionInfo,
+  SkippedInfo,
+} from "../lib/pi/types.ts";
+import { navigate } from "../lib/nav.ts";
+import { setActiveTab, type Session } from "../lib/state.ts";
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -65,8 +69,8 @@ export function resetSessionsState(): void {
 }
 
 export function SessionsPage(): Page {
-  const root = document.createElement('section');
-  root.className = 'sessions-page';
+  const root = document.createElement("section");
+  root.className = "sessions-page";
   const scope = createScope();
 
   // Reset de signals module-level: sin esto, la página conserva
@@ -91,11 +95,11 @@ export function SessionsPage(): Page {
   // Pausar polling cuando la pestaña no es visible — el usuario no la mira,
   // no tiene sentido gastar CPU. Se reanuda al volver.
   const visibilityHandler = () => {
-    if (document.visibilityState === 'visible') {
+    if (document.visibilityState === "visible") {
       void loadSessions();
     }
   };
-  document.addEventListener('visibilitychange', visibilityHandler);
+  document.addEventListener("visibilitychange", visibilityHandler);
 
   // Cleanup: el output-board llama a `dispose()` antes de cada
   // `replaceChildren`, así que el interval y el listener de visibilidad
@@ -103,7 +107,7 @@ export function SessionsPage(): Page {
   // de un evento custom `page:remove` que Tauri nunca dispara — bug.
   scope.add(() => {
     clearInterval(interval);
-    document.removeEventListener('visibilitychange', visibilityHandler);
+    document.removeEventListener("visibilitychange", visibilityHandler);
   });
 
   return { root, dispose: () => scope.dispose() };
@@ -119,7 +123,7 @@ async function loadSessions(): Promise<void> {
 
   const cwd = appState.workingDir.value;
   if (!cwd) {
-    error.value = 'Selecciona una carpeta de trabajo primero';
+    error.value = "Selecciona una carpeta de trabajo primero";
     return;
   }
 
@@ -151,21 +155,21 @@ async function loadSessions(): Promise<void> {
  *   (ej. botón de cerrar).
  */
 function createSignalBanner<T>(
-  sig: import('../lib/signal.ts').Signal<T>,
+  sig: import("../lib/signal.ts").Signal<T>,
   className: string,
   format: (value: T) => string | null,
-  scope: import('../lib/scope.ts').Scope,
+  scope: import("../lib/scope.ts").Scope,
   extras?: (banner: HTMLElement) => void,
 ): HTMLElement {
-  const banner = document.createElement('div');
+  const banner = document.createElement("div");
   banner.className = className;
-  banner.style.display = 'none';
+  banner.style.display = "none";
 
-  const text = document.createElement('span');
+  const text = document.createElement("span");
   const unsub = sig.subscribe((value) => {
     const msg = format(value);
-    text.textContent = msg ?? '';
-    banner.style.display = msg ? 'block' : 'none';
+    text.textContent = msg ?? "";
+    banner.style.display = msg ? "block" : "none";
   });
   // Sin scope.add(), esta suscripción nunca se limpia. Cada mount de
   // SessionsPage() crea una nueva y la anterior queda colgada — el DOM
@@ -181,11 +185,11 @@ function createSignalBanner<T>(
 }
 
 function renderHeader(): HTMLElement {
-  const header = document.createElement('header');
-  header.className = 'sessions-header';
+  const header = document.createElement("header");
+  header.className = "sessions-header";
 
-  const title = document.createElement('h1');
-  title.textContent = 'Sesiones';
+  const title = document.createElement("h1");
+  title.textContent = "Sesiones";
   header.append(title);
 
   // Acción primaria del historial: crear nueva conversación.
@@ -193,28 +197,28 @@ function renderHeader(): HTMLElement {
   // (no el sessionId de pi). Esto garantiza que cada tab tenga
   // identidad única INMEDIATA, sin depender de la respuesta
   // asíncrona de pi. La sesión de pi se carga después, en background.
-  const newBtn = document.createElement('button');
-  newBtn.className = 'sessions-new';
-  newBtn.textContent = '+ Nueva conversación';
-  newBtn.addEventListener('click', () => {
+  const newBtn = document.createElement("button");
+  newBtn.className = "sessions-new";
+  newBtn.textContent = "+ Nueva conversación";
+  newBtn.addEventListener("click", () => {
     if (!appState.workingDir.value) {
-      error.value = 'Selecciona una carpeta de trabajo primero';
+      error.value = "Selecciona una carpeta de trabajo primero";
       return;
     }
     void createNewTab();
   });
   header.append(newBtn);
 
-  const backBtn = document.createElement('button');
-  backBtn.className = 'sessions-back';
-  backBtn.textContent = '← Volver';
-  backBtn.addEventListener('click', () => {
+  const backBtn = document.createElement("button");
+  backBtn.className = "sessions-back";
+  backBtn.textContent = "← Volver";
+  backBtn.addEventListener("click", () => {
     // Si hay una sesión activa, volver al chat. Si no, volver a welcome
     // para elegir otro proyecto.
     if (appState.activeTabId.value) {
-      navigate('chat');
+      navigate("chat");
     } else {
-      navigate('welcome');
+      navigate("welcome");
     }
   });
   header.append(backBtn);
@@ -222,45 +226,60 @@ function renderHeader(): HTMLElement {
   return header;
 }
 
-function renderSkipWarning(scope: import('../lib/scope.ts').Scope): HTMLElement {
-  return createSignalBanner(skipped, 'sessions-skip-warning', (s) => {
-    // SessionManager.list silencia archivos corruptos o sin header
-    // válído. El usuario debe saber que no se muestran todas las
-    // sesiones, aunque el error no sea fatal.
-    if (s && s.count > 0) {
-      return `⚠ ${s.count} archivo(s) de sesión no se pudieron leer (corruptos o vacíos)`;
-    }
-    return null;
-  }, scope);
+function renderSkipWarning(
+  scope: import("../lib/scope.ts").Scope,
+): HTMLElement {
+  return createSignalBanner(
+    skipped,
+    "sessions-skip-warning",
+    (s) => {
+      // SessionManager.list silencia archivos corruptos o sin header
+      // válído. El usuario debe saber que no se muestran todas las
+      // sesiones, aunque el error no sea fatal.
+      if (s && s.count > 0) {
+        return `⚠ ${s.count} archivo(s) de sesión no se pudieron leer (corruptos o vacíos)`;
+      }
+      return null;
+    },
+    scope,
+  );
 }
 
-function renderErrorBanner(scope: import('../lib/scope.ts').Scope): HTMLElement {
-  return createSignalBanner(error, 'sessions-error', (e) => e ?? null, scope, (banner) => {
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.addEventListener('click', () => {
-      error.value = null;
-    });
-    banner.append(closeBtn);
-  });
+function renderErrorBanner(
+  scope: import("../lib/scope.ts").Scope,
+): HTMLElement {
+  return createSignalBanner(
+    error,
+    "sessions-error",
+    (e) => e ?? null,
+    scope,
+    (banner) => {
+      const closeBtn = document.createElement("button");
+      closeBtn.textContent = "✕";
+      closeBtn.addEventListener("click", () => {
+        error.value = null;
+      });
+      banner.append(closeBtn);
+    },
+  );
 }
 
 function renderList(): HTMLElement {
-  const list = document.createElement('div');
-  list.className = 'sessions-list';
+  const list = document.createElement("div");
+  list.className = "sessions-list";
 
-  const inner = document.createElement('div');
-  inner.className = 'sessions-list-inner';
+  const inner = document.createElement("div");
+  inner.className = "sessions-list-inner";
 
   function repaint(items: SessionInfo[]) {
     inner.replaceChildren();
 
     if (!appState.workingDir.value) {
-      inner.append(emptyState('Selecciona una carpeta de trabajo', null));
+      inner.append(emptyState("Selecciona una carpeta de trabajo", null));
       return;
     }
     if (items.length === 0) {
-      inner.append(emptyState('No hay sesiones en este proyecto', null));
+      inner.append(emptyState("No hay sesiones en este proyecto", null));
       return;
     }
 
@@ -281,21 +300,21 @@ function renderList(): HTMLElement {
 }
 
 function renderFooter(): HTMLElement {
-  const footer = document.createElement('footer');
-  footer.className = 'sessions-footer';
+  const footer = document.createElement("footer");
+  footer.className = "sessions-footer";
 
-  const refreshBtn = document.createElement('button');
-  refreshBtn.textContent = '↻ Refrescar';
+  const refreshBtn = document.createElement("button");
+  refreshBtn.textContent = "↻ Refrescar";
   refreshBtn.disabled = false;
-  refreshBtn.addEventListener('click', () => {
+  refreshBtn.addEventListener("click", () => {
     void loadSessions();
   });
   footer.append(refreshBtn);
 
   // Indicador de polling
-  const status = document.createElement('span');
-  status.className = 'sessions-status';
-  status.textContent = 'actualiza cada 10s';
+  const status = document.createElement("span");
+  status.className = "sessions-status";
+  status.textContent = "actualiza cada 10s";
   footer.append(status);
 
   return footer;
@@ -306,32 +325,32 @@ function renderFooter(): HTMLElement {
 // ═══════════════════════════════════════════════════════
 
 function renderItem(session: SessionInfo): HTMLElement {
-  const item = document.createElement('article');
-  item.className = 'session-card';
+  const item = document.createElement("article");
+  item.className = "session-card";
 
   const isActive = session.path === appState.session.value?.file;
-  if (isActive) item.classList.add('is-active');
+  if (isActive) item.classList.add("is-active");
 
   // ── Header del item: nombre + acciones ──
-  const header = document.createElement('div');
-  header.className = 'session-item-header';
+  const header = document.createElement("div");
+  header.className = "session-item-header";
 
-  const nameEl = document.createElement('div');
-  nameEl.className = 'session-item-name';
+  const nameEl = document.createElement("div");
+  nameEl.className = "session-item-name";
   header.append(nameEl);
 
   if (isActive) {
-    const badge = document.createElement('span');
-    badge.className = 'session-badge-active';
-    badge.textContent = 'Activa';
+    const badge = document.createElement("span");
+    badge.className = "session-badge-active";
+    badge.textContent = "Activa";
     header.append(badge);
   }
 
-  const menuBtn = document.createElement('button');
-  menuBtn.className = 'session-item-menu-btn';
-  menuBtn.textContent = '⋯';
-  menuBtn.title = 'Acciones';
-  menuBtn.addEventListener('click', (ev) => {
+  const menuBtn = document.createElement("button");
+  menuBtn.className = "session-item-menu-btn";
+  menuBtn.textContent = "⋯";
+  menuBtn.title = "Acciones";
+  menuBtn.addEventListener("click", (ev) => {
     ev.stopPropagation();
     openMenu(menuBtn, session);
   });
@@ -340,24 +359,24 @@ function renderItem(session: SessionInfo): HTMLElement {
   item.append(header);
 
   // ── Preview del primer mensaje ──
-  const preview = document.createElement('div');
-  preview.className = 'session-item-preview';
+  const preview = document.createElement("div");
+  preview.className = "session-item-preview";
   preview.textContent =
     session.messageCount === 0
-      ? '(sin mensajes)'
+      ? "(sin mensajes)"
       : truncate(session.firstMessage, 120);
   item.append(preview);
 
   // ── Stats: mensajes + cuándo ──
-  const stats = document.createElement('div');
-  stats.className = 'session-item-stats';
-  const count = document.createElement('span');
+  const stats = document.createElement("div");
+  stats.className = "session-item-stats";
+  const count = document.createElement("span");
   count.textContent = `${session.messageCount} mensajes`;
   stats.append(count);
-  const dot = document.createElement('span');
-  dot.textContent = ' · ';
+  const dot = document.createElement("span");
+  dot.textContent = " · ";
   stats.append(dot);
-  const when = document.createElement('span');
+  const when = document.createElement("span");
   when.textContent = timeAgo(session.modified);
   stats.append(when);
   item.append(stats);
@@ -366,7 +385,7 @@ function renderItem(session: SessionInfo): HTMLElement {
   paintName(nameEl, session);
 
   // Click en el item (no en el menú) → switch.
-  item.addEventListener('click', () => {
+  item.addEventListener("click", () => {
     void switchToSession(session);
   });
 
@@ -379,17 +398,17 @@ function paintName(container: HTMLElement, session: SessionInfo): void {
   const isRenaming = renamingPath.value === session.path;
 
   if (isRenaming) {
-    const input = document.createElement('input');
-    input.className = 'session-item-name-input';
-    input.type = 'text';
-    input.value = session.name ?? '';
+    const input = document.createElement("input");
+    input.className = "session-item-name-input";
+    input.type = "text";
+    input.value = session.name ?? "";
     input.autofocus = true;
     attachRenameHandlers(input, session, () => {
       renamingPath.value = null;
     });
     container.append(input);
   } else {
-    const span = document.createElement('span');
+    const span = document.createElement("span");
     span.textContent = session.name ?? formatDate(session.created);
     container.append(span);
   }
@@ -401,23 +420,23 @@ function paintName(container: HTMLElement, session: SessionInfo): void {
 
 function openMenu(anchor: HTMLElement, session: SessionInfo): void {
   // Cierra cualquier menú abierto.
-  document.querySelectorAll('.session-menu').forEach((el) => el.remove());
+  document.querySelectorAll(".session-menu").forEach((el) => el.remove());
 
-  const menu = document.createElement('div');
-  menu.className = 'session-menu';
+  const menu = document.createElement("div");
+  menu.className = "session-menu";
 
-  const renameBtn = document.createElement('button');
-  renameBtn.textContent = 'Renombrar';
-  renameBtn.addEventListener('click', () => {
+  const renameBtn = document.createElement("button");
+  renameBtn.textContent = "Renombrar";
+  renameBtn.addEventListener("click", () => {
     renamingPath.value = session.path;
     menu.remove();
   });
   menu.append(renameBtn);
 
-  const deleteBtn = document.createElement('button');
-  deleteBtn.textContent = 'Borrar';
-  deleteBtn.className = 'session-menu-danger';
-  deleteBtn.addEventListener('click', () => {
+  const deleteBtn = document.createElement("button");
+  deleteBtn.textContent = "Borrar";
+  deleteBtn.className = "session-menu-danger";
+  deleteBtn.addEventListener("click", () => {
     menu.remove();
     void handleDelete(session);
   });
@@ -425,7 +444,7 @@ function openMenu(anchor: HTMLElement, session: SessionInfo): void {
 
   // Posicionar el menú justo abajo del botón ⋯
   const rect = anchor.getBoundingClientRect();
-  menu.style.position = 'fixed';
+  menu.style.position = "fixed";
   menu.style.top = `${rect.bottom}px`;
   menu.style.left = `${rect.right - 160}px`;
   document.body.append(menu);
@@ -434,10 +453,10 @@ function openMenu(anchor: HTMLElement, session: SessionInfo): void {
   const onClickOutside = (ev: MouseEvent) => {
     if (!menu.contains(ev.target as Node)) {
       menu.remove();
-      document.removeEventListener('click', onClickOutside);
+      document.removeEventListener("click", onClickOutside);
     }
   };
-  setTimeout(() => document.addEventListener('click', onClickOutside), 0);
+  setTimeout(() => document.addEventListener("click", onClickOutside), 0);
 }
 
 function attachRenameHandlers(
@@ -445,19 +464,19 @@ function attachRenameHandlers(
   session: SessionInfo,
   cancel: () => void,
 ): void {
-  input.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter') {
+  input.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
       const newName = input.value.trim();
-      if (newName === '' || newName === session.name) {
+      if (newName === "" || newName === session.name) {
         cancel();
         return;
       }
       void handleRename(session, newName, cancel);
-    } else if (ev.key === 'Escape') {
+    } else if (ev.key === "Escape") {
       cancel();
     }
   });
-  input.addEventListener('blur', () => {
+  input.addEventListener("blur", () => {
     // Si el usuario clickeó fuera sin Enter, cancelar.
     if (renamingPath.value === session.path) cancel();
   });
@@ -497,7 +516,7 @@ async function createNewTab(): Promise<void> {
   appState.messages.value = [];
 
   // 4. Navegar al chat.
-  navigate('chat');
+  navigate("chat");
 
   // 5. Pedir a pi la nueva sesión EN BACKGROUND. No bloqueamos
   //    la UI. Si falla, la tab queda vacía pero usable.
@@ -513,7 +532,7 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
   try {
     const cwd = appState.workingDir.value;
     if (!cwd) {
-      throw new Error('No hay carpeta de trabajo seleccionada');
+      throw new Error("No hay carpeta de trabajo seleccionada");
     }
     // Pi debe estar corriendo antes de pedirle una sesión nueva.
     // startPi sin sessionPath arranca pi sin sesión (--mode rpc).
@@ -523,9 +542,14 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
     // Aplicar metadatos de pi a la tab correspondiente.
     const piSession = appState.session.value;
     if (!piSession) return;
-    appState.openTabs.value = appState.openTabs.value.map(t =>
+    appState.openTabs.value = appState.openTabs.value.map((t) =>
       t.id === tabId
-        ? { ...t, name: piSession.name, file: piSession.file, messageCount: piSession.messageCount }
+        ? {
+            ...t,
+            name: piSession.name,
+            file: piSession.file,
+            messageCount: piSession.messageCount,
+          }
         : t,
     );
     // Refrescar la lista de sesiones del historial.
@@ -555,10 +579,10 @@ async function switchToSession(session: SessionInfo): Promise<void> {
   };
 
   // Si la sesión ya está abierta como tab, solo cambiar a ella.
-  const isOpen = appState.openTabs.value.some(t => t.id === session.id);
+  const isOpen = appState.openTabs.value.some((t) => t.id === session.id);
   if (isOpen) {
     setActiveTab(session.id);
-    navigate('chat');
+    navigate("chat");
     return;
   }
 
@@ -571,20 +595,23 @@ async function switchToSession(session: SessionInfo): Promise<void> {
   try {
     await startPi(cwd, session.path);
     await getPiMessages();
-    navigate('chat');
+    navigate("chat");
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
-    navigate('chat');
+    navigate("chat");
   } finally {
     loading.value = false;
   }
 }
 
 async function handleDelete(session: SessionInfo): Promise<void> {
-  if (!confirm('¿Borrar esta sesión?')) return;
+  if (!confirm("¿Borrar esta sesión?")) return;
 
   const isActive = session.path === appState.session.value?.file;
-  if (isActive && !confirm('Esta es tu sesión activa. Se cerrará. ¿Continuar?')) {
+  if (
+    isActive &&
+    !confirm("Esta es tu sesión activa. Se cerrará. ¿Continuar?")
+  ) {
     return;
   }
 
@@ -594,7 +621,7 @@ async function handleDelete(session: SessionInfo): Promise<void> {
       // La sesión activa fue eliminada. Detener pi y limpiar tabs.
       await stopPi();
       appState.openTabs.value = appState.openTabs.value.filter(
-        t => t.id !== session.id,
+        (t) => t.id !== session.id,
       );
       appState.activeTabId.value = null;
       appState.session.value = null;
@@ -626,17 +653,17 @@ async function handleRename(
 // ═══════════════════════════════════════════════════════
 
 function emptyState(message: string, ctaHref: string | null): HTMLElement {
-  const div = document.createElement('div');
-  div.className = 'sessions-empty';
+  const div = document.createElement("div");
+  div.className = "sessions-empty";
 
-  const p = document.createElement('p');
+  const p = document.createElement("p");
   p.textContent = message;
   div.append(p);
 
   if (ctaHref) {
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = ctaHref;
-    a.textContent = 'Ir al chat';
+    a.textContent = "Ir al chat";
     div.append(a);
   }
   return div;
@@ -649,16 +676,16 @@ function truncate(text: string, max: number): string {
 function formatDate(unixMs: number): string {
   const d = new Date(unixMs);
   const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mi = String(d.getMinutes()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
 }
 
 function timeAgo(unixMs: number): string {
   const seconds = Math.floor((Date.now() - unixMs) / 1000);
-  if (seconds < 60) return 'hace segundos';
+  if (seconds < 60) return "hace segundos";
   if (seconds < 3600) return `hace ${Math.floor(seconds / 60)} min`;
   if (seconds < 86_400) return `hace ${Math.floor(seconds / 3600)} h`;
   return `hace ${Math.floor(seconds / 86_400)} d`;
