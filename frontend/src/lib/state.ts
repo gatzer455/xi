@@ -36,7 +36,7 @@ export interface ThinkingBlock {
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant' | 'toolResult';
+  role: 'user' | 'assistant' | 'toolResult' | 'compaction';
   content: string;
   timestamp: number;
   toolCalls?: ToolCall[];
@@ -46,6 +46,10 @@ export interface ChatMessage {
   toolResult?: {
     toolName: string;
     isError: boolean;
+  };
+  /** Solo para role: 'compaction'. Pi comprimió N tokens de historial en este punto. */
+  compaction?: {
+    tokensBefore: number;
   };
 }
 

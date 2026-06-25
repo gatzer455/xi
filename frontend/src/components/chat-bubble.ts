@@ -31,6 +31,12 @@ export function ChatBubble(message: ChatMessage): HTMLElement {
     return wrapper;
   }
 
+  // compaction: divider colapsable con la summary de lo que pi compactó
+  if (message.role === 'compaction') {
+    wrapper.append(renderCompactionDivider(message));
+    return wrapper;
+  }
+
   // ═══ Content ═══
   const content = document.createElement('div');
   content.className = 'message-content';
@@ -76,6 +82,41 @@ export function ChatBubble(message: ChatMessage): HTMLElement {
 // ───────────────────────────────────────────────────────────────
 // Helpers privados — guard clauses, sin anidación > 2
 // ───────────────────────────────────────────────────────────────
+
+/**
+ * Renderiza un mensaje de tipo toolResult como una mini-card colapsable
+ * (hermana del tool call que la produjo). Fiel al JSONL: el tool result
+ * es un mensaje aparte, no se acopla al assistant message. Background
+ * usa los tokens pi-light (toolSuccessBg/toolErrorBg).
+ */
+function renderCompactionDivider(message: ChatMessage): HTMLElement {
+  const tokensBefore = message.compaction?.tokensBefore ?? 0;
+  const detail = document.createElement('details');
+  detail.className = 'compaction-divider';
+
+  const summary = document.createElement('summary');
+  summary.className = 'compaction-summary';
+  // "~12.3K tokens" formateado legible
+  const formatted = formatTokens(tokensBefore);
+  summary.textContent = `Compaction: ${formatted} compactados`;
+  detail.append(summary);
+
+  if (message.content) {
+    const body = document.createElement('pre');
+    body.className = 'compaction-body';
+    body.textContent = message.content;
+    detail.append(body);
+  }
+
+  return detail;
+}
+
+/** "1234" → "1.2K", "1500000" → "1.5M" */
+function formatTokens(n: number): string {
+  if (n < 1000) return `${n} tokens`;
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}K tokens`;
+  return `${(n / 1_000_000).toFixed(2)}M tokens`;
+}
 
 /**
  * Renderiza un mensaje de tipo toolResult como una mini-card colapsable
