@@ -16,18 +16,6 @@ name: Release
 #   git push --tags
 
 on:
-  workflow_dispatch:
-    inputs:
-      platform:
-        description: 'Plataforma a buildear'
-        required: false
-        default: 'windows'
-        type: choice
-        options:
-          - windows
-          - linux
-          - macos-arm
-          - macos-intel
   push:
     tags: ['v*']
 
@@ -54,15 +42,6 @@ jobs:
             args: ""
             pi-target: windows
     runs-on: ${{ matrix.platform }}
-
-    # Con workflow_dispatch, solo corre la plataforma seleccionada.
-    # En tag push, corre toda la matrix.
-    if: |
-      github.event_name != 'workflow_dispatch' ||
-      (github.event.inputs.platform == 'windows' && matrix.platform == 'windows-latest') ||
-      (github.event.inputs.platform == 'linux' && matrix.platform == 'ubuntu-22.04') ||
-      (github.event.inputs.platform == 'macos-arm' && matrix.args == '--target aarch64-apple-darwin') ||
-      (github.event.inputs.platform == 'macos-intel' && matrix.args == '--target x86_64-apple-darwin')
 
     steps:
       - name: Checkout
