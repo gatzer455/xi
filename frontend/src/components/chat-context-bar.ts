@@ -50,9 +50,20 @@ const CONTEXT_WINDOWS: Record<string, number> = {
 
 const DEFAULT_MAX = 128000;
 
-function getContextWindow(modelId: string | null): number {
+/** Retorna el context window del modelo actual. Primero intenta
+ *  usar el valor real que pi reporta (appState.currentModel.contextWindow),
+ *  y si no esta disponible cae a la lookup table hardcodeada.
+ *  
+ *  Pi envia el contextWindow real del modelo en get_state (el Model
+ *  de pi-ai tiene el campo). Asi evitamos desactualizaciones cuando
+ *  los modelos cambian su contexto o cuando el usuario usa un modelo
+ *  no listado en nuestro lookup. */
+function getContextWindow(): number {
+  const fromModel = appState.currentModel.value?.contextWindow;
+  if (fromModel && fromModel > 0) return fromModel;
+
+  const modelId = appState.currentModel.value?.id;
   if (!modelId) return DEFAULT_MAX;
-  // Busqueda exacta, luego por substring (ej: "gpt-4o-2024-08-06" → 128K)
   if (CONTEXT_WINDOWS[modelId]) return CONTEXT_WINDOWS[modelId];
   for (const [key, val] of Object.entries(CONTEXT_WINDOWS)) {
     if (modelId.startsWith(key)) return val;
@@ -113,13 +124,11 @@ export function ChatContextBar(): ChatContextBarHandle {
   const progressBg = document.createElement('span');
   progressBg.className = 'context-bar-progress-bg';
   progressBg.append(progressFill);
-  root.append(progressBg);
 
   // ── Separador ──
   const sep = document.createElement('span');
   sep.className = 'context-bar-sep';
   sep.textContent = '·';
-  root.append(sep);
 
   // ── Modelo (click → picker, Etapa 10) ──
   const modelBtn = document.createElement('button');
@@ -129,7 +138,12 @@ export function ChatContextBar(): ChatContextBarHandle {
   // Placeholder: Stage 10 implementará el modal picker.
   // Por ahora es un botón sin handler — visible pero inerte hasta
   // que conectemos el modal.
-  root.append(modelBtn);
+
+  // Grupo derecho: [barra de progreso] [·] [modelo ↕] pegado a la derecha
+  const rightGroup = document.createElement('span');
+  rightGroup.className = 'context-bar-right';
+  rightGroup.append(progressBg, sep, modelBtn);
+  root.append(rightGroup);
 
   // ═══ Spinner logic (misma que ChatFooter) ═══
   let frameIndex = 0;
@@ -204,7 +218,7 @@ export function ChatContextBar(): ChatContextBarHandle {
       }
     }
 
-    const maxCtx = getContextWindow(appState.currentModel.value?.id ?? null);
+    const maxCtx = getContextWindow();
     const pct = maxCtx > 0 ? (lastUsageTotal / maxCtx) * 100 : 0;
 
     // Texto: "12.3K / 128K (9.6%)"
