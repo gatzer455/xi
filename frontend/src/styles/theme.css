@@ -54,10 +54,10 @@
   --color-diff-removed: #d4756a;
   --color-diff-context: #6b665c;
 
-  /* ── Chat footer (Etapa 8) ── */
-  --color-chat-footer-bg: var(--color-page-bg);
-  --color-chat-footer-text: var(--color-text-muted);
-  --color-chat-footer-spinner: var(--color-accent);
+  /* ── Context bar ── */
+  --color-context-bar-bg: var(--color-page-bg);
+  --color-context-bar-text: var(--color-text-muted);
+  --color-context-bar-spinner: var(--color-accent);
 
   /* ── Borders ── */
   --color-border-muted: #3d3830;
@@ -186,11 +186,6 @@
   --color-diff-added: #5a7a5a;
   --color-diff-removed: #c45c4a;
   --color-diff-context: #8a8680;
-
-  /* ── Chat footer (Etapa 8) ── */
-  --color-chat-footer-bg: var(--color-page-bg);
-  --color-chat-footer-text: var(--color-text-muted);
-  --color-chat-footer-spinner: var(--color-accent);
 
   /* ── Borders ── */
   --color-border-muted: #e0ddd6;

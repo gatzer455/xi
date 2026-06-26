@@ -103,13 +103,6 @@ describe("ChatPage", () => {
     }).not.toThrow();
   });
 
-  test("renders header with title", () => {
-    const page = ChatPage();
-    expect(page.root.querySelector(".chat-header")).toBeTruthy();
-    expect(page.root.querySelector(".chat-header-title")).toBeTruthy();
-    page.dispose();
-  });
-
   test("renders messages container", () => {
     const page = ChatPage();
     const msgs = page.root.querySelector(".chat-messages");

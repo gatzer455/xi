@@ -1,5 +1,11 @@
 /**
- * chat.ts — Vista de chat del output board.
+ * chat.ts — Vista de mensajes del chat (antes ChatPage).
+ *
+ * Etapa 9+ (chat-architecture-v2): ChatPage SOLO contiene los mensajes.
+ * El header (que tenía "xi" + modelo) y el footer (spinner "Trabajando…")
+ * se movieron al shell de la app (context-bar en main.ts). Esto mantiene
+ * el scroll de mensajes limpio y la barra de contexto siempre visible en
+ * la parte baja del viewport.
  *
  * Arquitectura chat-architecture-v2:
  *   - Los mensajes viven en `ChatStore`s per-tab (lib/chat/stores.ts).
@@ -7,15 +13,8 @@
  *     se desuscribe del store viejo y se suscribe al nuevo (re-render).
  *   - Los `bubbleHandles` viven en el closure de `ChatPage` (no
  *     module-level) — se limpian al desmontar la página.
- *   - El footer "Trabajando…" es un OVERLAY transparente al fondo del
- *     chat-area (fuera de flujo, position absolute) para que su
- *     aparición/desaparición NO reflowe el markdown de los mensajes.
- *     Se suscribe al `appState.isStreaming` GLOBAL, no al `isStreaming$`
- *     per-tab: "pi está trabajando" es un hecho global de la app, no
- *     de la tab visible — y la señal global se libera de forma fiable
- *     en agent_end y terminated.
  *
- *   1. Layout (header + messages container + dialogs)
+ *   1. Layout (messages container)
  *   2. Auto-scroll (sentinel + ResizeObserver)
  *   3. Extension UI dialogs (insertar al final)
  *   4. Suscripción al ChatStore del activeTab → renderMessages
@@ -24,7 +23,6 @@
 import { appState, type ExtensionDialogState } from '../lib/state.ts';
 import { createScope, type Page } from '../lib/scope.ts';
 import { ChatBubble, type ChatBubbleHandle } from '../components/chat-bubble.ts';
-import { ChatFooter, type ChatFooterHandle } from '../components/chat-footer.ts';
 import { getStore, type ChatStore } from '../lib/chat/stores.ts';
 import type { ChatMessage } from '../lib/chat/types.ts';
 import {
@@ -47,10 +45,6 @@ export function ChatPage(): Page {
   root.className = 'chat-area';
   const scope = createScope();
 
-  // ═══ Header ═══
-  const headerHandle = createHeader(scope);
-  root.append(headerHandle.root);
-
   // ═══ Banner: no hay API key configurada ═══
   const authBanner = createAuthBanner();
   root.append(authBanner);
@@ -59,10 +53,6 @@ export function ChatPage(): Page {
   const { messagesContainer, messagesInner, endSentinel } =
     createMessagesContainer();
   root.append(messagesContainer);
-
-  // ═══ Footer: "Trabajando…" + spinner braille (Etapa 8) ═══
-  const footer: ChatFooterHandle = ChatFooter();
-  root.append(footer.root);
 
   // ═══ Auto-scroll ═══
   const scroll = createAutoScroll({
@@ -99,16 +89,9 @@ export function ChatPage(): Page {
     unsubMessages = store.messages$.subscribe(renderMessages);
   }
 
-  // Footer visible solo mientras hay un stream activo GLOBALMENTE.
-  // Es un overlay fuera de flujo, así que no reflowea los mensajes.
-  scope.add(appState.isStreaming.subscribe((streaming) => {
-    footer.setVisible(streaming);
-  }));
   scope.add(appState.activeTabId.subscribe(bindActiveTab));
   scope.add(() => {
     unsubMessages?.();
-    footer.setVisible(false);
-    footer.dispose();
     for (const h of bubbleHandles.values()) h.dispose();
     bubbleHandles.clear();
   });
@@ -131,42 +114,6 @@ export function ChatPage(): Page {
       scope.dispose();
     },
   };
-}
-
-// ═══════════════════════════════════════════════════════════
-// Header
-// ═══════════════════════════════════════════════════════════
-
-interface HeaderHandle {
-  root: HTMLElement;
-}
-
-function createHeader(scope: ReturnType<typeof createScope>): HeaderHandle {
-  const header = document.createElement('div');
-  header.className = 'chat-header';
-
-  const title = document.createElement('h1');
-  title.className = 'chat-header-title';
-  title.textContent = 'xi';
-  header.append(title);
-
-  const statusGroup = document.createElement('div');
-  statusGroup.className = 'chat-header-status';
-
-  const modelBadge = document.createElement('span');
-  modelBadge.className = 'chat-header-model';
-  modelBadge.textContent = 'sin modelo';
-  statusGroup.append(modelBadge);
-
-  header.append(statusGroup);
-
-  scope.add(
-    appState.currentModel.subscribe((model) => {
-      modelBadge.textContent = model ? model.name : 'sin modelo';
-    }),
-  );
-
-  return { root: header };
 }
 
 // ═══════════════════════════════════════════════════════════

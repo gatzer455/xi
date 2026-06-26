@@ -48,4 +48,5 @@ code, pre { font-family: var(--font-mono); }
 #top-bar { flex: 0 0 auto; }
 #update-banner { flex: 0 0 auto; }
 #output-board { flex: 1; min-height: 0; overflow-y: auto; }
+#context-bar { flex: 0 0 auto; }
 #input-bar { flex: 0 0 auto; }
