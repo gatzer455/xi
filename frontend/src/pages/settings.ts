@@ -104,23 +104,21 @@ export function SettingsPage(): Page {
   title.textContent = 'Configuración';
   root.append(title);
 
-  // ─── Secciones de Modelo/Providers (solo con sesión activa) ───
-  // Estas secciones requieren pi corriendo con una sesión. Si no
-  // hay sesión activa, se ocultan — no tiene sentido configurar
-  // modelo si no hay a qué conectar.
-  const modelSections = document.createElement('div');
-  modelSections.className = 'settings-model-sections';
-  modelSections.append(renderProviderSection(scope));
-  modelSections.append(renderModelSection(scope));
-  modelSections.append(renderThinkingSection());
-  root.append(modelSections);
+  // ─── Sección de Providers (solo con sesión activa) ───
+  // La configuración de modelo y thinking level se movió a la
+  // context bar del chat (etapa 9-10). Settings solo maneja
+  // las API keys de los providers.
+  const providerSection = document.createElement('div');
+  providerSection.className = 'settings-model-sections';
+  providerSection.append(renderProviderSection(scope));
+  root.append(providerSection);
 
-  const updateModelSectionsVisibility = (): void => {
+  const updateProviderVisibility = (): void => {
     const hasSession = appState.activeTabId.value !== null;
-    modelSections.style.display = hasSession ? '' : 'none';
+    providerSection.style.display = hasSession ? '' : 'none';
   };
-  updateModelSectionsVisibility();
-  scope.add(appState.activeTabId.subscribe(updateModelSectionsVisibility));
+  updateProviderVisibility();
+  scope.add(appState.activeTabId.subscribe(updateProviderVisibility));
 
   // ─── Secciones siempre visibles ─────────────────────────────
   root.append(renderAppearanceSection());
@@ -634,11 +632,8 @@ function renderSessionSection(scope: Scope): HTMLElement {
   });
 }
 
-/** Versión hardcoded de xi. La fuente de verdad es tauri.conf.json;
- *  hoy no la exponemos al frontend vía command. Cuando decidamos
- *  bumpear versión sync entre Cargo.toml y tauri.conf.json, podemos
- *  pasar a import.meta.env.VITE_APP_VERSION o un command Tauri. */
-const APP_VERSION = '0.1.0';
+/** Versión de xi. Debe coincidir con backend/Cargo.toml. */
+const APP_VERSION = '0.1.4';
 
 function renderAboutSection(scope: Scope): HTMLElement {
   // El row muestra "xi v0.1.0 — pi v0.79.3" (o "pi desconocida" si

@@ -166,6 +166,10 @@ export function ChatContextBar(): ChatContextBarHandle {
     const current = appState.thinkingLevel.value;
     const idx = THINKING_CYCLE.indexOf(current);
     const next = THINKING_CYCLE[(idx + 1) % THINKING_CYCLE.length];
+    // Optimista: actualiza la UI inmediatamente. Pi confirmara
+    // cuando se llame get_state, pero mientras el boton ya refleja
+    // el cambio sin esperar la respuesta del backend.
+    appState.thinkingLevel.value = next;
     void setThinkingLevel(next);
   });
 

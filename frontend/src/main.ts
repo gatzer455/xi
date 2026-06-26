@@ -126,6 +126,13 @@ async function main(): Promise<void> {
 
   document.getElementById('input-bar')!.append(InputBar());
 
+  // Input bar solo visible en chat (como la context bar).
+  const inputBarEl = document.getElementById('input-bar')!;
+  inputBarEl.style.display = appState.currentView.value === 'chat' ? '' : 'none';
+  appState.currentView.subscribe((view) => {
+    inputBarEl.style.display = view === 'chat' ? '' : 'none';
+  });
+
   // 6. Disparar el check de update 2.5s después del mount. El delay
   //    es para no competir con la carga de pi y del primer render:
   //    si la red está lenta, queremos que la UI esté usable antes
