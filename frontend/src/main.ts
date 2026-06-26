@@ -4,6 +4,7 @@
  * App shell browser-shaped: 3 filas verticales.
  *   #top-bar      → Header() (logo, proyecto, tabs, settings)
  *   #output-board → OutputBoard() (welcome/chat/sessions/settings)
+ *   #context-bar  → ChatContextBar() (spinner + tokens + modelo)
  *   #input-bar    → InputBar() (textarea + enviar)
  *
  * Sin sidebar, sin router hash-based. La navegación se maneja con
@@ -31,6 +32,7 @@ import { navigate } from './lib/nav.ts';
 import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';
 import { Header } from './components/header.ts';
 import { OutputBoard } from './components/output.ts';
+import { ChatContextBar } from './components/chat-context-bar.ts';
 import { InputBar } from './components/input.ts';
 import { UpdateBanner } from './components/update-banner.ts';
 import { initDebugPanel, addEntry } from './lib/debug-panel.ts';
@@ -112,7 +114,24 @@ async function main(): Promise<void> {
   document.getElementById('top-bar')!.append(Header());
   document.getElementById('update-banner')!.append(UpdateBanner());
   document.getElementById('output-board')!.append(OutputBoard());
+
+  // Context bar entre output-board e input-bar: spinner + tokens + modelo.
+  // Se auto-suscribe a appState y al store activo. Se gestiona solo.
+  const ctxBarEl = document.createElement('div');
+  ctxBarEl.id = 'context-bar';
+  const inputBar = document.getElementById('input-bar')!;
+  inputBar.parentNode!.insertBefore(ctxBarEl, inputBar);
+  const ctxBar = ChatContextBar();
+  ctxBarEl.append(ctxBar.root);
+
   document.getElementById('input-bar')!.append(InputBar());
+
+  // Input bar solo visible en chat (como la context bar).
+  const inputBarEl = document.getElementById('input-bar')!;
+  inputBarEl.style.display = appState.currentView.value === 'chat' ? '' : 'none';
+  appState.currentView.subscribe((view) => {
+    inputBarEl.style.display = view === 'chat' ? '' : 'none';
+  });
 
   // 6. Disparar el check de update 2.5s después del mount. El delay
   //    es para no competir con la carga de pi y del primer render:

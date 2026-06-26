@@ -17,6 +17,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { appState } from './state.ts';
 import { stopPi } from './pi/index.ts';
 import { addRecent } from './pi/tauri-commands.ts';
+import { clearStores } from './chat/stores.ts';
 
 /**
  * Abre un proyecto en un path dado. Mata pi, setea el state, arranca
@@ -33,12 +34,12 @@ export async function openProject(path: string): Promise<void> {
   await stopPi();
 
   // Cerrar todas las tabs y sesiones — al cambiar de proyecto
-  // las conversaciones anteriores no tienen sentido.
+  // las conversaciones anteriores no tienen sentido. Los mensajes
+  // viven en ChatStores per-tab; los limpiamos todos.
   appState.openTabs.value = [];
-  appState.tabMessages.value = {};
   appState.activeTabId.value = null;
   appState.session.value = null;
-  appState.messages.value = [];
+  clearStores();
 
   appState.workingDir.value = path;
 

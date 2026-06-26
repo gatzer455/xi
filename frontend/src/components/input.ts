@@ -1,19 +1,20 @@
 /**
- * input.ts — Barra de input del app shell browser-shaped (Capa 1).
+ * input.ts — Barra de input del app shell.
  *
- * Textarea + botón de enviar, fijos abajo. Placeholder contextual:
- *   - Sin proyecto: "Selecciona un proyecto primero" (deshabilitado)
- *   - Con proyecto: "Escribe un mensaje..." (habilitado)
+ * Textarea + botón que togglea entre Send y Stop según isStreaming:
+ *   - isStreaming=false: botón "Enviar" (↵), habilitado si hay texto
+ *   - isStreaming=true: botón "Detener" (■), habilitado, click aborta pi
  *
- * Enter envía, Shift+Enter agrega newline. Auto-expand hasta 200px.
- * Deshabilitado durante streaming (pi generando respuesta).
+ * Enter envía, Shift+Enter newline. Auto-expand hasta 200px.
  *
- * Reemplaza a chat-input.ts — misma lógica, nuevo layout (sin
- * .chat-input-wrapper, directo en .input-bar).
+ * Inspiración: Claude.ai — un solo slot, el botón cambia de icon y de
+ * handler según el estado. Stop button al lado del Send.
+ *
+ * Reemplaza a chat-input.ts — misma lógica, nuevo layout.
  */
 
 import { appState } from '../lib/state.ts';
-import { sendPrompt } from '../lib/pi/index.ts';
+import { sendPrompt, abortPi, beginStreamForSession, endStream } from '../lib/pi/index.ts';
 import { navigate } from '../lib/nav.ts';
 
 export function InputBar(): HTMLElement {
@@ -35,68 +36,107 @@ export function InputBar(): HTMLElement {
   textarea.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      if (appState.isStreaming.value) {
+        // En teoría no debería pasar porque el botón se transforma, pero
+        // por si el usuario presiona Enter mientras streamea, no enviamos.
+        return;
+      }
       send();
     }
   });
 
+  // ── Send/Stop toggle button ──
   const sendBtn = document.createElement('button');
+  sendBtn.type = 'button';
   sendBtn.className = 'input-send-btn';
-  sendBtn.textContent = '↵';
   sendBtn.disabled = true;
-  sendBtn.addEventListener('click', send);
 
-  // Habilitar/deshabilitar según sesión activa y streaming.
-  // El input solo es visible cuando hay una sesión activa (tab abierta).
+  const sendIcon = document.createElement('span');
+  sendIcon.className = 'input-btn-icon input-btn-icon--send';
+  sendIcon.textContent = '↵';
+  sendBtn.append(sendIcon);
+
+  const stopIcon = document.createElement('span');
+  stopIcon.className = 'input-btn-icon input-btn-icon--stop';
+  stopIcon.textContent = '■';
+  sendBtn.append(stopIcon);
+
+  sendBtn.addEventListener('click', () => {
+    if (appState.isStreaming.value) {
+      abort();
+    } else {
+      send();
+    }
+  });
+
+  // Update state según sesión activa y streaming
   const updateState = (): void => {
     const hasSession = appState.activeTabId.value !== null;
     const streaming = appState.isStreaming.value;
-    const disabled = !hasSession || streaming;
+    const hasText = textarea.value.trim().length > 0;
 
     bar.style.display = hasSession ? '' : 'none';
-    textarea.disabled = disabled;
-    sendBtn.disabled = disabled;
 
-    if (!hasSession) {
-      textarea.placeholder = 'Selecciona una sesión primero';
-    } else if (streaming) {
-      textarea.placeholder = 'pi está respondiendo...';
+    if (streaming) {
+      // Modo stop
+      sendBtn.classList.add('input-send-btn--stop');
+      sendBtn.classList.remove('input-send-btn--send');
+      sendBtn.disabled = false;
+      textarea.disabled = true;
+      textarea.placeholder = 'Trabajando…';
     } else {
-      textarea.placeholder = 'Escribe un mensaje...';
+      // Modo send
+      sendBtn.classList.add('input-send-btn--send');
+      sendBtn.classList.remove('input-send-btn--stop');
+      sendBtn.disabled = !hasText || !appState.workingDir.value;
+      textarea.disabled = !hasSession;
+      textarea.placeholder = !hasSession
+        ? 'Selecciona una sesión primero'
+        : 'Escribe un mensaje…';
     }
   };
 
+  // Habilitar send solo cuando hay texto
+  textarea.addEventListener('input', updateState);
   updateState();
+
   appState.activeTabId.subscribe(updateState);
   appState.isStreaming.subscribe(updateState);
+  appState.workingDir.subscribe(updateState);
 
   bar.append(textarea, sendBtn);
 
   function send(): void {
     const text = textarea.value.trim();
-    if (!text || !appState.workingDir.value) return;
+    if (!text || !appState.workingDir.value || appState.isStreaming.value) return;
 
-    // Agregar mensaje del usuario al estado
-    const userMsg = {
-      id: crypto.randomUUID(),
-      role: 'user' as const,
-      content: text,
-      timestamp: Date.now(),
-    };
-    appState.messages.value = [...appState.messages.value, userMsg];
+    const tabId = appState.activeTabId.value;
+    if (!tabId) return;
 
-    // Si no estamos en vista chat, cambiar a chat para ver el mensaje.
     if (appState.currentView.value !== 'chat') {
       navigate('chat');
     }
 
-    // Enviar a pi
-    sendPrompt(text).catch((err) => {
-      console.error('Error sending prompt:', err);
-    });
+    // Reclamar el routing del stream para este tab ANTES de enviar,
+    // para ganar la carrera contra un cambio de tab (D7). El mensaje
+    // del user llega después vía `message_start` de pi — no agregamos
+    // mensaje optimista para evitar duplicación al reconciliar agent_end.
+    beginStreamForSession(tabId);
 
-    // Limpiar textarea
-    textarea.value = '';
-    textarea.style.height = 'auto';
+    sendPrompt(text).then(() => {
+      textarea.value = '';
+      textarea.style.height = 'auto';
+      updateState();
+    }).catch((err) => {
+      console.error('Error sending prompt:', err);
+      endStream();
+    });
+  }
+
+  function abort(): void {
+    abortPi().catch((err) => {
+      console.error('Error aborting pi:', err);
+    });
   }
 
   return bar;

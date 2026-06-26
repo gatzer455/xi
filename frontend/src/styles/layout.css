@@ -241,14 +241,29 @@
   border: none;
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
   height: 38px;
+  min-width: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .input-send-btn:hover:not(:disabled) { background: var(--color-accent-hover); }
 .input-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Send/Stop toggle: solo uno visible a la vez */
+.input-btn-icon { display: none; line-height: 1; }
+.input-send-btn--send .input-btn-icon--send { display: inline-block; }
+.input-send-btn--stop {
+  /* Mismo color accent que el send button. Solo cambia el icono a ■. */
+}
+.input-send-btn--stop .input-btn-icon--stop {
+  display: inline-block;
+  font-size: var(--text-base);
+}
 
 /* ═══ OUTPUT BOARD + CHAT AREA ═══
    Contenido central. El chat usa todo el espacio disponible. */
@@ -267,21 +282,103 @@
   min-width: 0;
 }
 
-.chat-header {
-  padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
+/* ── Context bar: [spinner] [tokens ██░░] [modelo ↕] ──
+   Barra fija entre los mensajes y el input, fuera del scroll de
+   output-board. Siempre visible en la parte baja del viewport.
+   Orden: spinner + label + token-text + progress-bar + sep + modelo. */
+.context-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-4);
+  background: var(--color-context-bar-bg);
+  color: var(--color-context-bar-text);
+  font-size: var(--text-sm);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  min-height: 32px;
+}
+.context-bar-spinner {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  line-height: 1;
+  color: var(--color-context-bar-spinner);
+}
+.context-bar-label {
+  user-select: none;
   flex-shrink: 0;
 }
-.chat-header-title { font-size: var(--text-lg); font-weight: 600; }
-.chat-header-model {
+.context-bar-tokens {
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
-  color: var(--color-text-muted);
+  color: var(--color-text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.context-bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.context-bar-progress-bg {
+  display: inline-block;
+  width: 80px;
+  height: 10px;
   background: var(--color-surface-2);
+  border-radius: 0;
+  overflow: hidden;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.context-bar-progress-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 0;
+  background: var(--color-accent);
+  transition: width 0.3s ease;
+}
+.context-bar-sep {
+  color: var(--color-text-dim);
+  flex-shrink: 0;
+}
+.context-bar-think {
+  background: transparent;
+  border: none;
+  color: var(--color-text-dim);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.context-bar-think:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.context-bar-model {
+  background: transparent;
+  border: none;
+  color: var(--color-accent);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  cursor: pointer;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.context-bar-model:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
 }
 
 /* Banner de auth que reemplazo al de welcome.
@@ -302,8 +399,8 @@
   color: var(--color-warning-text, #856404);
 }
 .chat-auth-banner-btn {
-  background: var(--color-primary, #0d6efd);
-  color: #fff;
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
   border: none;
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-3);
@@ -312,7 +409,7 @@
   white-space: nowrap;
 }
 .chat-auth-banner-btn:hover {
-  opacity: 0.9;
+  background: var(--color-accent-hover);
 }
 
 .chat-messages {

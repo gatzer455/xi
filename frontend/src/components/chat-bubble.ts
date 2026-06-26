@@ -1,171 +1,287 @@
 /**
- * chat-bubble.ts — Componente de burbuja de chat (Capa 1: Rendering)
+ * chat-bubble.ts — Un mensaje del chat (user / assistant / toolResult / compaction).
  *
- * Renderiza un mensaje del usuario o del asistente. Cada burbuja es
- * autocontenida: avatar + contenido (thinking + tool calls + texto + cursor).
+ * Arquitectura chat-architecture-v2: renderiza el modelo de Parts
+ * (lib/chat/types.ts). Devuelve un handle `{ root, update, dispose, id }`.
  *
- * Estructura del assistant bubble (orden visual, ver D8 del design):
- *   1. Thinking blocks (si hay) — colapsable
- *   2. Tool calls (si hay) — colapsable, header con format legible
- *   3. Texto del assistant — RENDERIZADO COMO MARKDOWN
- *   4. Cursor streaming (si isStreaming=true)
+ *   - root: HTMLElement para insertar en el DOM.
+ *   - update(newMessage): actualiza el DOM in-place. Para assistant
+ *     streaming, extrae el delta del texto (diff vs el message
+ *     anterior) y lo empuja al StreamBuffer para reveal suave (D6).
+ *   - dispose(): limpia StreamBuffer y subscripciones.
  *
- * El markdown usa `lib/markdown.ts` (markdown-it + highlight.js). El
- * header de los tool calls usa `lib/format-tool-call.ts` (fiel a pi TUI:
- * `bash` → `$ cmd`, `read` → `read path:lines`, etc).
+ * El componente NO se suscribe a ninguna signal global. Recibe el
+ * mensaje y, durante streaming, maneja su propio StreamBuffer. La
+ *úa fuente de truth es el `ChatMessage` que el ChatPage le pasa
+ * vía `update()` (que viene del ChatStore del activeTab).
  */
 
-import type { ChatMessage, ToolCall } from '../lib/state.ts';
+import type {
+  ChatMessage,
+  Part,
+  TextPart,
+  ThinkingPart,
+  ToolCallPart,
+  ToolResultPart,
+  CompactionPart,
+  ToolState,
+} from '../lib/chat/types.ts';
+import { extractText } from '../lib/chat/mapping.ts';
 import { ThinkingBlockUI } from './thinking-block.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
 import { formatToolCallHeader } from '../lib/format-tool-call.ts';
+import { StreamBuffer } from '../lib/stream-buffer.ts';
 
-export function ChatBubble(message: ChatMessage): HTMLElement {
-  const wrapper = document.createElement('div');
-  wrapper.className = `message ${message.role}`;
+export interface ChatBubbleHandle {
+  root: HTMLElement;
+  /** Actualiza el DOM in-place con el nuevo mensaje (mismo id). */
+  update(newMessage: ChatMessage): void;
+  /** Limpia StreamBuffer y referencias. */
+  dispose(): void;
+  /** El id del message que renderiza este bubble. */
+  readonly id: string;
+}
 
-  // toolResult se renderiza como mensaje separado (fiel al JSONL de pi)
-  if (message.role === 'toolResult') {
-    const result = renderToolResultFromMessage(message);
-    if (result) wrapper.append(result);
-    return wrapper;
+export function ChatBubble(message: ChatMessage): ChatBubbleHandle {
+  switch (message.role) {
+    case 'user':       return renderUserMessage(message);
+    case 'toolResult': return renderToolResultMessage(message);
+    case 'compaction': return renderCompactionDivider(message);
+    case 'assistant':  return renderAssistantMessage(message);
   }
+}
 
-  // compaction: divider colapsable con la summary de lo que pi compactó
-  if (message.role === 'compaction') {
-    wrapper.append(renderCompactionDivider(message));
-    return wrapper;
-  }
+// ─── USER ──────────────────────────────────────────────────
 
-  // ═══ Content ═══
+function renderUserMessage(message: ChatMessage): ChatBubbleHandle {
+  const root = document.createElement('div');
+  root.className = 'message message--user';
+  root.dataset.messageId = message.id;
+
   const content = document.createElement('div');
-  content.className = 'message-content';
+  content.className = 'message-content message-content--user';
 
-  if (message.role === 'assistant') {
-    // 1. Thinking (colapsable, primero)
-    if (message.thinking && message.thinking.length > 0) {
-      content.append(ThinkingBlockUI(message.thinking));
-    }
+  const text = document.createElement('div');
+  text.className = 'message-text message-text--user';
+  text.textContent = extractText(message);
+  content.append(text);
+  root.append(content);
 
-    // 2. Tool calls (colapsados, después del thinking)
-    if (message.toolCalls && message.toolCalls.length > 0) {
-      message.toolCalls.forEach((tc) => content.append(renderToolCall(tc)));
-    }
-  }
+  let current = extractText(message);
+  return {
+    root,
+    id: message.id,
+    update: (newMessage) => {
+      if (newMessage.id !== message.id || newMessage.role !== 'user') return;
+      const t = extractText(newMessage);
+      if (t !== current) {
+        current = t;
+        text.textContent = t;
+      }
+    },
+    dispose: () => {},
+  };
+}
 
-  // 3. Texto del mensaje
-  //    - user: texto plano (no markdown — los user prompts no son markdown)
-  //    - assistant: RENDERIZADO COMO MARKDOWN
+// ─── ASSISTANT ─────────────────────────────────────────────
+
+function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
+  const root = document.createElement('div');
+  root.className = 'message message--assistant';
+  root.dataset.messageId = message.id;
+  if (message.isStreaming) root.classList.add('message--streaming');
+
+  const content = document.createElement('div');
+  content.className = 'message-content message-content--assistant';
+  root.append(content);
+
+  // Sub-elementos posicionados: thinking, toolCalls, text.
+  let thinkingBlock: HTMLElement | null = null;
+  let toolCallsContainer: HTMLElement | null = null;
+  const toolCallElements = new Map<string, HTMLElement>();
   const textContainer = document.createElement('div');
-  textContainer.className = 'message-text';
-  if (message.role === 'user') {
-    textContainer.textContent = message.content;
-  } else {
-    textContainer.innerHTML = renderMarkdown(message.content);
-  }
+  textContainer.className = 'message-text message-text--assistant';
 
-  // 4. Cursor streaming — solo assistant, solo si isStreaming=true
-  if (message.role === 'assistant' && message.isStreaming) {
-    const cursor = document.createElement('span');
-    cursor.className = 'streaming-cursor';
-    cursor.textContent = '\u258D';
-    cursor.setAttribute('aria-hidden', 'true');
-    textContainer.append(cursor);
-  }
+  let streamer: StreamerHandle | null = null;
+  let currentMsg = message;
+  let currentText = extractText(message);
 
   content.append(textContainer);
-  wrapper.append(content);
 
-  return wrapper;
-}
+  applyMessage(message);
 
-// ───────────────────────────────────────────────────────────────
-// Helpers privados — guard clauses, sin anidación > 2
-// ───────────────────────────────────────────────────────────────
+  function applyMessage(msg: ChatMessage): void {
+    // 1. Thinking parts
+    const thinkingParts = msg.parts.filter(isThinking) as ThinkingPart[];
+    applyThinking(thinkingParts, msg.isStreaming ?? false);
 
-/**
- * Renderiza un mensaje de tipo toolResult como una mini-card colapsable
- * (hermana del tool call que la produjo). Fiel al JSONL: el tool result
- * es un mensaje aparte, no se acopla al assistant message. Background
- * usa los tokens pi-light (toolSuccessBg/toolErrorBg).
- */
-function renderCompactionDivider(message: ChatMessage): HTMLElement {
-  const tokensBefore = message.compaction?.tokensBefore ?? 0;
-  const detail = document.createElement('details');
-  detail.className = 'compaction-divider';
+    // 2. ToolCall parts
+    const toolCallParts = msg.parts.filter(isToolCall) as ToolCallPart[];
+    applyToolCalls(toolCallParts);
 
-  const summary = document.createElement('summary');
-  summary.className = 'compaction-summary';
-  // "~12.3K tokens" formateado legible
-  const formatted = formatTokens(tokensBefore);
-  summary.textContent = `Compaction: ${formatted} compactados`;
-  detail.append(summary);
-
-  if (message.content) {
-    const body = document.createElement('pre');
-    body.className = 'compaction-body';
-    body.textContent = message.content;
-    detail.append(body);
+    // 3. Text parts (streaming-aware)
+    const newText = extractText(msg);
+    applyText(msg, newText);
   }
 
-  return detail;
+  function applyThinking(parts: ThinkingPart[], streaming: boolean): void {
+    if (parts.length > 0) {
+      if (thinkingBlock) {
+        const body = thinkingBlock.querySelector('.thinking-body');
+        const joined = parts.map((p) => p.text).join('\n\n');
+        if (body && body.textContent !== joined) body.textContent = joined;
+        thinkingBlock.classList.toggle('thinking-block--streaming', streaming);
+      } else {
+        thinkingBlock = ThinkingBlockUI(parts, streaming);
+        content.insertBefore(thinkingBlock, textContainer);
+      }
+    } else if (thinkingBlock) {
+      thinkingBlock.remove();
+      thinkingBlock = null;
+    }
+  }
+
+  function applyToolCalls(parts: ToolCallPart[]): void {
+    if (parts.length > 0) {
+      if (!toolCallsContainer) {
+        toolCallsContainer = document.createElement('div');
+        toolCallsContainer.className = 'message-tool-calls';
+        content.insertBefore(toolCallsContainer, textContainer);
+      }
+      const seen = new Set<string>();
+      for (const tc of parts) {
+        seen.add(tc.toolCallId);
+        const existing = toolCallElements.get(tc.toolCallId);
+        if (existing) {
+          updateToolCallStatus(existing, tc);
+        } else {
+          const el = renderToolCall(tc);
+          toolCallElements.set(tc.toolCallId, el);
+          toolCallsContainer.append(el);
+        }
+      }
+      for (const [id, el] of toolCallElements) {
+        if (!seen.has(id)) {
+          el.remove();
+          toolCallElements.delete(id);
+        }
+      }
+    } else if (toolCallsContainer) {
+      toolCallsContainer.remove();
+      toolCallElements.clear();
+      toolCallsContainer = null;
+    }
+  }
+
+  function applyText(msg: ChatMessage, newText: string): void {
+    if (msg.isStreaming) {
+      if (!streamer) {
+        textContainer.classList.add('message-text--streaming');
+        textContainer.classList.add('message-text--has-cursor');
+        textContainer.textContent = '';
+        streamer = createStreamer(textContainer, () => { streamer = null; });
+      }
+      streamer.updateText(newText);
+    } else if (streamer) {
+      // Stream terminó: forzamos finish con el content final.
+      streamer.finish(newText);
+      streamer = null;
+      textContainer.classList.remove('message-text--streaming');
+      textContainer.classList.remove('message-text--has-cursor');
+      textContainer.innerHTML = renderMarkdown(newText);
+    } else {
+      // Sin streamer: render markdown directo.
+      textContainer.classList.remove('message-text--streaming');
+      textContainer.classList.remove('message-text--has-cursor');
+      textContainer.innerHTML = renderMarkdown(newText);
+    }
+    currentText = newText;
+  }
+
+  return {
+    root,
+    id: message.id,
+    update: (newMessage) => {
+      if (newMessage.id !== message.id || newMessage.role !== 'assistant') return;
+      currentMsg = newMessage;
+      applyMessage(newMessage);
+    },
+    dispose: () => {
+      if (streamer) streamer.dispose();
+    },
+  };
 }
 
-/** "1234" → "1.2K", "1500000" → "1.5M" */
-function formatTokens(n: number): string {
-  if (n < 1000) return `${n} tokens`;
-  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}K tokens`;
-  return `${(n / 1_000_000).toFixed(2)}M tokens`;
+// ─── Streamer (delta extraction + StreamBuffer reveal) ────
+
+interface StreamerHandle {
+  dispose(): void;
+  /** Recibe el texto COMPLETO actual; empuja el delta al StreamBuffer. */
+  updateText(fullText: string): void;
+  /** Fuerza el fin del reveal con el content final. Idempotente. */
+  finish(finalText: string): void;
 }
 
-/**
- * Renderiza un mensaje de tipo toolResult como una mini-card colapsable
- * (hermana del tool call que la produjo). Fiel al JSONL: el tool result
- * es un mensaje aparte, no se acopla al assistant message. Background
- * usa los tokens pi-light (toolSuccessBg/toolErrorBg).
- */
-function renderToolResultFromMessage(message: ChatMessage): HTMLElement | null {
-  if (!message.toolResult) return null;
+function createStreamer(
+  textContainer: HTMLElement,
+  onDone: () => void,
+): StreamerHandle {
+  let prevLen = 0;
+  let isFinished = false;
+  let isDisposed = false;
 
-  const isError = message.toolResult.isError;
+  // El StreamBuffer solo revela texto gradualmente. El render markdown
+  // final lo hace `finish()` de forma síncrona (no usamos el drenado
+  // async del buffer) para evitar render parcial si el buffer se vacía
+  // mientras aún llegan deltas.
+  const streamBuffer = new StreamBuffer({
+    onUpdate: (text) => {
+      if (isDisposed || isFinished) return;
+      textContainer.textContent = text;
+    },
+    onDone: () => { /* no-op: finish() maneja el render final */ },
+  });
+
+  function doFinish(content: string): void {
+    if (isFinished) return;
+    isFinished = true;
+    // Revelar sync el content autoritativo y render markdown final.
+    streamBuffer.reset();
+    textContainer.classList.remove('message-text--streaming');
+    textContainer.classList.remove('message-text--has-cursor');
+    textContainer.innerHTML = renderMarkdown(content);
+    onDone();
+  }
+
+  return {
+    dispose: () => {
+      if (isDisposed) return;
+      isDisposed = true;
+      streamBuffer.reset();
+    },
+    updateText: (fullText: string) => {
+      if (isDisposed || isFinished) return;
+      if (fullText.length > prevLen) {
+        const delta = fullText.slice(prevLen);
+        prevLen = fullText.length;
+        streamBuffer.push(delta);
+      }
+    },
+    finish: (finalText: string) => {
+      if (isDisposed || isFinished) return;
+      doFinish(finalText);
+    },
+  };
+}
+
+// ─── TOOL CALL ─────────────────────────────────────────────
+
+function renderToolCall(tc: ToolCallPart): HTMLElement {
+  const visual = toolVisualState(tc.state);
   const details = document.createElement('details');
-  details.className = `tool-result-card${isError ? ' is-error' : ''}`;
-  details.open = false; // Colapsado por default
-
-  const summary = document.createElement('summary');
-  summary.className = 'tool-result-header';
-
-  const name = document.createElement('span');
-  name.className = 'tool-result-name';
-  name.textContent = `Result: ${message.toolResult.toolName}`;
-  summary.append(name);
-
-  details.append(summary);
-
-  const body = document.createElement('pre');
-  body.className = 'tool-result-body';
-  body.textContent = message.content;
-  details.append(body);
-
-  return details;
-}
-
-/**
- * Renderiza un tool call como card colapsable con formato legible
- * (fiel a pi TUI). El header usa `formatToolCallHeader`:
- *   - `bash` → `$ <command>`
- *   - `read` → `read <path>:<lineRange>`
- *   - `write` → `write <path>`
- *   - etc.
- *
- * El background cambia según el estado (pending/success/error),
- * usando los tokens de pi-light.
- */
-function renderToolCall(tc: ToolCall): HTMLElement {
-  const state = computeStatus(tc);
-  const details = document.createElement('details');
-  details.className = `tool-call tool-call--${state}`;
-  details.open = false; // Colapsado por default
+  details.className = `tool-call tool-call--${visual}`;
+  details.dataset.toolCallId = tc.toolCallId;
+  details.open = false;
 
   const summary = document.createElement('summary');
   summary.className = 'tool-call-header';
@@ -176,14 +292,12 @@ function renderToolCall(tc: ToolCall): HTMLElement {
   summary.append(name);
 
   const status = document.createElement('span');
-  status.className = `tool-call-status tool-call-status--${state}`;
-  status.setAttribute('aria-label', statusLabel(state));
-  status.textContent = statusGlyph(state);
+  status.className = `tool-call-status tool-call-status--${visual}`;
+  status.setAttribute('aria-label', statusLabel(visual));
   summary.append(status);
 
   details.append(summary);
 
-  // Body = argumentos de la tool (expandible)
   const body = document.createElement('pre');
   body.className = 'tool-call-body';
   body.textContent = JSON.stringify(tc.arguments, null, 2);
@@ -192,52 +306,21 @@ function renderToolCall(tc: ToolCall): HTMLElement {
   return details;
 }
 
-/**
- * Extrae el output textual de un tool result. El result puede ser:
- *   - string (output crudo)
- *   - array de bloques (formato pi: `[{type: "text", text: "..."}]`)
- *   - objeto con `content` (formato pi AgentMessage ToolResultMessage)
- *
- * Devuelve un string plano para mostrar en el `<pre>` del body.
- */
-function extractToolOutput(result: unknown): string {
-  if (typeof result === 'string') return result;
-  if (Array.isArray(result)) {
-    return result
-      .filter((b): b is { type: 'text'; text: string } =>
-        b && typeof b === 'object' && (b as { type?: unknown }).type === 'text'
-        && typeof (b as { text?: unknown }).text === 'string')
-      .map(b => b.text)
-      .join('\n');
+function updateToolCallStatus(el: HTMLElement, tc: ToolCallPart): void {
+  const visual = toolVisualState(tc.state);
+  el.className = `tool-call tool-call--${visual}`;
+  const status = el.querySelector('.tool-call-status');
+  if (status) {
+    status.className = `tool-call-status tool-call-status--${visual}`;
+    status.setAttribute('aria-label', statusLabel(visual));
   }
-  if (result && typeof result === 'object') {
-    const obj = result as { content?: unknown; output?: unknown };
-    if (Array.isArray(obj.content)) {
-      return obj.content
-        .filter((b): b is { type: 'text'; text: string } =>
-          b && typeof b === 'object' && (b as { type?: unknown }).type === 'text'
-          && typeof (b as { text?: unknown }).text === 'string')
-        .map(b => b.text)
-        .join('\n');
-    }
-    if (typeof obj.output === 'string') return obj.output;
-  }
-  return JSON.stringify(result, null, 2);
 }
 
-/**
- * Calcula el estado del tool call a partir de result + isError.
- *   - Sin result → running
- *   - Con result + isError → error
- *   - Con result sin isError → success
- */
-function computeStatus(tc: ToolCall): 'pending' | 'success' | 'error' {
-  if (tc.result === undefined) return 'pending';
-  return tc.isError ? 'error' : 'success';
-}
-
-function statusGlyph(state: 'pending' | 'success' | 'error'): string {
-  return ''; // Sin icons — solo el color indica el estado
+/** Mapea el ToolState del reducer a las 3 clases visuales del CSS. */
+function toolVisualState(state: ToolState): 'pending' | 'success' | 'error' {
+  if (state === 'completed') return 'success';
+  if (state === 'failed') return 'error';
+  return 'pending';
 }
 
 function statusLabel(state: 'pending' | 'success' | 'error'): string {
@@ -248,12 +331,90 @@ function statusLabel(state: 'pending' | 'success' | 'error'): string {
   }
 }
 
-/**
- * Iconos por tool (1 char o emoji corto). Siguen la convención de pi TUI:
- * - bash: `$` (terminal)
- * - read: `→` (leer archivo)
- * - write/edit: `✎` (escribir)
- * - find/grep: `⌕` (buscar)
- * - ls: `≡` (listar)
- */
-// Icons eliminados — diseño limpio, solo color indica estado
+// ─── TOOL RESULT (mensaje aparte) ─────────────────────────
+
+function renderToolResultMessage(message: ChatMessage): ChatBubbleHandle {
+  const root = document.createElement('div');
+  root.className = 'message message--toolResult';
+  root.dataset.messageId = message.id;
+
+  const part = message.parts.find(isToolResult) as ToolResultPart | undefined;
+  if (part) {
+    const details = document.createElement('details');
+    details.className = `tool-result-card${part.isError ? ' tool-result-card--error' : ''}`;
+    details.open = false;
+
+    const summary = document.createElement('summary');
+    summary.className = 'tool-result-header';
+
+    const name = document.createElement('span');
+    name.className = 'tool-result-name';
+    name.textContent = `Result: ${part.toolName}`;
+    summary.append(name);
+
+    details.append(summary);
+
+    const body = document.createElement('pre');
+    body.className = 'tool-result-body';
+    body.textContent = part.result.output;
+    details.append(body);
+
+    root.append(details);
+  }
+
+  return {
+    root,
+    id: message.id,
+    update: () => { /* toolResult no se actualiza in-place */ },
+    dispose: () => {},
+  };
+}
+
+// ─── COMPACTION DIVIDER ───────────────────────────────────
+
+function renderCompactionDivider(message: ChatMessage): ChatBubbleHandle {
+  const root = document.createElement('div');
+  root.className = 'message message--compaction';
+  root.dataset.messageId = message.id;
+
+  const part = message.parts.find(isCompaction) as CompactionPart | undefined;
+  const tokensBefore = part?.tokensBefore ?? 0;
+  const summary = part?.summary ?? '';
+
+  const details = document.createElement('details');
+  details.className = 'compaction-divider';
+
+  const summaryEl = document.createElement('summary');
+  summaryEl.className = 'compaction-summary';
+  summaryEl.textContent = `Compaction: ${formatTokens(tokensBefore)} compactados`;
+  details.append(summaryEl);
+
+  if (summary) {
+    const body = document.createElement('pre');
+    body.className = 'compaction-body';
+    body.textContent = summary;
+    details.append(body);
+  }
+
+  root.append(details);
+
+  return {
+    root,
+    id: message.id,
+    update: () => {},
+    dispose: () => {},
+  };
+}
+
+// ─── Helpers ──────────────────────────────────────────────
+
+const isThinking = (p: Part): p is ThinkingPart => p.type === 'thinking';
+const isToolCall = (p: Part): p is ToolCallPart => p.type === 'toolCall';
+const isToolResult = (p: Part): p is ToolResultPart => p.type === 'toolResult';
+const isCompaction = (p: Part): p is CompactionPart => p.type === 'compaction';
+
+function formatTokens(n: number): string {
+  if (n < 1000) return `${n} tokens`;
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}K tokens`;
+  return `${(n / 1_000_000).toFixed(2)}M tokens`;
+}

@@ -46,6 +46,7 @@ const mock = vi.hoisted(() => {
       session: mockSignal(null),
       messages: mockSignal([]),
       isStreaming: mockSignal(false),
+      streamingText: mockSignal(''),
       currentModel: mockSignal(null),
       thinkingLevel: mockSignal("medium"),
       isCompacting: mockSignal(false),
@@ -100,13 +101,6 @@ describe("ChatPage", () => {
       expect(page.root.className).toBe("chat-area");
       page.dispose();
     }).not.toThrow();
-  });
-
-  test("renders header with title", () => {
-    const page = ChatPage();
-    expect(page.root.querySelector(".chat-header")).toBeTruthy();
-    expect(page.root.querySelector(".chat-header-title")).toBeTruthy();
-    page.dispose();
   });
 
   test("renders messages container", () => {

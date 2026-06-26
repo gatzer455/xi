@@ -17,7 +17,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { appState } from '../state.ts';
 import { addEntry } from '../debug-panel.ts';
 import { parsePiEvent } from './event-parser.ts';
-import { applyEvent } from './state-sync.ts';
+import { applyEvent, endStream } from './state-sync.ts';
 import { initExtensionUIHandler } from './extension-ui-handler.ts';
 
 let unlistenRaw: UnlistenFn | null = null;
@@ -45,7 +45,10 @@ export async function initPiConnection(): Promise<void> {
 
   unlistenTerminated = await listen<number | null>('pi:terminated', (event) => {
     addEntry('system', `pi terminated with code: ${event.payload}`);
-    appState.isStreaming.value = false;
+    // Limpiar routing del stream: si pi muere mid-stream, el flag
+    // global y streamingSessionId deben resetearse o el InputBar
+    // queda trabado en modo Stop.
+    endStream();
   });
 }
 

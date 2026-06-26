@@ -20,6 +20,8 @@
 import { appState, setActiveTab, type Session } from '../lib/state.ts';
 import { navigate } from '../lib/nav.ts';
 import { pickAndOpenProject } from '../lib/workdir.ts';
+import { dropStore } from '../lib/chat/stores.ts';
+import { abortPi } from '../lib/pi/index.ts';
 import { icon } from '../lib/icons.ts';
 
 export function Header(): HTMLElement {
@@ -164,13 +166,19 @@ function closeTab(tabId: string): void {
   if (idx === -1) return;
 
   const wasActive = appState.activeTabId.value === tabId;
+  const wasStreaming = appState.isStreaming.value && wasActive;
+
+  // Si la tab activa está streameando, abortar el stream antes de
+  // cerrar para evitar que eventos tardíos resuciten el store.
+  if (wasStreaming) {
+    abortPi().catch(() => {});
+  }
+
   const newTabs = tabs.filter(t => t.id !== tabId);
   appState.openTabs.value = newTabs;
 
-  // Limpiar mensajes de la tab cerrada
-  const newTabMessages = { ...appState.tabMessages.value };
-  delete newTabMessages[tabId];
-  appState.tabMessages.value = newTabMessages;
+  // Limpiar el ChatStore de la tab cerrada (messages viven en stores).
+  dropStore(tabId);
 
   if (wasActive) {
     // Activar la siguiente tab, o la anterior, o null
@@ -183,7 +191,6 @@ function closeTab(tabId: string): void {
       // una nueva sesión. No a welcome — workingDir sigue activo.
       setActiveTab(null);
       appState.session.value = null;
-      appState.messages.value = [];
       navigate('sessions');
     }
   }

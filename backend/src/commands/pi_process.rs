@@ -43,6 +43,15 @@ fn get_sidecar_dir(app: &AppHandle, _name: &str) -> PathBuf {
 pub struct PiProcess {
     child: Option<tauri_plugin_shell::process::CommandChild>,
     cwd: Option<String>,
+    /// Identificador de generación del proceso actual. Se incrementa
+    /// en cada `spawn()` y en cada `kill()`. El reader task captura
+    /// el valor al arrancar y, al recibir `Terminated`, SOLO limpia
+    /// `child` si su generación coincide con la actual. Esto evita
+    /// que el `Terminated` tardío de un proceso viejo (matado por un
+    /// re-spawn) pisée la referencia del nuevo proceso vivo — bug que
+    /// dejaba a xi sin poder hablar con el nuevo pi tras un kill+
+    /// respawn (ej. abrir una sesión vieja o un new chat).
+    generation: u64,
 }
 
 impl PiProcess {
@@ -50,6 +59,7 @@ impl PiProcess {
         Self {
             child: None,
             cwd: None,
+            generation: 0,
         }
     }
 
@@ -116,6 +126,12 @@ impl PiProcess {
         // un task que espera la respuesta del frontend y la escribe a
         // stdin de pi.
         eprintln!("[pi] sidecar spawned, waiting for stdout");
+        // Avanzar la generación ANTES de spawnear el reader y capturarla.
+        // Usamos self.generation directamente (no re-lockeamos
+        // process_state: el caller start_pi ya tiene tomado ese lock,
+        // y Mutex de Rust no es reentrante — re-lockear seria deadlock).
+        self.generation = self.generation.wrapping_add(1);
+        let spawned_generation = self.generation;
         let app_clone = app.clone();
         tauri::async_runtime::spawn(async move {
             while let Some(event) = rx.recv().await {
@@ -198,13 +214,23 @@ impl PiProcess {
                         }
                     }
                     CommandEvent::Terminated(status) => {
-                        eprintln!("[pi] terminated with code {:?}", status.code);
+                        eprintln!(
+                            "[pi] terminated with code {:?} (generation {})",
+                            status.code, spawned_generation
+                        );
                         let _ = app_clone.emit("pi:terminated", status.code);
-                        // Limpiar child para que send() retorne el error
-                        // estructurado en vez de escribir a un proceso muerto.
+                        // Solo limpiar child si ESTE proceso sigue siendo
+                        // el activo (misma generación). Si hubo un
+                        // re-spawn en paralelo, generation ya avanzó y NO
+                        // debemos pisar el nuevo child vivo — caso:
+                        // abrir sesión vieja o new chat hace kill+respawn,
+                        // y el Terminated del viejo llegaba tarde y piseaba
+                        // la referencia del nuevo pi.
                         let mut proc = process_state.lock().unwrap();
-                        proc.child = None;
-                        proc.cwd = None;
+                        if proc.generation == spawned_generation {
+                            proc.child = None;
+                            proc.cwd = None;
+                        }
                         break;
                     }
                     _ => {}
@@ -243,6 +269,10 @@ impl PiProcess {
             let _ = child.kill();
         }
         self.cwd = None;
+        // Avanzar la generación también al matar manualmente: así un
+        // `Terminated` tardío del child viejo no pisea un `child=None`
+        // sobre un proceso que ya fue reemplazado por un spawn posterior.
+        self.generation = self.generation.wrapping_add(1);
     }
 
     /// Verificar si el proceso está corriendo

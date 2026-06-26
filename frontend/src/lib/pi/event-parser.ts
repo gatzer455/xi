@@ -19,7 +19,9 @@
 // string es asignable, pero los literales conocidos siguen autocompletándose.
 export type PiEventType =
   | 'response'
+  | 'message_start'
   | 'message_update'
+  | 'message_end'
   | 'tool_execution_start'
   | 'tool_execution_end'
   | 'agent_start'
@@ -63,6 +65,22 @@ export interface PiMessageUpdateEvent {
   assistantMessageEvent?: AssistantMessageEvent;
 }
 
+/** message_start: pi emite este evento para CADA message que entra al
+ *  loop — user prompts, assistant parciales, toolResults, steering.
+ *  El `message` trae el AgentMessage (otra excepción: el assistant
+ *  parcial puede venir sin `usage` todavía). */
+export interface PiMessageStartEvent {
+  type: 'message_start';
+  message?: unknown;
+}
+
+/** message_end: message finalizado. Para assistant trae `usage`,
+ *  `stopReason` y el `content` completo. */
+export interface PiMessageEndEvent {
+  type: 'message_end';
+  message?: unknown;
+}
+
 export interface PiToolExecutionEvent {
   type: 'tool_execution_start' | 'tool_execution_end';
   toolCallId: string;
@@ -79,7 +97,9 @@ export interface PiAgentEvent {
 
 export type PiEvent =
   | PiResponseEvent
+  | PiMessageStartEvent
   | PiMessageUpdateEvent
+  | PiMessageEndEvent
   | PiToolExecutionEvent
   | PiAgentEvent
   | { type: PiEventType; [key: string]: unknown };

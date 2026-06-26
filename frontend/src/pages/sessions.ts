@@ -29,6 +29,8 @@ import type {
 } from "../lib/pi/types.ts";
 import { navigate } from "../lib/nav.ts";
 import { setActiveTab, type Session } from "../lib/state.ts";
+import { dropStore } from "../lib/chat/stores.ts";
+import { ensurePiRunning } from "../lib/pi/lifecycle.ts";
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -513,7 +515,7 @@ async function createNewTab(): Promise<void> {
   // 3. Agregar la tab a openTabs DESPUÉS de setActiveTab (si no,
   //    el find dentro de setActiveTab no la encontraría).
   appState.openTabs.value = [...appState.openTabs.value, newTab];
-  appState.messages.value = [];
+  // Mensajes viven en el ChatStore del tab (frescos, vacíos).
 
   // 4. Navegar al chat.
   navigate("chat");
@@ -535,8 +537,11 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
       throw new Error("No hay carpeta de trabajo seleccionada");
     }
     // Pi debe estar corriendo antes de pedirle una sesión nueva.
-    // startPi sin sessionPath arranca pi sin sesión (--mode rpc).
-    await startPi(cwd);
+    // Usamos ensurePiRunning (no-op si ya corre) en vez de
+    // startPi: este último siempre mataría y re-spawnea pi en el
+    // backend, y new chat NO necesita restart — pi crea la sesión
+    // nueva vía el comando JSONL `new_session`.
+    await ensurePiRunning();
     await newPiSession();
     await getPiState();
     // Aplicar metadatos de pi a la tab correspondiente.
@@ -589,7 +594,6 @@ async function switchToSession(session: SessionInfo): Promise<void> {
   // Sesión nueva: agregarla a openTabs y cargar mensajes de pi.
   setActiveTab(session.id);
   appState.openTabs.value = [...appState.openTabs.value, newTab];
-  appState.messages.value = [];
 
   loading.value = true;
   try {
@@ -617,15 +621,26 @@ async function handleDelete(session: SessionInfo): Promise<void> {
 
   try {
     await deleteSession(session.path);
+
+    // Recolectar todos los tabs que apuntan a esta sesión (puede
+    // haber múltiples tabs con distinto UUID para el mismo path).
+    const tabsToRemove = appState.openTabs.value.filter(
+      (t) => t.file === session.path || t.id === session.id
+    ).map((t) => t.id);
+
+    for (const tabId of tabsToRemove) {
+      dropStore(tabId);
+    }
+
+    appState.openTabs.value = appState.openTabs.value.filter(
+      (t) => !tabsToRemove.includes(t.id)
+    );
+
     if (isActive) {
-      // La sesión activa fue eliminada. Detener pi y limpiar tabs.
+      // La sesión activa fue eliminada. Detener pi.
       await stopPi();
-      appState.openTabs.value = appState.openTabs.value.filter(
-        (t) => t.id !== session.id,
-      );
       appState.activeTabId.value = null;
       appState.session.value = null;
-      appState.messages.value = [];
     }
     await loadSessions();
   } catch (err) {

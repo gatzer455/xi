@@ -23,11 +23,11 @@
  *   - ls.js:20 formatLsCall
  */
 
-import type { ToolCall } from './state.ts';
+import type { ToolCallPart } from './chat/types.ts';
 
 const JSON_FALLBACK_MAX_CHARS = 60;
 
-export function formatToolCallHeader(tc: ToolCall): string {
+export function formatToolCallHeader(tc: Pick<ToolCallPart, 'name' | 'arguments'>): string {
   const args = tc.arguments as Record<string, unknown> | undefined;
   const name = tc.name;
 
