@@ -19,8 +19,10 @@
  * la parte baja del viewport.
  */
 
-import { appState } from '../lib/state.ts';
+import { appState, type ThinkingLevel } from '../lib/state.ts';
 import { getStore } from '../lib/chat/stores.ts';
+import { ModelPicker } from './model-picker.ts';
+import { setThinkingLevel } from '../lib/pi/tauri-commands.ts';
 
 // ─── Braille spinner (mismo ciclo que ChatFooter) ─────────
 
@@ -129,21 +131,49 @@ export function ChatContextBar(): ChatContextBarHandle {
   sep.className = 'context-bar-sep';
   sep.textContent = '·';
 
-  // ── Modelo (click → picker, Etapa 10) ──
+  // ── Modelo (click → picker) ──
   const modelBtn = document.createElement('button');
   modelBtn.className = 'context-bar-model';
   modelBtn.textContent = 'sin modelo';
   modelBtn.title = 'Cambiar modelo';
-  // Placeholder: Stage 10 implementará el modal picker.
-  // Por ahora es un botón sin handler — visible pero inerte hasta
-  // que conectemos el modal.
+  modelBtn.addEventListener('click', () => {
+    // Si ya hay un picker abierto (otro click), no abrir otro.
+    const existing = document.querySelector('.model-picker-backdrop');
+    if (existing) return;
+    const picker = ModelPicker();
+    // garbage collection: el picker se limpia solo al dispose.
+    // No lo guardamos — la unica referencia es el DOM. Si el
+    // usuario abre otro, el querySelector de arriba lo bloquea.
+  });
 
-  // Grupo derecho: [token text] [barra de progreso] [·] [modelo ↕]
-  // Todo pegado a la derecha. Token text + barra de progreso juntos
-  // para que el usuario vea contexto y % en un solo vistazo.
+  // ── Thinking level (ciclo: click loopa off→minimal→low→medium→high→xhigh) ──
+  const THINKING_CYCLE: ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
+  const THINKING_LABELS: Record<ThinkingLevel, string> = {
+    off: 'Off', minimal: 'Min', low: 'Low',
+    medium: 'Med', high: 'High', xhigh: 'Max',
+  };
+
+  const thinkBtn = document.createElement('button');
+  thinkBtn.className = 'context-bar-think';
+  thinkBtn.title = 'Nivel de razonamiento (click: cicla)';
+  root.append(thinkBtn);
+
+  const unsubThink = appState.thinkingLevel.subscribe((level) => {
+    thinkBtn.textContent = THINKING_LABELS[level] ?? level;
+  });
+
+  thinkBtn.addEventListener('click', () => {
+    const current = appState.thinkingLevel.value;
+    const idx = THINKING_CYCLE.indexOf(current);
+    const next = THINKING_CYCLE[(idx + 1) % THINKING_CYCLE.length];
+    void setThinkingLevel(next);
+  });
+
+  // Grupo derecho: [token text] [barra de progreso] [thinking] [·] [modelo ↕]
+  // Thinking level entre barra y modelo, separado por espacios.
   const rightGroup = document.createElement('span');
   rightGroup.className = 'context-bar-right';
-  rightGroup.append(tokenBar, progressBg, sep, modelBtn);
+  rightGroup.append(tokenBar, progressBg, thinkBtn, sep, modelBtn);
   root.append(rightGroup);
 
   // ═══ Spinner logic (misma que ChatFooter) ═══
@@ -258,6 +288,7 @@ export function ChatContextBar(): ChatContextBarHandle {
     stopSpinner();
     unsubStreaming();
     unsubModel();
+    unsubThink();
     unsubTab();
     unsubStoreMessages?.();
   }
