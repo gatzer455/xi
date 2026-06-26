@@ -39,12 +39,14 @@ const mockState = vi.hoisted(() => {
   const isStreaming = mockSignal(false);
   const currentModel = mockSignal(null);
   const activeTabId = mockSignal<string | null>(null);
+  const currentView = mockSignal('chat');
 
   return {
     createMockAppState: () => ({
       isStreaming,
       currentModel,
       activeTabId,
+      currentView,
       thinkingLevel: mockSignal('medium'),
       availableModels: mockSignal([]),
       session: mockSignal(null),
@@ -52,6 +54,7 @@ const mockState = vi.hoisted(() => {
     isStreaming,
     currentModel,
     activeTabId,
+    currentView,
   };
 });
 
@@ -65,7 +68,7 @@ vi.mock('../../src/lib/debug-panel.ts', () => ({
 
 import { ChatContextBar } from '../../src/components/chat-context-bar.ts';
 
-const { isStreaming, currentModel, activeTabId } = mockState;
+const { isStreaming, currentModel, activeTabId, currentView } = mockState;
 
 describe('ChatContextBar', () => {
   beforeEach(() => {
@@ -73,6 +76,7 @@ describe('ChatContextBar', () => {
     isStreaming.value = false;
     currentModel.value = null;
     activeTabId.value = null;
+    currentView.value = 'chat';
   });
 
   afterEach(() => {
@@ -211,6 +215,21 @@ describe('ChatContextBar', () => {
     expect(tokens.textContent).toBe('');
     const modelBtn = cb.root.querySelector<HTMLButtonElement>('.context-bar-model')!;
     expect(modelBtn.textContent).toBe('sin modelo');
+    cb.dispose();
+  });
+
+  test('visible solo en vista chat (oculta en sessions/settings/welcome)', () => {
+    const cb = ChatContextBar();
+    expect(cb.root.style.display).not.toBe('none');
+
+    // Cambiar a otra vista → se oculta
+    currentView.value = 'sessions';
+    expect(cb.root.style.display).toBe('none');
+
+    // Volver a chat → visible
+    currentView.value = 'chat';
+    expect(cb.root.style.display).not.toBe('none');
+
     cb.dispose();
   });
 

@@ -200,11 +200,19 @@ export function ChatContextBar(): ChatContextBarHandle {
 
   // ═══ Suscripciones ═══
 
+  // La context bar SOLO es visible en la vista 'chat'. En welcome,
+  // sessions, settings se oculta por completo.
+  root.style.display = appState.currentView.value === 'chat' ? '' : 'none';
+
   // El spinner y label se ocultan con visibility (no display:none)
   // para preservar su espacio y evitar que la token bar se corra
   // cuando aparecen/desaparecen.
   spinner.style.visibility = 'hidden';
   label.style.visibility = 'hidden';
+
+  const unsubView = appState.currentView.subscribe((view) => {
+    root.style.display = view === 'chat' ? '' : 'none';
+  });
 
   const unsubStreaming = appState.isStreaming.subscribe((streaming) => {
     spinner.style.visibility = streaming ? 'visible' : 'hidden';
@@ -286,6 +294,7 @@ export function ChatContextBar(): ChatContextBarHandle {
   // ═══ Dispose ═══
   function dispose(): void {
     stopSpinner();
+    unsubView();
     unsubStreaming();
     unsubModel();
     unsubThink();
