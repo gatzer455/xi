@@ -30,6 +30,7 @@ import type {
 import { navigate } from "../lib/nav.ts";
 import { setActiveTab, type Session } from "../lib/state.ts";
 import { dropStore } from "../lib/chat/stores.ts";
+import { ensurePiRunning } from "../lib/pi/lifecycle.ts";
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -536,8 +537,11 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
       throw new Error("No hay carpeta de trabajo seleccionada");
     }
     // Pi debe estar corriendo antes de pedirle una sesión nueva.
-    // startPi sin sessionPath arranca pi sin sesión (--mode rpc).
-    await startPi(cwd);
+    // Usamos ensurePiRunning (no-op si ya corre) en vez de
+    // startPi: este último siempre mataría y re-spawnea pi en el
+    // backend, y new chat NO necesita restart — pi crea la sesión
+    // nueva vía el comando JSONL `new_session`.
+    await ensurePiRunning();
     await newPiSession();
     await getPiState();
     // Aplicar metadatos de pi a la tab correspondiente.

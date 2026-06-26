@@ -114,7 +114,7 @@ vi.mock("../../src/lib/nav.ts", () => ({
   navigate: vi.fn(),
 }));
 
-// Mock del paquete pi: startPi y newPiSession trackean el orden.
+// Mock del paquete pi: ensurePiRunning y newPiSession trackean el orden.
 // listSessions y el resto son no-ops async para no romper el flow.
 vi.mock("../../src/lib/pi/index.ts", () => ({
   startPi: mock.track("startPi"),
@@ -132,6 +132,12 @@ vi.mock("../../src/lib/pi/index.ts", () => ({
   renameSession: vi.fn(() => Promise.resolve()),
   getRecents: vi.fn(() => Promise.resolve([])),
   addRecent: vi.fn(() => Promise.resolve()),
+}));
+
+// Mock del lifecycle: ensurePiRunning es tracked. Es lo que el flujo
+// de new chat usa ahora (en vez de startPi) para no matar+respawneaer pi.
+vi.mock("../../src/lib/pi/lifecycle.ts", () => ({
+  ensurePiRunning: mock.track("ensurePiRunning"),
 }));
 
 import { SessionsPage, resetSessionsState } from "../../src/pages/sessions.ts";
@@ -158,19 +164,28 @@ describe("Flujo de sesión nueva — orden de llamadas", () => {
     // llamadas tracked se completen con un microtask flush.
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // El invariante: startPi debe aparecer en el log antes que
-    // newPiSession. Si alguien quita el "await startPi(cwd)" del
-    // fix y solo deja newPiSession, este test falla.
-    const startPiCall = mock.callLog.find((c) => c.name === "startPi");
+    // El invariante: ensurePiRunning debe aparecer en el log antes
+    // que newPiSession. Si alguien revierte el fix y saca el
+    // ensurePiRunning (o lo pone despues), este test falla. Es la
+    // garantia de que pi este vivo antes de pedir la sesion nueva.
+    const ensureCall = mock.callLog.find((c) => c.name === "ensurePiRunning");
     const newSessionCall = mock.callLog.find((c) => c.name === "newPiSession");
 
-    expect(startPiCall, "startPi debió llamarse").toBeTruthy();
+    expect(ensureCall, "ensurePiRunning debió llamarse").toBeTruthy();
     expect(newSessionCall, "newPiSession debió llamarse").toBeTruthy();
     expect(
-      startPiCall!.index,
-      "startPi debe llamarse ANTES que newPiSession " +
-        `(startPi=${startPiCall!.index}, newSession=${newSessionCall!.index})`,
+      ensureCall!.index,
+      "ensurePiRunning debe llamarse ANTES que newPiSession " +
+        `(ensure=${ensureCall!.index}, newSession=${newSessionCall!.index})`,
     ).toBeLessThan(newSessionCall!.index);
+
+    // Ademas: new chat NO debe llamar startPi (eso mataria pi
+    // innecesariamente — el bug de ciclo de vida que arreglamos).
+    const startPiCall = mock.callLog.find((c) => c.name === "startPi");
+    expect(
+      startPiCall,
+      "new chat NO debe llamar startPi (usa ensurePiRunning)",
+    ).toBeFalsy();
 
     page.dispose();
   });
