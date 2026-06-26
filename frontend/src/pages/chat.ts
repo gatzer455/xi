@@ -1,263 +1,402 @@
 /**
- * chat.ts — Vista de chat del output board (Capa 1 + Capa 3).
+ * chat.ts — Vista de chat del output board.
  *
- * Historial de mensajes del chat. El input vive en el shell
- * (input.ts), no acá — es always-visible, independiente de la
- * vista activa. Esta vista solo renderiza el header + mensajes.
+ * Arquitectura: UN SOLO render path. ChatBubble (componente) se encarga
+ * de TODO el render, incluyendo el caso de streaming (cada ChatBubble
+ * se suscribe internamente a streamingText si su message tiene
+ * isStreaming=true). ChatPage solo:
+ *   1. Layout (header + messages container + dialogs)
+ *   2. Auto-scroll (sentinel + ResizeObserver)
+ *   3. Extension UI dialogs (insertar al final)
+ *   4. Suscripción a appState.messages → renderMessages
  *
- * Conectado con pi via pi-rpc.ts (los mensajes vienen de
- * appState.messages, populados por state-sync.ts).
+ * Inspiración: Claude.ai / ChatGPT / Cursor / DeepSeek.
  *
  * ## Auto-scroll
  *
- * El scroll al fondo es notoriamente difícil en chats con contenido
- * async (markdown, syntax highlight, fuentes web, imágenes). Tres
- * técnicas combinadas, según el patrón profesional de Slack/Discord/
- * vercel-chatbot/lsm-neokai:
+ * 1. Sentinel element al final de los mensajes
+ * 2. Initial pin (doble rAF + reflow forzado) en primer render
+ * 3. ResizeObserver con stick-to-bottom: si el usuario está "near
+ *    bottom" (≤ 100px), re-scroll; si scrolleó arriba, respetar
+ * 4. <details> toggle pausa el ResizeObserver 300ms (evita scroll-jacking)
  *
- * 1. **Sentinel element** — un `<div>` invisible al final de los
- *    mensajes. Usamos `scrollIntoView({block:'end'})` sobre el
- *    sentinel, no `scrollTop = scrollHeight` (que se rompe cuando
- *    el contenido crece async).
+ * ## Streaming
  *
- * 2. **Initial pin (doble rAF + reflow forzado)** — al renderizar
- *    los mensajes, esperamos 2 frames y forzamos reflow. El doble
- *    rAF garantiza que el browser completó el layout de los
- *    ChatBubble antes de scrollear.
- *
- * 3. **ResizeObserver con "stick to bottom"** — si el contenedor
- *    crece DESPUÉS del pin inicial (markdown async, fonts web),
- *    re-scrolleamos solo si el usuario está "near bottom". Si el
- *    usuario scrolleó arriba para leer, no lo jalamos de vuelta
- *    (anti-scroll-jacking).
- *
- * El sentinel es siempre el último hijo de messagesInner (incluso
- * en el estado vacío con el welcome). El CSS `scroll-padding-bottom`
- * agrega espacio para que el último mensaje no quede pegado al borde.
+ * Ya no hay subscribers paralelos. Cada ChatBubble se auto-gestiona
+ * cuando isStreaming=true. El ChatPage solo re-renderiza cuando
+ * `messages` cambia (mensajes nuevos, no deltas).
  */
 
-import { appState, type ExtensionDialogState } from "../lib/state.ts";
-import { createScope, type Page } from "../lib/scope.ts";
-import { ChatBubble } from "../components/chat-bubble.ts";
-import { ThinkingBlockUI } from "../components/thinking-block.ts";
+import { appState, type ExtensionDialogState } from '../lib/state.ts';
+import { createScope, type Page } from '../lib/scope.ts';
+import { ChatBubble, type ChatBubbleHandle } from '../components/chat-bubble.ts';
 import {
   renderSelectDialog,
   renderConfirmDialog,
   renderInputDialog,
   renderEditorDialog,
-} from "../components/extension-ui-dialog.ts";
+} from '../components/extension-ui-dialog.ts';
 import {
   setDialogRenderer,
   clearDialogRenderer,
-} from "../lib/pi/extension-ui-handler.ts";
-import { navigate } from "../lib/nav.ts";
-import { StreamBuffer } from "../lib/stream-buffer.ts";
+} from '../lib/pi/extension-ui-handler.ts';
+import { navigate } from '../lib/nav.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 const NEAR_BOTTOM_PX = 100;
 
 export function ChatPage(): Page {
-  const root = document.createElement("div");
-  root.className = "chat-area";
+  const root = document.createElement('div');
+  root.className = 'chat-area';
   const scope = createScope();
 
-  // ═══ Header (modelo actual) ═══
-  const header = document.createElement("div");
-  header.className = "chat-header";
-
-  const title = document.createElement("h1");
-  title.className = "chat-header-title";
-  title.textContent = "xi";
-  header.append(title);
-
-  const modelBadge = document.createElement("span");
-  modelBadge.className = "chat-header-model";
-  modelBadge.textContent = "sin modelo";
-  scope.add(
-    appState.currentModel.subscribe((model) => {
-      modelBadge.textContent = model ? model.name : "sin modelo";
-    }),
-  );
-  header.append(modelBadge);
-
+  // ═══ Header ═══
+  const header = createHeader(scope);
   root.append(header);
 
   // ═══ Banner: no hay API key configurada ═══
-  // Se muestra solo si no hay ningun provider configurado.
-  // En welcome se quito para que el usuario no vea un bloqueante
-  // antes de elegir carpeta. Aca en chat ya tiene sentido porque
-  // esta intentando conversar.
-  const authBanner = document.createElement("div");
-  authBanner.className = "chat-auth-banner";
-  authBanner.style.display = "none";
+  const authBanner = createAuthBanner();
+  root.append(authBanner);
 
-  const authMsg = document.createElement("span");
-  authMsg.textContent =
-    "⚠ No hay modelo configurado. Configurá tu API key en Ajustes para empezar a conversar.";
-  authBanner.append(authMsg);
+  // ═══ Messages container ═══
+  const { messagesContainer, messagesInner, endSentinel } =
+    createMessagesContainer();
+  root.append(messagesContainer);
 
-  const authBtn = document.createElement("button");
-  authBtn.type = "button";
-  authBtn.className = "chat-auth-banner-btn";
-  authBtn.textContent = "Ir a Ajustes";
-  authBtn.addEventListener("click", () => navigate("settings"));
-  authBanner.append(authBtn);
+  // ═══ Auto-scroll ═══
+  const scroll = createAutoScroll({
+    container: messagesContainer,
+    sentinel: endSentinel,
+    inner: messagesInner,
+    scope,
+  });
 
+  // ═══ Render ═══
   scope.add(
-    appState.hasAnyProvider.subscribe((hasAny) => {
-      authBanner.style.display = hasAny ? "none" : "flex";
+    appState.messages.subscribe((messages) => {
+      renderMessages(messagesInner, endSentinel, messages, scroll.pinToBottom);
     }),
   );
 
-  root.append(authBanner);
+  // ═══ Extension UI Dialog ═══
+  setupExtensionDialogs({
+    messagesInner,
+    endSentinel,
+    scope,
+  });
 
-  // ═══ Messages ═══
-  const messagesContainer = document.createElement("div");
-  messagesContainer.className = "chat-messages";
+  return {
+    root,
+    dispose: () => {
+      clearDialogRenderer();
+      appState.activeExtensionDialog.value = null;
+      scope.dispose();
+    },
+  };
+}
 
-  const messagesInner = document.createElement("div");
-  messagesInner.className = "chat-messages-inner";
+// ═══════════════════════════════════════════════════════════
+// Header
+// ═══════════════════════════════════════════════════════════
 
-  // Sentinel: anclaje invisible al final de los mensajes. Vivir
-  // siempre como último hijo de messagesInner (incluso en estado
-  // vacío). scrollIntoView sobre el sentinel es robusto a cambios
-  // async del scrollHeight — el browser recalcula cada vez.
-  const endSentinel = document.createElement("div");
-  endSentinel.className = "chat-end-sentinel";
+function createHeader(scope: ReturnType<typeof createScope>): HTMLElement {
+  const header = document.createElement('div');
+  header.className = 'chat-header';
 
-  // Flag para el pin inicial. Se setea en true después del primer
-  // render y nunca se resetea (cada vez que se monta la página,
-  // ChatPage se recrea, así que el flag arranca en false). En
-  // renders posteriores (mensajes nuevos), el ResizeObserver hace
-  // stick-to-bottom — no se llama pinToBottom otra vez.
+  const title = document.createElement('h1');
+  title.className = 'chat-header-title';
+  title.textContent = 'xi';
+  header.append(title);
+
+  // Status indicator: "pi" + estado dinámico
+  const statusGroup = document.createElement('div');
+  statusGroup.className = 'chat-header-status';
+
+  const modelBadge = document.createElement('span');
+  modelBadge.className = 'chat-header-model';
+  modelBadge.textContent = 'sin modelo';
+  statusGroup.append(modelBadge);
+
+  // Spinner + status text (visible solo durante streaming)
+  const streamingIndicator = document.createElement('span');
+  streamingIndicator.className = 'chat-header-streaming';
+  streamingIndicator.style.display = 'none';
+
+  const spinner = document.createElement('span');
+  spinner.className = 'spinner';
+  streamingIndicator.append(spinner);
+
+  const streamingLabel = document.createElement('span');
+  streamingLabel.textContent = 'pi está pensando…';
+  streamingIndicator.append(streamingLabel);
+
+  statusGroup.append(streamingIndicator);
+  header.append(statusGroup);
+
+  // Subscriptions
+  scope.add(
+    appState.currentModel.subscribe((model) => {
+      modelBadge.textContent = model ? model.name : 'sin modelo';
+    }),
+  );
+  scope.add(
+    appState.isStreaming.subscribe((streaming) => {
+      streamingIndicator.style.display = streaming ? 'inline-flex' : 'none';
+    }),
+  );
+
+  return header;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Auth banner
+// ═══════════════════════════════════════════════════════════
+
+function createAuthBanner(): HTMLElement {
+  const banner = document.createElement('div');
+  banner.className = 'chat-auth-banner';
+  banner.style.display = 'none';
+
+  const msg = document.createElement('span');
+  msg.textContent =
+    '⚠ No hay modelo configurado. Configura tu API key en Ajustes para empezar a conversar.';
+  banner.append(msg);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'chat-auth-banner-btn';
+  btn.textContent = 'Ir a Ajustes';
+  btn.addEventListener('click', () => navigate('settings'));
+  banner.append(btn);
+
+  appState.hasAnyProvider.subscribe((hasAny) => {
+    banner.style.display = hasAny ? 'none' : 'flex';
+  });
+
+  return banner;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Messages container
+// ═══════════════════════════════════════════════════════════
+
+function createMessagesContainer() {
+  const messagesContainer = document.createElement('div');
+  messagesContainer.className = 'chat-messages';
+
+  const messagesInner = document.createElement('div');
+  messagesInner.className = 'chat-messages-inner';
+
+  const endSentinel = document.createElement('div');
+  endSentinel.className = 'chat-end-sentinel';
+
+  return { messagesContainer, messagesInner, endSentinel };
+}
+
+// ═══════════════════════════════════════════════════════════
+// Auto-scroll
+// ═══════════════════════════════════════════════════════════
+
+interface AutoScrollOptions {
+  container: HTMLElement;
+  sentinel: HTMLElement;
+  inner: HTMLElement;
+  scope: ReturnType<typeof createScope>;
+}
+
+function createAutoScroll(opts: AutoScrollOptions) {
+  const { container, sentinel, inner, scope } = opts;
+
   let hasPinnedOnFirstRender = false;
-
-  // Flag para pausar el ResizeObserver cuando el usuario expande/
-  // colapsa un <details> manualmente. Sin esto, el toggle cambia
-  // la altura de messagesInner y el ResizeObserver scrollea al
-  // fondo automáticamente (scroll-jacking).
   let pauseAutoScroll = false;
 
-  /** ¿El usuario está cerca del fondo del scroll? */
   function isNearBottom(): boolean {
     const distance =
-      messagesContainer.scrollHeight -
-      messagesContainer.scrollTop -
-      messagesContainer.clientHeight;
+      container.scrollHeight -
+      container.scrollTop -
+      container.clientHeight;
     return distance <= NEAR_BOTTOM_PX;
   }
 
-  function renderMessages(messages: typeof appState.messages.value) {
-    // Wipe: quitamos todo (incluyendo el sentinel viejo).
-    messagesInner.replaceChildren();
-
-    if (messages.length === 0) {
-      const welcome = renderWelcome();
-      messagesInner.append(welcome);
-    } else {
-      for (const msg of messages) {
-        messagesInner.append(ChatBubble(msg));
-      }
-    }
-
-    // El sentinel SIEMPRE va al final, después de cualquier contenido.
-    // scrollIntoView lo usa como ancla para el scroll al fondo.
-    messagesInner.append(endSentinel);
-
-    // Pin al fondo SOLO en el primer render. Los siguientes renders
-    // (mensajes nuevos, tool results) usan el ResizeObserver con
-    // stick-to-bottom (solo scrollea si el usuario está near bottom).
-    // Esto evita scroll-jacking: si el usuario está scrolled up
-    // leyendo, no lo mandamos al fondo cuando llega un mensaje.
-    if (!hasPinnedOnFirstRender) {
-      hasPinnedOnFirstRender = true;
-      pinToBottom();
-    }
-  }
-
-  /** Pin inmediato al fondo. Usado SOLO en el primer render
-   *  de esta página (después de cargar sesión / cambiar tab).
-   *  Para actualizaciones posteriores, el ResizeObserver hace
-   *  stick-to-bottom con guard isNearBottom(). */
   function pinToBottom(): void {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        // Forzar reflow: leer una propiedad de layout hace que el
-        // browser complete cualquier layout pendiente antes de
-        // continuar. Sin esto, scrollIntoView mide alturas
-        // incorrectas.
-        void messagesContainer.offsetHeight;
-        endSentinel.scrollIntoView({ block: "end", behavior: "instant" });
+        void container.offsetHeight;
+        sentinel.scrollIntoView({ block: 'end', behavior: 'instant' });
       });
     });
   }
 
-  // Pausar auto-scroll cuando el usuario expande/colapsa un
-  // <details> manualmente. Usamos event delegation en messagesInner
-  // para capturar todos los toggle de thinking, tool calls, y results.
-  messagesInner.addEventListener(
-    "toggle",
+  // Pausar auto-scroll cuando el usuario expande/colapsa un <details>
+  inner.addEventListener(
+    'toggle',
     (e) => {
-      // Solo pausar si el evento viene de un <details> (no de otros
-      // elementos que puedan tener toggle)
       if (e.target instanceof HTMLDetailsElement) {
         pauseAutoScroll = true;
-        // Reanudar después de 300ms — tiempo suficiente para que el
-        // browser complete el layout del toggle y el ResizeObserver
-        // dispare, pero sin scrollear.
         setTimeout(() => {
           pauseAutoScroll = false;
         }, 300);
       }
     },
     true,
-  ); // capture: true para interceptar antes del bubble
+  );
 
-  /** Re-pin reactivo: cuando el contenido crece async (markdown,
-   *  fonts web, imágenes), re-scrolleamos al fondo SOLO si el
-   *  usuario está "near bottom". Si scrolleó arriba, respetamos
-   *  su posición. */
   const resizeObserver = new ResizeObserver(() => {
-    if (pauseAutoScroll) return; // Pausado por toggle manual
+    if (pauseAutoScroll) return;
     if (isNearBottom()) {
-      endSentinel.scrollIntoView({ block: "end", behavior: "instant" });
+      sentinel.scrollIntoView({ block: 'end', behavior: 'instant' });
     }
   });
 
-  // Observamos messagesInner. Cuando su altura cambia (porque un
-  // ChatBubble terminó de layout-ear async), re-evaluamos.
-  resizeObserver.observe(messagesInner);
-
-  // Cleanup: desconectar el observer al desmontar.
+  resizeObserver.observe(inner);
   scope.add(() => resizeObserver.disconnect());
 
-  // NOTA: botón "Jump to latest" cuando el usuario está scrolled up
-  // (no cerca del fondo) está anotado en NOTAS.md. Cuando lo
-  // implementemos, se setea un flag en el scroll listener.
+  return {
+    pinToBottom: (): void => {
+      if (!hasPinnedOnFirstRender) {
+        hasPinnedOnFirstRender = true;
+        pinToBottom();
+      }
+    },
+  };
+}
 
-  // ─── Extension UI Dialog ────────────────────────────────
-  // Cuando una extensión de pi pide interacción (select, confirm, etc.),
-  // se renderiza un dialog al final del chat. El usuario responde y
-  // el dialog se reemplaza por un mensaje del usuario.
+// ═══════════════════════════════════════════════════════════
+// Render
+// ═══════════════════════════════════════════════════════════
+
+// Map de messageId → ChatBubbleHandle, para update in-place
+const bubbleHandles = new Map<string, ChatBubbleHandle>();
+
+/** Remueve los bubble DOM nodes actuales (excepto el sentinel y empty state)
+ *  de messagesInner, sin perder las referencias en bubbleHandles. */
+function detachBubbleNodes(messagesInner: HTMLElement, endSentinel: HTMLElement): void {
+  for (const handle of bubbleHandles.values()) {
+    if (handle.root.parentNode === messagesInner) {
+      handle.root.remove();
+    }
+  }
+}
+
+/** Re-inserta los bubble nodes en el orden correcto, justo antes del sentinel. */
+function reattachBubbleNodes(messagesInner: HTMLElement, endSentinel: HTMLElement): void {
+  // Insertamos en orden, todos antes del sentinel
+  for (const handle of bubbleHandles.values()) {
+    messagesInner.insertBefore(handle.root, endSentinel);
+  }
+}
+
+function renderMessages(
+  messagesInner: HTMLElement,
+  endSentinel: HTMLElement,
+  messages: typeof appState.messages.value,
+  pinToBottom: () => void,
+): void {
+  if (messages.length === 0) {
+    // Wipe handles y DOM
+    for (const handle of bubbleHandles.values()) {
+      handle.dispose();
+    }
+    bubbleHandles.clear();
+    messagesInner.replaceChildren();
+    messagesInner.append(renderEmptyState());
+    messagesInner.append(endSentinel);
+    pinToBottom();
+    return;
+  }
+
+  // Si hay un empty state, removerlo
+  const emptyState = messagesInner.querySelector('.chat-empty-state');
+  if (emptyState) emptyState.remove();
+
+  // Reconciliar: para cada message, si handle existe → update, si no → crear.
+  // Después, dispose los handles que no están en messages.
+  const seenIds = new Set<string>();
+
+  for (const msg of messages) {
+    seenIds.add(msg.id);
+    const existing = bubbleHandles.get(msg.id);
+    if (existing) {
+      existing.update(msg);
+    } else {
+      const handle = ChatBubble(msg);
+      bubbleHandles.set(msg.id, handle);
+    }
+  }
+
+  // Dispose los que ya no están
+  for (const [id, handle] of bubbleHandles) {
+    if (!seenIds.has(id)) {
+      handle.dispose();
+      handle.root.remove();
+      bubbleHandles.delete(id);
+    }
+  }
+
+  // Sincronizar orden en el DOM: detach todos y re-attach en orden
+  // (más simple que calcular movimientos óptimos)
+  detachBubbleNodes(messagesInner, endSentinel);
+  reattachBubbleNodes(messagesInner, endSentinel);
+
+  pinToBottom();
+}
+
+function renderEmptyState(): HTMLElement {
+  const welcome = document.createElement('div');
+  welcome.className = 'chat-empty-state';
+
+  const icon = document.createElement('div');
+  icon.className = 'chat-empty-icon';
+  icon.textContent = '✦';
+  welcome.append(icon);
+
+  const title = document.createElement('h2');
+  title.className = 'chat-empty-title';
+  title.textContent = '¿En qué puedo ayudarte?';
+  welcome.append(title);
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'chat-empty-subtitle';
+  subtitle.textContent = appState.workingDir.value
+    ? 'Escribe un mensaje para comenzar una conversación con pi.'
+    : 'Selecciona una carpeta de trabajo para comenzar.';
+  welcome.append(subtitle);
+
+  return welcome;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Extension UI Dialog
+// ═══════════════════════════════════════════════════════════
+
+interface DialogSetupOptions {
+  messagesInner: HTMLElement;
+  endSentinel: HTMLElement;
+  scope: ReturnType<typeof createScope>;
+}
+
+function setupExtensionDialogs(opts: DialogSetupOptions) {
+  const { messagesInner, endSentinel, scope } = opts;
 
   let activeDialogContainer: HTMLElement | null = null;
+  let dialogKeydownCleanup: (() => void) | null = null;
+  let askResponses: Array<{ question: string; answer: string }> = [];
 
   function renderExtensionDialog(dialog: ExtensionDialogState): void {
-    // Remover dialog anterior si existe
-    removeExtensionDialog();
+    if (dialogKeydownCleanup) dialogKeydownCleanup();
+    if (activeDialogContainer) activeDialogContainer.remove();
 
-    activeDialogContainer = document.createElement("div");
-    activeDialogContainer.className = "extension-dialog-wrapper";
+    activeDialogContainer = document.createElement('div');
+    activeDialogContainer.className = 'extension-dialog-wrapper';
 
     let dialogElement: HTMLElement;
-
     switch (dialog.method) {
-      case "select":
+      case 'select':
         dialogElement = renderSelectDialog(
           {
-            type: "extension_ui_request",
+            type: 'extension_ui_request',
             id: dialog.id,
-            method: "select",
+            method: 'select',
             title: dialog.title,
             options: dialog.options ?? [],
           },
@@ -265,25 +404,25 @@ export function ChatPage(): Page {
           dialog.reject,
         );
         break;
-      case "confirm":
+      case 'confirm':
         dialogElement = renderConfirmDialog(
           {
-            type: "extension_ui_request",
+            type: 'extension_ui_request',
             id: dialog.id,
-            method: "confirm",
+            method: 'confirm',
             title: dialog.title,
-            message: dialog.message ?? "",
+            message: dialog.message ?? '',
           },
           dialog.resolve,
           dialog.reject,
         );
         break;
-      case "input":
+      case 'input':
         dialogElement = renderInputDialog(
           {
-            type: "extension_ui_request",
+            type: 'extension_ui_request',
             id: dialog.id,
-            method: "input",
+            method: 'input',
             title: dialog.title,
             placeholder: dialog.placeholder,
           },
@@ -291,12 +430,12 @@ export function ChatPage(): Page {
           dialog.reject,
         );
         break;
-      case "editor":
+      case 'editor':
         dialogElement = renderEditorDialog(
           {
-            type: "extension_ui_request",
+            type: 'extension_ui_request',
             id: dialog.id,
-            method: "editor",
+            method: 'editor',
             title: dialog.title,
             prefill: dialog.prefill,
           },
@@ -313,39 +452,28 @@ export function ChatPage(): Page {
     }
 
     activeDialogContainer.appendChild(dialogElement);
-
-    // Insertar antes del sentinel para que scrollIntoView lo muestre
     messagesInner.insertBefore(activeDialogContainer, endSentinel);
 
-    // Scroll al dialog
     requestAnimationFrame(() => {
       activeDialogContainer?.scrollIntoView({
-        block: "end",
-        behavior: "smooth",
+        block: 'end',
+        behavior: 'smooth',
       });
     });
 
-    // Escape para cancelar
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        document.removeEventListener("keydown", handleKeyDown);
+      if (e.key === 'Escape') {
+        document.removeEventListener('keydown', handleKeyDown);
         dialog.reject();
       }
     };
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener('keydown', handleKeyDown);
 
-    // Registrar cleanup en scope (se ejecuta al dispose de página)
-    // y también guardarlo en dialogKeydownCleanup para limpiarlo
-    // antes si el dialog se cierra por otra vía.
     const cleanup = () =>
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener('keydown', handleKeyDown);
     scope.add(cleanup);
     dialogKeydownCleanup = cleanup;
   }
-
-  // Se setea al renderizar un dialog. removeExtensionDialog lo
-  // llama para limpiar el listener de teclado antes de tiempo.
-  let dialogKeydownCleanup: (() => void) | null = null;
 
   function removeExtensionDialog(): void {
     dialogKeydownCleanup?.();
@@ -356,16 +484,8 @@ export function ChatPage(): Page {
     }
   }
 
-  // Acumular respuestas del ask para mostrarlas como un solo bloque
-  // al final de todas las preguntas (no una por pregunta).
-  let askResponses: Array<{ question: string; answer: string }> = [];
-
-  // Registrar el renderer con el handler de extension-ui
   setDialogRenderer((_method, request) => {
     return new Promise((resolve, reject) => {
-      // Wrap resolve/reject para limpiar el dialog.
-      // NO agregamos messages del usuario — las respuestas se muestran
-      // como un bloque formateado al final.
       const wrappedResolve = (value: Record<string, unknown>) => {
         const answer = formatDialogResponse(request.method, value);
         if (answer) {
@@ -397,15 +517,12 @@ export function ChatPage(): Page {
     });
   });
 
-  // Cuando el dialog se cierra (se resuelve o cancela), si hay
-  // respuestas acumuladas, agregar un solo bloque formateado al chat.
   scope.add(
     appState.activeExtensionDialog.subscribe((dialog) => {
       if (dialog) {
         renderExtensionDialog(dialog);
       } else {
         removeExtensionDialog();
-        // Mostrar respuestas acumuladas como un solo tool result
         if (askResponses.length > 0) {
           addAskResult(askResponses);
           askResponses = [];
@@ -413,132 +530,8 @@ export function ChatPage(): Page {
       }
     }),
   );
-
-  // === Smooth Streaming + Thinking Indicator ===
-  // StreamBuffer + rAF para revelado gradual de texto.
-  // Thinking dots: aparecen mientras pi piensa pero aun no emitio texto.
-  // Durante streaming NO re-renderizamos todos los mensajes (el
-  // StreamBuffer actualiza el DOM in-place). Al terminar, full
-  // re-render con markdown.
-
-  let streamBuffer: StreamBuffer | null = null;
-  let streamingMsgEl: HTMLElement | null = null;
-  let prevStreamLen = 0;
-
-  function updateStreamingDisplay(text: string): void {
-    if (!streamingMsgEl) {
-      streamingMsgEl = document.createElement('div');
-      streamingMsgEl.className = 'message assistant';
-
-      // Mostrar thinking blocks si el ultimo mensaje assistant tiene
-      // contenido de razonamiento (thinking_delta llega antes que text_delta)
-      const msgs = appState.messages.value;
-      const lastMsg = msgs[msgs.length - 1];
-      if (lastMsg && lastMsg.role === 'assistant' && lastMsg.thinking && lastMsg.thinking.length > 0) {
-        streamingMsgEl.append(ThinkingBlockUI(lastMsg.thinking, true));
-      }
-
-      const content = document.createElement('div');
-      content.className = 'message-content';
-      const textContainer = document.createElement('div');
-      textContainer.className = 'message-text stream-text';
-      content.append(textContainer);
-      streamingMsgEl.append(content);
-      messagesInner.insertBefore(streamingMsgEl, endSentinel);
-    }
-    const tc = streamingMsgEl.querySelector('.message-text')!;
-    tc.textContent = text;
-    let cursor = tc.querySelector('.smooth-cursor');
-    if (!cursor) {
-      cursor = document.createElement('span');
-      cursor.className = 'smooth-cursor';
-      cursor.textContent = '\u258D';
-      cursor.setAttribute('aria-hidden', 'true');
-      tc.append(cursor);
-    }
-    if (isNearBottom()) {
-      endSentinel.scrollIntoView({ block: 'end', behavior: 'instant' });
-    }
-  }
-
-  scope.add(
-    appState.streamingText.subscribe((text) => {
-      if (text && text.length > prevStreamLen) {
-        const delta = text.slice(prevStreamLen);
-        prevStreamLen = text.length;
-        if (!streamBuffer) {
-          streamBuffer = new StreamBuffer({ onUpdate: updateStreamingDisplay });
-        }
-        streamBuffer.push(delta);
-      } else if (!text && prevStreamLen > 0) {
-        // Streaming termino: revelar resto sync + re-render
-        prevStreamLen = 0;
-        if (streamBuffer) {
-          if (streamBuffer.isActive) {
-            updateStreamingDisplay(streamBuffer.total);
-          }
-          streamBuffer = null;
-        }
-        streamingMsgEl = null;
-        renderMessages(appState.messages.value);
-      }
-    }),
-  );
-
-  scope.add(
-    appState.messages.subscribe((messages) => {
-      if (appState.isStreaming.value) {
-        return;
-      }
-      renderMessages(messages);
-    }),
-  );
-
-  messagesContainer.append(messagesInner);
-  root.append(messagesContainer);
-
-  return {
-    root,
-    dispose: () => {
-      clearDialogRenderer();
-      appState.activeExtensionDialog.value = null;
-      scope.dispose();
-    },
-  };
 }
 
-/**
- * Agregar el resultado de un ask tool como un solo tool result.
- *
- * En vez de agregar un message del usuario por cada respuesta,
- * se muestra un bloque formateado con todas las preguntas y respuestas.
- * Se ve como un output de tool, no como un message del usuario.
- */
-function addAskResult(
-  responses: Array<{ question: string; answer: string }>,
-): void {
-  const id = `ask-result-${Date.now()}`;
-  const lines = responses.map((r) => `**${r.question}** → ${r.answer}`);
-  const content = lines.join("\n");
-
-  const message = {
-    id,
-    role: "toolResult" as const,
-    content,
-    timestamp: Date.now(),
-    toolResult: {
-      toolName: "ask",
-      isError: false,
-    },
-  };
-  appState.messages.value = [...appState.messages.value, message];
-}
-
-/**
- * Formatear la respuesta del dialog para mostrarla como mensaje del usuario.
- *
- * Convierte el objeto de respuesta a un string legible.
- */
 function formatDialogResponse(
   method: string,
   value: Record<string, unknown>,
@@ -557,27 +550,22 @@ function formatDialogResponse(
   }
 }
 
-/** Renderiza la pantalla de bienvenida (estado vacío). */
-function renderWelcome(): HTMLElement {
-  const welcome = document.createElement("div");
-  welcome.className = "welcome";
+function addAskResult(
+  responses: Array<{ question: string; answer: string }>,
+): void {
+  const id = `ask-result-${Date.now()}`;
+  const lines = responses.map((r) => `**${r.question}** → ${r.answer}`);
+  const content = lines.join("\n");
 
-  const icon = document.createElement("div");
-  icon.className = "welcome-icon";
-  icon.textContent = "✦";
-  welcome.append(icon);
-
-  const welcomeTitle = document.createElement("h2");
-  welcomeTitle.className = "welcome-title";
-  welcomeTitle.textContent = "¿En qué puedo ayudarte?";
-  welcome.append(welcomeTitle);
-
-  const subtitle = document.createElement("p");
-  subtitle.className = "welcome-subtitle";
-  subtitle.textContent = appState.workingDir.value
-    ? "Escribe un mensaje para comenzar una conversación con pi."
-    : "Selecciona una carpeta de trabajo para comenzar.";
-  welcome.append(subtitle);
-
-  return welcome;
+  const message = {
+    id,
+    role: "toolResult" as const,
+    content,
+    timestamp: Date.now(),
+    toolResult: {
+      toolName: "ask",
+      isError: false,
+    },
+  };
+  appState.messages.value = [...appState.messages.value, message];
 }
