@@ -25,7 +25,6 @@ import { getRecents } from "../lib/pi/index.ts";
 import type { Recent } from "../lib/pi/index.ts";
 import { loadAuthStatus } from "../lib/auth-status.ts";
 import { icon } from "../lib/icons.ts";
-import { setApiKey, type ProviderInfo } from "../lib/pi/tauri-commands.ts";
 
 export function WelcomePage(): Page {
   const root = document.createElement("div");
@@ -40,7 +39,6 @@ export function WelcomePage(): Page {
   root.append(renderErrorBanner(scope, error));
   root.append(renderHeader());
   root.append(renderAuthBanner(scope));
-  root.append(renderProviderSection(scope));
   root.append(renderCta(error));
   root.append(renderRecentsSection(scope, error));
   root.append(renderHelpLink());
@@ -151,122 +149,6 @@ function renderAuthBanner(scope: Scope): HTMLElement {
   );
 
   return banner;
-}
-
-/** ── Provider config section (simplificado para welcome) ── */
-const WELCOME_PROVIDERS = [
-  { id: 'opencode-go', label: 'OpenCode Go' },
-  { id: 'deepseek', label: 'DeepSeek' },
-  { id: 'anthropic', label: 'Anthropic' },
-  { id: 'openrouter', label: 'OpenRouter' },
-  { id: 'google', label: 'Google' },
-  { id: 'groq', label: 'Groq' },
-  { id: 'openai', label: 'OpenAI' },
-] as const;
-
-function renderProviderSection(scope: Scope): HTMLElement {
-  const section = document.createElement('div');
-  section.className = 'welcome-provider';
-
-  const title = document.createElement('h3');
-  title.className = 'welcome-provider-title';
-  title.textContent = 'Configurar API key';
-  section.append(title);
-
-  // Provider selector: botones simples estilo tabs
-  const tabRow = document.createElement('div');
-  tabRow.className = 'welcome-provider-tabs';
-
-  let currentProvider = 'opencode-go';
-  const storageKey = 'xi.lastProvider';
-  const stored = localStorage.getItem(storageKey);
-  if (stored && WELCOME_PROVIDERS.some((p) => p.id === stored)) {
-    currentProvider = stored;
-  }
-
-  for (const p of WELCOME_PROVIDERS) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'welcome-provider-tab';
-    btn.dataset.provider = p.id;
-    btn.textContent = p.label;
-    if (p.id === currentProvider) btn.classList.add('welcome-provider-tab--active');
-
-    btn.addEventListener('click', () => {
-      currentProvider = p.id;
-      localStorage.setItem(storageKey, p.id);
-      tabRow.querySelectorAll('.welcome-provider-tab').forEach((b) =>
-        b.classList.remove('welcome-provider-tab--active')
-      );
-      btn.classList.add('welcome-provider-tab--active');
-    });
-
-    tabRow.append(btn);
-  }
-  section.append(tabRow);
-
-  // API key input
-  const inputRow = document.createElement('div');
-  inputRow.className = 'welcome-provider-input-row';
-
-  const keyInput = document.createElement('input');
-  keyInput.type = 'password';
-  keyInput.className = 'welcome-provider-input';
-  keyInput.placeholder = 'sk-...';
-  keyInput.autocomplete = 'off';
-  keyInput.spellcheck = false;
-  inputRow.append(keyInput);
-
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = 'welcome-provider-save';
-  saveBtn.textContent = 'Guardar';
-  inputRow.append(saveBtn);
-  section.append(inputRow);
-
-  // Feedback
-  const feedback = document.createElement('div');
-  feedback.className = 'welcome-provider-feedback';
-  feedback.style.display = 'none';
-  section.append(feedback);
-
-  saveBtn.addEventListener('click', async () => {
-    const key = keyInput.value.trim();
-    if (!key) {
-      feedback.textContent = 'Pega una API key antes de guardar';
-      feedback.style.display = 'block';
-      return;
-    }
-    saveBtn.disabled = true;
-    feedback.style.display = 'none';
-    try {
-      await setApiKey(currentProvider, key);
-      await loadAuthStatus();
-      keyInput.value = '';
-      feedback.textContent = '✓ Guardado';
-      feedback.style.display = 'block';
-    } catch (err) {
-      feedback.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
-      feedback.style.display = 'block';
-    } finally {
-      saveBtn.disabled = false;
-    }
-  });
-
-  // Mark configured providers
-  function updateMarks(configured: ReadonlyArray<{ id: string; hasKey: boolean; last4: string | null }>): void {
-    for (const btn of tabRow.querySelectorAll<HTMLElement>('.welcome-provider-tab')) {
-      const id = btn.dataset.provider;
-      if (!id) continue;
-      const isConfigured = configured.some((p) => p.id === id);
-      btn.textContent = isConfigured ? `${WELCOME_PROVIDERS.find((p) => p.id === id)?.label ?? id} ✓` : WELCOME_PROVIDERS.find((p) => p.id === id)?.label ?? id;
-    }
-  }
-
-  updateMarks(appState.configuredProviders.value);
-  scope.add(appState.configuredProviders.subscribe(updateMarks));
-
-  return section;
 }
 
 /** Link al pie: "¿Necesitas ayuda?" — abre la doc de pi en una
