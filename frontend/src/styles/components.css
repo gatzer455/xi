@@ -1,73 +1,75 @@
-/* ═══ components.css — Piezas reutilizables del chat ═══
-   Estilos para los bloques que componen una conversación:
-   mensajes (user/assistant), thinking blocks, tool calls,
-   y tool results. Cada componente es autocontenido — puede
-   vivir dentro de un mensaje o en cualquier otro contexto.
+/* ═══ components.css — Componentes de chat ═══
+   Cada mensaje, bloque de thinking, tool call, y tool result se
+   renderiza vía ChatBubble. Los estilos siguientes son consumidos
+   por ChatBubble en su nueva arquitectura unificada.
 
    Orden de carga: después de layout.css.
-   Dependencias: tokens.css, base.css, layout.css.
-   Dependientes: pages.css. */
+   Dependencias: tokens.css, base.css, layout.css. */
 
-/* ═══ MESSAGES ═══
-   User: right-aligned, subtle bubble.
-   Assistant: left-aligned, no bubble.
-   ToolResult: full width, pegado al tool call anterior.
-   No avatars — clean, professional (like Claude/Gemini). */
+/* ═══ MESSAGE WRAPPER ═══
+   El wrapper de cada mensaje (user/assistant/toolResult/compaction).
+   No tiene background propio — solo define layout y max-width. */
 .message {
   display: flex;
+  width: 100%;
   max-width: 100%;
+  font-size: var(--text-base);
+  line-height: 1.6;
 }
-.message.user { justify-content: flex-end; }
-.message.assistant { justify-content: flex-start; }
 
-.message-avatar { display: none; }  /* Mantener para compat */
+.message--user { justify-content: flex-end; }
+.message--assistant { justify-content: flex-start; }
+.message--toolResult { justify-content: flex-start; }
+.message--compaction { justify-content: center; margin: var(--space-3) 0; }
 
+/* ═══ MESSAGE CONTENT (user/assistant) ═══
+   El bloque real de contenido. User tiene bubble gris a la derecha,
+   assistant es texto libre con max-width cómodo para lectura. */
 .message-content {
-  flex: 1;
   min-width: 0;
   max-width: 700px;
 }
-.message.user .message-content { max-width: 600px; }
+.message-content--user { max-width: 600px; }
+.message-content--assistant { max-width: 760px; }
 
-/* toolResult: full width, sin max-width */
-.message.toolResult {
-  max-width: 100%;
-  width: 100%;
-  padding: 0 var(--space-6);
-}
-.message.toolResult .tool-result-card {
-  max-width: 700px;
-}
-
-
-.message-text {
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  font-size: var(--text-base);
-  line-height: 1.6;
-  word-break: break-word;
-}
-.message.user .message-text {
+/* ═══ MESSAGE TEXT (user) ═══
+   Bubble gris para mensajes del user. Texto plano, no markdown. */
+.message-text--user {
   background: var(--color-user-msg-bg);
   color: var(--color-text);
-}
-.message.assistant .message-text {
-  background: transparent;
-  padding: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-/* Markdown content inside messages */
-.message-content p { margin-bottom: var(--space-2); }
-.message-content p:last-child { margin-bottom: 0; }
-.message-content ul, .message-content ol { margin: var(--space-2) 0; padding-left: var(--space-6); }
-.message-content li { margin-bottom: var(--space-1); }
-.message-content code {
+/* ═══ MESSAGE TEXT (assistant) ═══
+   Texto libre, sin bubble, full-width hasta el max-width. Markdown
+   rendering. Durante streaming: textContent plain + cursor. */
+.message-text--assistant {
+  background: transparent;
+  padding: 0;
+  color: var(--color-text);
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* Markdown spacing (igual que antes) */
+.message-content--assistant p { margin-bottom: var(--space-2); }
+.message-content--assistant p:last-child { margin-bottom: 0; }
+.message-content--assistant ul,
+.message-content--assistant ol {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-6);
+}
+.message-content--assistant li { margin-bottom: var(--space-1); }
+.message-content--assistant code {
   background: var(--color-surface-2);
   padding: 0.125em 0.375em;
   border-radius: var(--radius-sm);
   font-size: 0.875em;
 }
-.message-content pre {
+.message-content--assistant pre {
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -75,22 +77,44 @@
   overflow-x: auto;
   margin: var(--space-2) 0;
 }
-.message-content pre code { background: none; padding: 0; }
-.message-content blockquote {
+.message-content--assistant pre code { background: none; padding: 0; }
+.message-content--assistant blockquote {
   border-left: 3px solid var(--color-accent);
   padding-left: var(--space-3);
   color: var(--color-text-muted);
   margin: var(--space-2) 0;
 }
 
-/* ═══ THINKING BLOCKS ═══
-   Bloque colapsable para el razonamiento de pi. Mismo patrón
-   que las cards de la sidebar: surface, border, radius, padding. */
+/* Streaming text: textContent plain, line-height consistente para
+   evitar layout jumps al cambiar a markdown al final. */
+.message-text--streaming {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  min-height: 1.6em; /* Evita colapso de línea vacía inicial */
+}
+
+/* Cursor parpadeante al final del texto en streaming */
+.message-text--has-cursor::after {
+  content: '\258D';
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--color-accent);
+  animation: cursor-blink 0.9s steps(2, start) infinite;
+  font-weight: 300;
+  opacity: 0.7;
+}
+@keyframes cursor-blink { to { visibility: hidden; } }
+
+/* ═══ THINKING BLOCK ═══
+   Bloque colapsable para razonamiento. Aparece ARRIBA del texto del
+   assistant, integrado al mismo message-content. Mismo padding que
+   tool calls y tool results. */
 .thinking-block {
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  margin: 0;
+  margin: 0 0 var(--space-2) 0;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   font-style: italic;
@@ -104,6 +128,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  user-select: none;
 }
 .thinking-summary::-webkit-details-marker { display: none; }
 .thinking-summary::before {
@@ -123,11 +148,32 @@ details[open] > .thinking-summary::before { content: '▾'; }
   font-style: normal;
 }
 
-/* ═══ TOOL CALLS ═══
+/* Dots animados del thinking block durante streaming */
+.thinking-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 2px;
+}
+.thinking-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  animation: thinking-bounce 1.4s ease-in-out infinite;
+}
+.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes thinking-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* ═══ TOOL CALL ═══
    Card colapsable para herramientas de pi. Header con
    nombre + status badge. Background según estado. */
 .tool-call {
-  margin: 0;
+  margin: 0 0 var(--space-2) 0;
   border-radius: var(--radius-sm);
   font-size: 1em;
   overflow: hidden;
@@ -158,36 +204,32 @@ details[open] > .thinking-summary::before { content: '▾'; }
 }
 .tool-call-header::-webkit-details-marker { display: none; }
 
-.tool-call-icon {
-  color: var(--color-accent);
-  flex-shrink: 0;
-  font-weight: bold;
-  font-family: var(--font-mono);
-}
-
 .tool-call-name {
   flex: 1;
   color: var(--color-tool-title);
   word-break: break-all;
 }
 
+/* Status indicator: solo color, sin icono */
 .tool-call-status {
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   flex-shrink: 0;
+  background: var(--color-text-muted);
 }
 .tool-call-status--pending {
-  background: var(--color-info-bg);
-  color: var(--color-warning);
+  background: var(--color-info-bg, #e3f2fd);
+  outline: 2px solid var(--color-warning);
+  outline-offset: -1px;
+  animation: pulse 1.5s ease-in-out infinite;
 }
-.tool-call-status--success {
-  background: var(--color-diff-added);
-  color: var(--color-accent-fg);
-}
-.tool-call-status--error {
-  background: var(--color-diff-removed);
-  color: var(--color-accent-fg);
+.tool-call-status--success { background: var(--color-diff-added); }
+.tool-call-status--error { background: var(--color-diff-removed); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .tool-call-body {
@@ -204,8 +246,8 @@ details[open] > .thinking-summary::before { content: '▾'; }
 }
 
 /* ═══ TOOL RESULT CARD ═══
-   Mini-card colapsable para mensajes de tipo toolResult.
-   Es hermana del tool call que la produjo. */
+   Card colapsable para mensajes de tipo toolResult. Hermana del
+   tool call que la produjo. */
 .tool-result-card {
   background: var(--color-tool-success-bg);
   border-radius: var(--radius-sm);
@@ -217,7 +259,7 @@ details[open] > .thinking-summary::before { content: '▾'; }
   width: 100%;
   max-width: 700px;
 }
-.tool-result-card.is-error {
+.tool-result-card--error {
   background: var(--color-tool-error-bg);
   border-color: var(--color-warning);
 }
@@ -250,14 +292,7 @@ details[open] > .thinking-summary::before { content: '▾'; }
 }
 
 /* ═══ COMPACTION DIVIDER ═══
-   Marca de compaction en el chat: pi comprimió N tokens de historial.
-   Se renderiza como un divider horizontal colapsable. Es un system
-   event, no un mensaje del user/assistant — va full-width y centrado. */
-.message.compaction {
-  justify-content: center;
-  max-width: 100%;
-  margin: var(--space-3) 0;
-}
+   Marca de compaction en el chat. Centered, dashed border-top. */
 .compaction-divider {
   width: 100%;
   max-width: 700px;
@@ -291,59 +326,35 @@ details[open] > .thinking-summary::before { content: '▾'; }
   overflow-y: auto;
 }
 
-/* ═══ STREAMING CURSOR ═══
-   Bloque parpadeante al final del texto mientras isStreaming. */
-.streaming-cursor {
-  display: inline-block;
-  margin-left: 2px;
-  color: var(--color-accent);
-  animation: blink 1s steps(2, start) infinite;
-}
-@keyframes blink { to { visibility: hidden; } }
-
-/* ═══ THINKING BLOCK ═══
-   Bloque colapsable de razonamiento del assistant. Aparece cuando
-   pi usa thinking mode y emite thinking_delta. Durante streaming,
-   el summary muestra dots animados via .thinking-dots hijos. */
-.thinking-dots {
-  display: inline-flex;
+/* ═══ EMPTY STATE (chat sin mensajes) ═══
+   Cuando el usuario abre un tab nuevo sin mensajes. Centrado,
+   con icono + título + subtítulo. Mismo patrón que el welcome
+   screen pero vive dentro del chat (no en una página aparte). */
+.chat-empty-state {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 3px;
-  margin-right: 2px;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-12) var(--space-6);
+  gap: var(--space-3);
+  flex: 1;
+  min-height: 60vh;
 }
-.thinking-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-text-muted);
-  animation: thinking-bounce 1.4s ease-in-out infinite;
-}
-.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes thinking-bounce {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
-  40% { transform: scale(1); opacity: 1; }
-}
-
-/* Cursor parpadeante para smooth streaming (mas sutil que streaming-cursor). */
-.smooth-cursor {
-  display: inline-block;
-  margin-left: 1px;
+.chat-empty-icon {
+  font-size: 48px;
   color: var(--color-accent);
-  animation: blink 0.8s steps(2, start) infinite;
-  font-weight: 300;
-  opacity: 0.7;
+  opacity: 0.6;
 }
-
-/* ═══ SMOOTH STREAM TEXT ═══
-   Contenedor del texto que se está revelando gradualmente.
-   Usa texto plano (no markdown) durante streaming para evitar
-   flickering y layout shifts. */
-.stream-text {
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 1em;
-  font-family: inherit;
-  line-height: 1.6;
+.chat-empty-title {
+  font-size: var(--text-2xl, 24px);
+  font-weight: 600;
   color: var(--color-text);
+  margin: 0;
+}
+.chat-empty-subtitle {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  margin: 0;
+  max-width: 400px;
 }

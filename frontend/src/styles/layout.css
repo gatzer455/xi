@@ -241,14 +241,30 @@
   border: none;
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s;
   height: 38px;
+  min-width: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .input-send-btn:hover:not(:disabled) { background: var(--color-accent-hover); }
 .input-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Send/Stop toggle: solo uno visible a la vez */
+.input-btn-icon { display: none; line-height: 1; }
+.input-send-btn--send .input-btn-icon--send { display: inline-block; }
+.input-send-btn--stop {
+  background: var(--color-warning, #dc3545);
+}
+.input-send-btn--stop:hover { background: var(--color-warning-hover, #c82333); }
+.input-send-btn--stop .input-btn-icon--stop {
+  display: inline-block;
+  font-size: var(--text-sm);
+}
 
 /* ═══ OUTPUT BOARD + CHAT AREA ═══
    Contenido central. El chat usa todo el espacio disponible. */
@@ -274,8 +290,14 @@
   align-items: center;
   justify-content: space-between;
   flex-shrink: 0;
+  gap: var(--space-3);
 }
 .chat-header-title { font-size: var(--text-lg); font-weight: 600; }
+.chat-header-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
 .chat-header-model {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
@@ -283,6 +305,23 @@
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
 }
+.chat-header-streaming {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--color-text-muted);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Banner de auth que reemplazo al de welcome.
    Se muestra en el chat cuando no hay provider configurado,
@@ -302,8 +341,8 @@
   color: var(--color-warning-text, #856404);
 }
 .chat-auth-banner-btn {
-  background: var(--color-primary, #0d6efd);
-  color: #fff;
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
   border: none;
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-3);
@@ -312,7 +351,7 @@
   white-space: nowrap;
 }
 .chat-auth-banner-btn:hover {
-  opacity: 0.9;
+  background: var(--color-accent-hover);
 }
 
 .chat-messages {
