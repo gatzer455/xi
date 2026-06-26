@@ -113,10 +113,9 @@ export function ChatContextBar(): ChatContextBarHandle {
   label.textContent = 'Trabajando…';
   root.append(label);
 
-  // ── Token bar ──
+  // ── Token bar (se mueve al grupo derecho) ──
   const tokenBar = document.createElement('span');
   tokenBar.className = 'context-bar-tokens';
-  root.append(tokenBar);
 
   // ── Barra de progreso visual ──
   const progressFill = document.createElement('span');
@@ -139,10 +138,12 @@ export function ChatContextBar(): ChatContextBarHandle {
   // Por ahora es un botón sin handler — visible pero inerte hasta
   // que conectemos el modal.
 
-  // Grupo derecho: [barra de progreso] [·] [modelo ↕] pegado a la derecha
+  // Grupo derecho: [token text] [barra de progreso] [·] [modelo ↕]
+  // Todo pegado a la derecha. Token text + barra de progreso juntos
+  // para que el usuario vea contexto y % en un solo vistazo.
   const rightGroup = document.createElement('span');
   rightGroup.className = 'context-bar-right';
-  rightGroup.append(progressBg, sep, modelBtn);
+  rightGroup.append(tokenBar, progressBg, sep, modelBtn);
   root.append(rightGroup);
 
   // ═══ Spinner logic (misma que ChatFooter) ═══
