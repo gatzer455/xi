@@ -52,3 +52,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 docs/pi-approve-diagnosis.md
+
+# wdio test artifacts
+e2e/test-results/

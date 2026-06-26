@@ -29,6 +29,7 @@ import type {
 } from "../lib/pi/types.ts";
 import { navigate } from "../lib/nav.ts";
 import { setActiveTab, type Session } from "../lib/state.ts";
+import { dropStore } from "../lib/chat/stores.ts";
 
 const POLL_INTERVAL_MS = 10_000;
 
@@ -513,7 +514,7 @@ async function createNewTab(): Promise<void> {
   // 3. Agregar la tab a openTabs DESPUÉS de setActiveTab (si no,
   //    el find dentro de setActiveTab no la encontraría).
   appState.openTabs.value = [...appState.openTabs.value, newTab];
-  appState.messages.value = [];
+  // Mensajes viven en el ChatStore del tab (frescos, vacíos).
 
   // 4. Navegar al chat.
   navigate("chat");
@@ -589,7 +590,6 @@ async function switchToSession(session: SessionInfo): Promise<void> {
   // Sesión nueva: agregarla a openTabs y cargar mensajes de pi.
   setActiveTab(session.id);
   appState.openTabs.value = [...appState.openTabs.value, newTab];
-  appState.messages.value = [];
 
   loading.value = true;
   try {
@@ -625,7 +625,7 @@ async function handleDelete(session: SessionInfo): Promise<void> {
       );
       appState.activeTabId.value = null;
       appState.session.value = null;
-      appState.messages.value = [];
+      dropStore(session.id);
     }
     await loadSessions();
   } catch (err) {

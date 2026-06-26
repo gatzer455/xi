@@ -22,37 +22,6 @@ export interface PiModel {
   contextWindow: number;
 }
 
-export interface ToolCall {
-  id: string;
-  name: string;
-  arguments: Record<string, unknown>;
-  result?: string;
-  isError?: boolean;
-}
-
-export interface ThinkingBlock {
-  content: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant' | 'toolResult' | 'compaction';
-  content: string;
-  timestamp: number;
-  toolCalls?: ToolCall[];
-  thinking?: ThinkingBlock[];
-  isStreaming?: boolean;
-  /** Solo para role: 'toolResult'. Permite renderizar la card del resultado. */
-  toolResult?: {
-    toolName: string;
-    isError: boolean;
-  };
-  /** Solo para role: 'compaction'. Pi comprimió N tokens de historial en este punto. */
-  compaction?: {
-    tokensBefore: number;
-  };
-}
-
 export interface Session {
   id: string;
   name?: string;
@@ -75,21 +44,15 @@ export const appState = {
   /** Directorio de trabajo actual. null = no seleccionado. */
   workingDir: signal<string | null>(null),
 
-  /** Sesión actual de pi. null = no hay sesión activa. */
+  /** Sesión actual de pi (metadatos para header/settings). null = no
+   *  hay sesión activa. Los MENSAJES viven en ChatStores per-tab
+   *  (lib/chat/stores.ts), no acá. */
   session: signal<Session | null>(null),
 
-  /** Mensajes de la conversación actual. */
-  messages: signal<ChatMessage[]>([]),
-
-  /** true = pi está generando una respuesta. */
+  /** true = pi está streameando (alguna tab). Lo usa el InputBar
+   *  para mostrar el botón Stop. El indicador per-tab (footer)
+ *    lee el isStreaming$ del ChatStore del activeTab. */
   isStreaming: signal(false),
-
-  /** Texto plano del mensaje que se está streameando.
-   *  Se actualiza en cada text_delta. Vacío cuando no hay streaming
-   *  activo. Usado por chat.ts para smooth streaming via StreamBuffer,
-   *  separado de messages[] para no disparar re-render completo en
-   *  cada delta. */
-  streamingText: signal(''),
 
   /** Modelo actual de pi. */
   currentModel: signal<PiModel | null>(null),
@@ -133,16 +96,12 @@ export const appState = {
 
   /** Sesiones abiertas como tabs en el top bar (browser-shaped).
    *  Cada tab es una sesión que el usuario está viendo. `activeTabId`
-   *  indica cuál está activa. `tabMessages` guarda los mensajes
-   *  de cada tab (se mantienen al switchear). */
+   *  indica cuál está activa. Los mensajes de cada tab viven en su
+   *  ChatStore (lib/chat/stores.ts), indexado por tab id. */
   openTabs: signal<Session[]>([]),
 
   /** Id de la tab activa. null = no hay tab activa. */
   activeTabId: signal<string | null>(null),
-
-  /** Mensajes de cada tab, indexados por sessionId. Permite que
-   *  cada tab mantenga su historial al switchear. */
-  tabMessages: signal<Record<string, ChatMessage[]>>({}),
 
   /** Lista de modelos disponibles retornada por get_available_models.
    *  Se popula lazy en main.ts después de initPiConnection. */
@@ -271,38 +230,20 @@ window.addEventListener('offline', () => {
 });
 
 /**
- * Cambia la tab activa. Antes de cambiar, guarda los mensajes
- * actuales en `tabMessages[oldId]`. Después, carga los mensajes
- * de la nueva tab en `appState.messages`. Esto permite que cada
- * tab mantenga su historial al switchear.
+ * Cambia la tab activa. Solo setea `activeTabId`; los MENSAJES viven
+ * en `ChatStore`s per-tab (lib/chat/stores.ts), indexados por tab id.
+ * El ChatPage se re-suscribe al store de la nueva tab activa y
+ * re-renderiza con su historial. No hay shuffle de messages acá.
  *
  * Importante: NO toca `appState.session`. Esa signal refleja qué
  * sesión tiene pi cargada en este momento (la del activeTabId por
  * invariante), pero su `id` es el sessionId de pi, no el id del
- * tab. El id del tab es el UUID generado en el cliente en el
- * momento de crear la tab (independiente de pi). Esto evita que
- * tabs colisionen cuando pi tarda en responder con su sessionId.
- *
- * Si la tab no tiene mensajes guardados, `appState.messages` queda
- * en `[]` (la vista chat mostrará el welcome state hasta que se
- * carguen los mensajes de pi).
+ * tab. El id del tab es el UUID generado en el cliente (en tabs
+ * nuevas) o el sessionId de pi (en sesiones existentes).
  */
 export function setActiveTab(tabId: string | null): void {
-  const oldId = appState.activeTabId.value;
-  if (oldId === tabId) return;
-
-  // Guardar mensajes actuales en la tab vieja.
-  if (oldId) {
-    appState.tabMessages.value = {
-      ...appState.tabMessages.value,
-      [oldId]: appState.messages.value,
-    };
-  }
-
+  if (appState.activeTabId.value === tabId) return;
   appState.activeTabId.value = tabId;
-  appState.messages.value = tabId
-    ? appState.tabMessages.value[tabId] ?? []
-    : [];
 }
 
 /** Retorna la tab activa (de openTabs), o null si no hay. */

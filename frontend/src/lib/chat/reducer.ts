@@ -41,7 +41,11 @@ export type ChatEvent =
   | { type: 'tool_execution_end'; toolCallId: string; isError: boolean }
   | { type: 'agent_end'; messages: ChatMessage[] }
   | { type: 'response_get_messages'; messages: ChatMessage[] }
-  | { type: 'response_get_state'; session: ChatSession | null };
+  | { type: 'response_get_state'; session: ChatSession | null }
+  /** Mensaje local (no viene de pi): ej. resultado de un dialog de
+   *  extensión 'ask'. Se inserta/upserta por id. agent_end lo preserva
+   *  si pi no lo reporta (es local). */
+  | { type: 'local_message'; message: ChatMessage };
 
 // ─── Reducer ──────────────────────────────────────────────
 
@@ -61,6 +65,7 @@ export function reduce(state: ChatState, event: ChatEvent): ChatState {
     case 'agent_end':              return reduceAgentEnd(state, event.messages);
     case 'response_get_messages':  return reduceGetMessages(state, event.messages);
     case 'response_get_state':     return { ...state, session: event.session };
+    case 'local_message':          return { ...state, messages: upsertMessage(state.messages, event.message) };
   }
 }
 

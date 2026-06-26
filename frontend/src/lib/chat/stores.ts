@@ -20,7 +20,10 @@
  */
 
 import type { SessionId } from './types.ts';
-import { createChatStore, type ChatStore } from './store.ts';
+import { createChatStore } from './store.ts';
+import type { ChatStore } from './store.ts';
+
+export type { ChatStore } from './store.ts';
 
 const stores = new Map<SessionId, ChatStore>();
 

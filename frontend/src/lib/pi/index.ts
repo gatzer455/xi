@@ -33,12 +33,14 @@ export type {
   PiEventType,
   PiResponseEvent,
   PiMessageUpdateEvent,
+  PiMessageStartEvent,
+  PiMessageEndEvent,
   PiToolExecutionEvent,
   PiAgentEvent,
   AssistantMessageEvent,
   AssistantMessageEventType,
 } from './event-parser.ts';
 
-export { applyEvent } from './state-sync.ts';
+export { applyEvent, beginStreamForSession, endStream } from './state-sync.ts';
 
 export { ensurePiRunning } from './lifecycle.ts';

@@ -1,37 +1,32 @@
 /**
  * chat-bubble.ts — Un mensaje del chat (user / assistant / toolResult / compaction).
  *
- * Devuelve un objeto `{ root, update, dispose }` que permite:
- *   - root: el HTMLElement para insertar en el DOM
- *   - update(newMessage): actualiza el DOM in-place (sin reconstruir)
- *   - dispose(): limpia subscripciones, timers, etc
+ * Arquitectura chat-architecture-v2: renderiza el modelo de Parts
+ * (lib/chat/types.ts). Devuelve un handle `{ root, update, dispose, id }`.
  *
- * ## Render path unificado
+ *   - root: HTMLElement para insertar en el DOM.
+ *   - update(newMessage): actualiza el DOM in-place. Para assistant
+ *     streaming, extrae el delta del texto (diff vs el message
+ *     anterior) y lo empuja al StreamBuffer para reveal suave (D6).
+ *   - dispose(): limpia StreamBuffer y subscripciones.
  *
- * ChatBubble maneja TODOS los casos: user, assistant, toolResult,
- * compaction. El componente decide cómo renderizar según message.role.
- *
- * ## Streaming (assistant con isStreaming=true)
- *
- * El componente se auto-gestiona durante streaming:
- *   1. Se suscribe a `appState.streamingText` para recibir deltas
- *   2. Usa un StreamBuffer para revelar texto gradualmente
- *   3. El cursor y los thinking dots se animan automáticamente
- *   4. Cuando `streamingText` pasa a '' (agent_end), re-renderiza
- *      el texto como markdown en una sola pasada
- *
- * Para que esto funcione, ChatPage NO debe re-renderizar este bubble
- * durante streaming. La forma de evitar el re-render: el message
- * tiene un `id` estable, y ChatPage llama `update(msg)` en lugar de
- * `replaceChildren` cuando el id no cambia.
- *
- * Inspiración: Claude.ai (texto libre, sin bubble), ChatGPT (user bubble
- * a la derecha), DeepSeek (thinking block colapsable integrado), Cursor
- * (tool calls como cards inline).
+ * El componente NO se suscribe a ninguna signal global. Recibe el
+ * mensaje y, durante streaming, maneja su propio StreamBuffer. La
+ *úa fuente de truth es el `ChatMessage` que el ChatPage le pasa
+ * vía `update()` (que viene del ChatStore del activeTab).
  */
 
-import type { ChatMessage, ToolCall, ThinkingBlock } from '../lib/state.ts';
-import { appState } from '../lib/state.ts';
+import type {
+  ChatMessage,
+  Part,
+  TextPart,
+  ThinkingPart,
+  ToolCallPart,
+  ToolResultPart,
+  CompactionPart,
+  ToolState,
+} from '../lib/chat/types.ts';
+import { extractText } from '../lib/chat/mapping.ts';
 import { ThinkingBlockUI } from './thinking-block.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
 import { formatToolCallHeader } from '../lib/format-tool-call.ts';
@@ -39,25 +34,21 @@ import { StreamBuffer } from '../lib/stream-buffer.ts';
 
 export interface ChatBubbleHandle {
   root: HTMLElement;
-  /** Actualiza el DOM in-place si el id coincide. Retorna true si actualizó. */
-  update(newMessage: ChatMessage): boolean;
-  /** Limpia subscripciones, timers, etc. */
+  /** Actualiza el DOM in-place con el nuevo mensaje (mismo id). */
+  update(newMessage: ChatMessage): void;
+  /** Limpia StreamBuffer y referencias. */
   dispose(): void;
   /** El id del message que renderiza este bubble. */
   readonly id: string;
 }
 
 export function ChatBubble(message: ChatMessage): ChatBubbleHandle {
-  if (message.role === 'toolResult') {
-    return renderToolResultMessage(message);
+  switch (message.role) {
+    case 'user':       return renderUserMessage(message);
+    case 'toolResult': return renderToolResultMessage(message);
+    case 'compaction': return renderCompactionDivider(message);
+    case 'assistant':  return renderAssistantMessage(message);
   }
-  if (message.role === 'compaction') {
-    return renderCompactionDivider(message);
-  }
-  if (message.role === 'user') {
-    return renderUserMessage(message);
-  }
-  return renderAssistantMessage(message);
 }
 
 // ─── USER ──────────────────────────────────────────────────
@@ -72,19 +63,21 @@ function renderUserMessage(message: ChatMessage): ChatBubbleHandle {
 
   const text = document.createElement('div');
   text.className = 'message-text message-text--user';
-  text.textContent = message.content;
+  text.textContent = extractText(message);
   content.append(text);
   root.append(content);
 
+  let current = extractText(message);
   return {
     root,
     id: message.id,
     update: (newMessage) => {
-      if (newMessage.id !== message.id || newMessage.role !== 'user') return false;
-      if (newMessage.content !== message.content) {
-        text.textContent = newMessage.content;
+      if (newMessage.id !== message.id || newMessage.role !== 'user') return;
+      const t = extractText(newMessage);
+      if (t !== current) {
+        current = t;
+        text.textContent = t;
       }
-      return true;
     },
     dispose: () => {},
   };
@@ -96,68 +89,77 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
   const root = document.createElement('div');
   root.className = 'message message--assistant';
   root.dataset.messageId = message.id;
+  if (message.isStreaming) root.classList.add('message--streaming');
 
   const content = document.createElement('div');
   content.className = 'message-content message-content--assistant';
   root.append(content);
 
-  // Sub-elementos que podemos actualizar in-place
+  // Sub-elementos posicionados: thinking, toolCalls, text.
   let thinkingBlock: HTMLElement | null = null;
   let toolCallsContainer: HTMLElement | null = null;
   const toolCallElements = new Map<string, HTMLElement>();
   const textContainer = document.createElement('div');
   textContainer.className = 'message-text message-text--assistant';
 
-  // Streamer (se crea si isStreaming)
   let streamer: StreamerHandle | null = null;
+  let currentMsg = message;
+  let currentText = extractText(message);
+
+  content.append(textContainer);
+
+  applyMessage(message);
 
   function applyMessage(msg: ChatMessage): void {
-    // 1. Thinking
-    if (msg.thinking && msg.thinking.length > 0) {
+    // 1. Thinking parts
+    const thinkingParts = msg.parts.filter(isThinking) as ThinkingPart[];
+    applyThinking(thinkingParts, msg.isStreaming ?? false);
+
+    // 2. ToolCall parts
+    const toolCallParts = msg.parts.filter(isToolCall) as ToolCallPart[];
+    applyToolCalls(toolCallParts);
+
+    // 3. Text parts (streaming-aware)
+    const newText = extractText(msg);
+    applyText(msg, newText);
+  }
+
+  function applyThinking(parts: ThinkingPart[], streaming: boolean): void {
+    if (parts.length > 0) {
       if (thinkingBlock) {
-        // Update in-place: re-render si cambió la cantidad o el contenido
-        const currentBody = thinkingBlock.querySelector('.thinking-body');
-        const newContent = msg.thinking.map((b) => b.content).join('\n\n');
-        if (currentBody && currentBody.textContent !== newContent) {
-          currentBody.textContent = newContent;
-        }
-        // Update isStreaming flag
-        if (msg.isStreaming) {
-          thinkingBlock.classList.add('thinking-block--streaming');
-        } else {
-          thinkingBlock.classList.remove('thinking-block--streaming');
-        }
+        const body = thinkingBlock.querySelector('.thinking-body');
+        const joined = parts.map((p) => p.text).join('\n\n');
+        if (body && body.textContent !== joined) body.textContent = joined;
+        thinkingBlock.classList.toggle('thinking-block--streaming', streaming);
       } else {
-        thinkingBlock = ThinkingBlockUI(msg.thinking, msg.isStreaming ?? false);
+        thinkingBlock = ThinkingBlockUI(parts, streaming);
         content.insertBefore(thinkingBlock, textContainer);
       }
     } else if (thinkingBlock) {
       thinkingBlock.remove();
       thinkingBlock = null;
     }
+  }
 
-    // 2. Tool calls
-    if (msg.toolCalls && msg.toolCalls.length > 0) {
+  function applyToolCalls(parts: ToolCallPart[]): void {
+    if (parts.length > 0) {
       if (!toolCallsContainer) {
         toolCallsContainer = document.createElement('div');
         toolCallsContainer.className = 'message-tool-calls';
         content.insertBefore(toolCallsContainer, textContainer);
       }
-      // Sincronizar: agregar nuevos, actualizar existentes, remover faltantes
       const seen = new Set<string>();
-      for (const tc of msg.toolCalls) {
-        seen.add(tc.id);
-        const existing = toolCallElements.get(tc.id);
+      for (const tc of parts) {
+        seen.add(tc.toolCallId);
+        const existing = toolCallElements.get(tc.toolCallId);
         if (existing) {
-          // Update in-place: status cambió? re-render header
           updateToolCallStatus(existing, tc);
         } else {
           const el = renderToolCall(tc);
-          toolCallElements.set(tc.id, el);
+          toolCallElements.set(tc.toolCallId, el);
           toolCallsContainer.append(el);
         }
       }
-      // Remover los que ya no están
       for (const [id, el] of toolCallElements) {
         if (!seen.has(id)) {
           el.remove();
@@ -169,51 +171,42 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
       toolCallElements.clear();
       toolCallsContainer = null;
     }
+  }
 
-    // 3. Texto
+  function applyText(msg: ChatMessage, newText: string): void {
     if (msg.isStreaming) {
       if (!streamer) {
-        // Iniciar streaming
         textContainer.classList.add('message-text--streaming');
         textContainer.classList.add('message-text--has-cursor');
         textContainer.textContent = '';
-        streamer = createStreamer(textContainer, () => {
-          streamer = null;
-        });
+        streamer = createStreamer(textContainer, () => { streamer = null; });
       }
-      streamer.updateContent(msg.content);
+      streamer.updateText(newText);
     } else if (streamer) {
-      // El streaming terminó y llega el content final via update().
-      // Pasamos el content al streamer para que lo use en finish.
-      streamer.updateContent(msg.content);
-      // Forzar finish (no esperamos el subscriber de streamingText
-      // porque puede haberse desuscribido antes)
-      streamer.finish();
+      // Stream terminó:Forzamos finish con el content final.
+      streamer.finish(newText);
       streamer = null;
       textContainer.classList.remove('message-text--streaming');
       textContainer.classList.remove('message-text--has-cursor');
-      textContainer.innerHTML = renderMarkdown(msg.content);
+      textContainer.innerHTML = renderMarkdown(newText);
     } else {
-      // No hay streamer: render markdown directo
+      // Sin streamer: render markdown directo.
       textContainer.classList.remove('message-text--streaming');
       textContainer.classList.remove('message-text--has-cursor');
-      textContainer.innerHTML = renderMarkdown(msg.content);
+      if (textContainer.innerHTML !== renderMarkdown(newText)) {
+        textContainer.innerHTML = renderMarkdown(newText);
+      }
     }
+    currentText = newText;
   }
-
-  // Append del textContainer al final
-  content.append(textContainer);
-
-  // Initial render
-  applyMessage(message);
 
   return {
     root,
     id: message.id,
     update: (newMessage) => {
-      if (newMessage.id !== message.id || newMessage.role !== 'assistant') return false;
+      if (newMessage.id !== message.id || newMessage.role !== 'assistant') return;
+      currentMsg = newMessage;
       applyMessage(newMessage);
-      return true;
     },
     dispose: () => {
       if (streamer) streamer.dispose();
@@ -221,117 +214,75 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
   };
 }
 
-/** Streamer handle — encapsula el ciclo de vida del streaming */
+// ─── Streamer (delta extraction + StreamBuffer reveal) ────
+
 interface StreamerHandle {
   dispose(): void;
-  updateContent(fullText: string): void;
-  /** Fuerra el fin del streaming con el content actual. Idempotente. */
-  finish(): void;
+  /** Recibe el texto COMPLETO actual; empuja el delta al StreamBuffer. */
+  updateText(fullText: string): void;
+  /** Fuerza el fin del reveal con el content final. Idempotente. */
+  finish(finalText: string): void;
 }
 
 function createStreamer(
   textContainer: HTMLElement,
   onDone: () => void,
 ): StreamerHandle {
-  let prevStreamLen = 0;
+  let prevLen = 0;
   let isFinished = false;
   let isDisposed = false;
 
-  // Snapshot del content actual al momento de finish: el contenido
-  // completo del mensaje se pasa al render markdown.
-  let finalContent = '';
-
+  // El StreamBuffer solo revela texto gradualmente. El render markdown
+  // final lo hace `finish()` de forma síncrona (no usamos el drenado
+  // async del buffer) para evitar render parcial si el buffer se vacía
+  // mientras aún llegan deltas.
   const streamBuffer = new StreamBuffer({
     onUpdate: (text) => {
-      if (isDisposed) return;
+      if (isDisposed || isFinished) return;
       textContainer.textContent = text;
     },
-    onDone: () => {
-      if (isDisposed || !isFinished) return;
-      // Buffer terminó de drenar después de finish: render markdown
-      textContainer.classList.remove('message-text--streaming');
-      textContainer.classList.remove('message-text--has-cursor');
-      textContainer.innerHTML = renderMarkdown(finalContent);
-      onDone();
-    },
+    onDone: () => { /* no-op: finish() maneja el render final */ },
   });
 
-  function finish(content: string): void {
+  function doFinish(content: string): void {
     if (isFinished) return;
     isFinished = true;
-    finalContent = content;
-    if (streamBuffer.isActive) {
-      // Hay texto pendiente — sync reveal + markdown
-      textContainer.textContent = streamBuffer.total;
-      streamBuffer.reset();
-    }
+    // Revelar sync el content autoritativo y render markdown final.
+    streamBuffer.reset();
     textContainer.classList.remove('message-text--streaming');
     textContainer.classList.remove('message-text--has-cursor');
     textContainer.innerHTML = renderMarkdown(content);
     onDone();
   }
 
-  // Subscribe a streamingText
-  const unsubscribe = appState.streamingText.subscribe((text) => {
-    if (isDisposed) return;
-    if (text === '' && prevStreamLen > 0) {
-      // agent_end
-      prevStreamLen = 0;
-      unsubscribe();
-      // El content final viene del último message (snapshot en
-      // updateContent o del messages array al momento de finish)
-      finish(lastContent);
-      return;
-    }
-    if (text.length > prevStreamLen) {
-      const delta = text.slice(prevStreamLen);
-      prevStreamLen = text.length;
-      streamBuffer.push(delta);
-    }
-  });
-
-  // Track del último content visto (para usar en finish)
-  let lastContent = '';
-
-  // Si ya hay contenido al attach, procesarlo
-  const current = appState.streamingText.value;
-  if (current.length > 0 && current.length > prevStreamLen) {
-    const delta = current.slice(prevStreamLen);
-    prevStreamLen = current.length;
-    streamBuffer.push(delta);
-  }
-
   return {
     dispose: () => {
       if (isDisposed) return;
       isDisposed = true;
-      unsubscribe();
       streamBuffer.reset();
     },
-    updateContent: (fullText: string) => {
+    updateText: (fullText: string) => {
       if (isDisposed || isFinished) return;
-      lastContent = fullText;
-      // Si el contenido creció, procesar el delta
-      if (fullText.length > prevStreamLen) {
-        const delta = fullText.slice(prevStreamLen);
-        prevStreamLen = fullText.length;
+      if (fullText.length > prevLen) {
+        const delta = fullText.slice(prevLen);
+        prevLen = fullText.length;
         streamBuffer.push(delta);
       }
     },
-    finish: () => {
+    finish: (finalText: string) => {
       if (isDisposed || isFinished) return;
-      finish(lastContent);
+      doFinish(finalText);
     },
   };
 }
 
 // ─── TOOL CALL ─────────────────────────────────────────────
 
-function renderToolCall(tc: ToolCall): HTMLElement {
-  const state = computeToolState(tc);
+function renderToolCall(tc: ToolCallPart): HTMLElement {
+  const visual = toolVisualState(tc.state);
   const details = document.createElement('details');
-  details.className = `tool-call tool-call--${state}`;
-  details.dataset.toolCallId = tc.id;
+  details.className = `tool-call tool-call--${visual}`;
+  details.dataset.toolCallId = tc.toolCallId;
   details.open = false;
 
   const summary = document.createElement('summary');
@@ -343,8 +294,8 @@ function renderToolCall(tc: ToolCall): HTMLElement {
   summary.append(name);
 
   const status = document.createElement('span');
-  status.className = `tool-call-status tool-call-status--${state}`;
-  status.setAttribute('aria-label', statusLabel(state));
+  status.className = `tool-call-status tool-call-status--${visual}`;
+  status.setAttribute('aria-label', statusLabel(visual));
   summary.append(status);
 
   details.append(summary);
@@ -357,19 +308,21 @@ function renderToolCall(tc: ToolCall): HTMLElement {
   return details;
 }
 
-function updateToolCallStatus(el: HTMLElement, tc: ToolCall): void {
-  const state = computeToolState(tc);
-  el.className = `tool-call tool-call--${state}`;
+function updateToolCallStatus(el: HTMLElement, tc: ToolCallPart): void {
+  const visual = toolVisualState(tc.state);
+  el.className = `tool-call tool-call--${visual}`;
   const status = el.querySelector('.tool-call-status');
   if (status) {
-    status.className = `tool-call-status tool-call-status--${state}`;
-    status.setAttribute('aria-label', statusLabel(state));
+    status.className = `tool-call-status tool-call-status--${visual}`;
+    status.setAttribute('aria-label', statusLabel(visual));
   }
 }
 
-function computeToolState(tc: ToolCall): 'pending' | 'success' | 'error' {
-  if (tc.result === undefined) return 'pending';
-  return tc.isError ? 'error' : 'success';
+/** Mapea el ToolState del reducer a las 3 clases visuales del CSS. */
+function toolVisualState(state: ToolState): 'pending' | 'success' | 'error' {
+  if (state === 'completed') return 'success';
+  if (state === 'failed') return 'error';
+  return 'pending';
 }
 
 function statusLabel(state: 'pending' | 'success' | 'error'): string {
@@ -387,10 +340,10 @@ function renderToolResultMessage(message: ChatMessage): ChatBubbleHandle {
   root.className = 'message message--toolResult';
   root.dataset.messageId = message.id;
 
-  if (message.toolResult) {
-    const isError = message.toolResult.isError;
+  const part = message.parts.find(isToolResult) as ToolResultPart | undefined;
+  if (part) {
     const details = document.createElement('details');
-    details.className = `tool-result-card${isError ? ' tool-result-card--error' : ''}`;
+    details.className = `tool-result-card${part.isError ? ' tool-result-card--error' : ''}`;
     details.open = false;
 
     const summary = document.createElement('summary');
@@ -398,14 +351,14 @@ function renderToolResultMessage(message: ChatMessage): ChatBubbleHandle {
 
     const name = document.createElement('span');
     name.className = 'tool-result-name';
-    name.textContent = `Result: ${message.toolResult.toolName}`;
+    name.textContent = `Result: ${part.toolName}`;
     summary.append(name);
 
     details.append(summary);
 
     const body = document.createElement('pre');
     body.className = 'tool-result-body';
-    body.textContent = message.content;
+    body.textContent = part.result.output;
     details.append(body);
 
     root.append(details);
@@ -414,11 +367,7 @@ function renderToolResultMessage(message: ChatMessage): ChatBubbleHandle {
   return {
     root,
     id: message.id,
-    update: (newMessage) => {
-      if (newMessage.id !== message.id) return false;
-      // toolResult no se actualiza en su lugar — si cambia, re-mount
-      return false;
-    },
+    update: () => { /* toolResult no se actualiza in-place */ },
     dispose: () => {},
   };
 }
@@ -430,21 +379,22 @@ function renderCompactionDivider(message: ChatMessage): ChatBubbleHandle {
   root.className = 'message message--compaction';
   root.dataset.messageId = message.id;
 
-  const tokensBefore = message.compaction?.tokensBefore ?? 0;
-  const formatted = formatTokens(tokensBefore);
+  const part = message.parts.find(isCompaction) as CompactionPart | undefined;
+  const tokensBefore = part?.tokensBefore ?? 0;
+  const summary = part?.summary ?? '';
 
   const details = document.createElement('details');
   details.className = 'compaction-divider';
 
-  const summary = document.createElement('summary');
-  summary.className = 'compaction-summary';
-  summary.textContent = `Compaction: ${formatted} compactados`;
-  details.append(summary);
+  const summaryEl = document.createElement('summary');
+  summaryEl.className = 'compaction-summary';
+  summaryEl.textContent = `Compaction: ${formatTokens(tokensBefore)} compactados`;
+  details.append(summaryEl);
 
-  if (message.content) {
+  if (summary) {
     const body = document.createElement('pre');
     body.className = 'compaction-body';
-    body.textContent = message.content;
+    body.textContent = summary;
     details.append(body);
   }
 
@@ -453,10 +403,17 @@ function renderCompactionDivider(message: ChatMessage): ChatBubbleHandle {
   return {
     root,
     id: message.id,
-    update: () => false,
+    update: () => {},
     dispose: () => {},
   };
 }
+
+// ─── Helpers ──────────────────────────────────────────────
+
+const isThinking = (p: Part): p is ThinkingPart => p.type === 'thinking';
+const isToolCall = (p: Part): p is ToolCallPart => p.type === 'toolCall';
+const isToolResult = (p: Part): p is ToolResultPart => p.type === 'toolResult';
+const isCompaction = (p: Part): p is CompactionPart => p.type === 'compaction';
 
 function formatTokens(n: number): string {
   if (n < 1000) return `${n} tokens`;

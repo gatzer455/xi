@@ -457,6 +457,24 @@ describe('reduce — secuencia completa de streaming', () => {
 
 // ─── Inmutabilidad ────────────────────────────────────────
 
+describe('reduce — local_message', () => {
+  it('inserta un mensaje nuevo', () => {
+    const initial = emptyState();
+    const local = userMsg('local_1', 'ask result', 9999);
+    const state = reduceFrozen(initial, { type: 'local_message', message: local });
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]).toBe(local);
+  });
+
+  it('reemplaza por id si existe', () => {
+    const initial = { ...emptyState(), messages: [userMsg('local_1', 'old', 9999)] };
+    const local = userMsg('local_1', 'new', 9999);
+    const state = reduceFrozen(initial, { type: 'local_message', message: local });
+    expect(state.messages[0].parts[0]).toEqual({ type: 'text', text: 'new' });
+    expect(state.messages).toHaveLength(1);
+  });
+});
+
 describe('reduce — inmutabilidad', () => {
   it('no muta el state entrante (Object.freeze)', () => {
     const initial = {

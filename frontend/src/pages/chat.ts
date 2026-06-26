@@ -1,35 +1,26 @@
 /**
  * chat.ts — Vista de chat del output board.
  *
- * Arquitectura: UN SOLO render path. ChatBubble (componente) se encarga
- * de TODO el render, incluyendo el caso de streaming (cada ChatBubble
- * se suscribe internamente a streamingText si su message tiene
- * isStreaming=true). ChatPage solo:
+ * Arquitectura chat-architecture-v2:
+ *   - Los mensajes viven en `ChatStore`s per-tab (lib/chat/stores.ts).
+ *   - ChatPage se suscribe al store del activeTab. Al cambiar de tab,
+ *     se desuscribe del store viejo y se suscribe al nuevo (re-render).
+ *   - Los `bubbleHandles` viven en el closure de `ChatPage` (no
+ *     module-level) — se limpian al desmontar la página.
+ *   - El indicador de streaming lee el `isStreaming$` del store activo
+ *     (per-tab), no el global.
+ *
  *   1. Layout (header + messages container + dialogs)
  *   2. Auto-scroll (sentinel + ResizeObserver)
  *   3. Extension UI dialogs (insertar al final)
- *   4. Suscripción a appState.messages → renderMessages
- *
- * Inspiración: Claude.ai / ChatGPT / Cursor / DeepSeek.
- *
- * ## Auto-scroll
- *
- * 1. Sentinel element al final de los mensajes
- * 2. Initial pin (doble rAF + reflow forzado) en primer render
- * 3. ResizeObserver con stick-to-bottom: si el usuario está "near
- *    bottom" (≤ 100px), re-scroll; si scrolleó arriba, respetar
- * 4. <details> toggle pausa el ResizeObserver 300ms (evita scroll-jacking)
- *
- * ## Streaming
- *
- * Ya no hay subscribers paralelos. Cada ChatBubble se auto-gestiona
- * cuando isStreaming=true. El ChatPage solo re-renderiza cuando
- * `messages` cambia (mensajes nuevos, no deltas).
+ *   4. Suscripción al ChatStore del activeTab → renderMessages
  */
 
 import { appState, type ExtensionDialogState } from '../lib/state.ts';
 import { createScope, type Page } from '../lib/scope.ts';
 import { ChatBubble, type ChatBubbleHandle } from '../components/chat-bubble.ts';
+import { getStore, type ChatStore } from '../lib/chat/stores.ts';
+import type { ChatMessage } from '../lib/chat/types.ts';
 import {
   renderSelectDialog,
   renderConfirmDialog,
@@ -51,8 +42,8 @@ export function ChatPage(): Page {
   const scope = createScope();
 
   // ═══ Header ═══
-  const header = createHeader(scope);
-  root.append(header);
+  const headerHandle = createHeader(scope);
+  root.append(headerHandle.root);
 
   // ═══ Banner: no hay API key configurada ═══
   const authBanner = createAuthBanner();
@@ -71,18 +62,55 @@ export function ChatPage(): Page {
     scope,
   });
 
-  // ═══ Render ═══
-  scope.add(
-    appState.messages.subscribe((messages) => {
-      renderMessages(messagesInner, endSentinel, messages, scroll.pinToBottom);
-    }),
-  );
+  // ═══ Render: bubbleHandles en closure (no module-level) ═══
+  const bubbleHandles = new Map<string, ChatBubbleHandle>();
+
+  function renderMessages(messages: ChatMessage[]): void {
+    renderMessagesInto(messagesInner, endSentinel, bubbleHandles, messages, scroll.pinToBottom);
+  }
+
+  // ═══ Bind al ChatStore del activeTab ═══
+  let currentStore: ChatStore | null = null;
+  let unsubMessages: (() => void) | null = null;
+  let unsubStreaming: (() => void) | null = null;
+
+  function bindActiveTab(tabId: string | null): void {
+    unsubMessages?.();
+    unsubStreaming?.();
+    unsubMessages = null;
+    unsubStreaming = null;
+    currentStore = null;
+
+    if (!tabId) {
+      renderEmptyStateInto(messagesInner, endSentinel);
+      scroll.pinToBottom();
+      return;
+    }
+
+    const store = getStore(tabId);
+    currentStore = store;
+    unsubMessages = store.messages$.subscribe(renderMessages);
+    unsubStreaming = store.isStreaming$.subscribe((streaming) => {
+      headerHandle.setStreaming(streaming);
+    });
+  }
+
+  scope.add(appState.activeTabId.subscribe(bindActiveTab));
+  scope.add(() => {
+    unsubMessages?.();
+    unsubStreaming?.();
+    for (const h of bubbleHandles.values()) h.dispose();
+    bubbleHandles.clear();
+  });
 
   // ═══ Extension UI Dialog ═══
   setupExtensionDialogs({
     messagesInner,
     endSentinel,
     scope,
+    getStore_: () => currentStore,
+    bubbleHandles,
+    scroll,
   });
 
   return {
@@ -99,7 +127,12 @@ export function ChatPage(): Page {
 // Header
 // ═══════════════════════════════════════════════════════════
 
-function createHeader(scope: ReturnType<typeof createScope>): HTMLElement {
+interface HeaderHandle {
+  root: HTMLElement;
+  setStreaming(streaming: boolean): void;
+}
+
+function createHeader(scope: ReturnType<typeof createScope>): HeaderHandle {
   const header = document.createElement('div');
   header.className = 'chat-header';
 
@@ -108,7 +141,6 @@ function createHeader(scope: ReturnType<typeof createScope>): HTMLElement {
   title.textContent = 'xi';
   header.append(title);
 
-  // Status indicator: "pi" + estado dinámico
   const statusGroup = document.createElement('div');
   statusGroup.className = 'chat-header-status';
 
@@ -117,7 +149,6 @@ function createHeader(scope: ReturnType<typeof createScope>): HTMLElement {
   modelBadge.textContent = 'sin modelo';
   statusGroup.append(modelBadge);
 
-  // Spinner + status text (visible solo durante streaming)
   const streamingIndicator = document.createElement('span');
   streamingIndicator.className = 'chat-header-streaming';
   streamingIndicator.style.display = 'none';
@@ -127,25 +158,24 @@ function createHeader(scope: ReturnType<typeof createScope>): HTMLElement {
   streamingIndicator.append(spinner);
 
   const streamingLabel = document.createElement('span');
-  streamingLabel.textContent = 'pi está pensando…';
+  streamingLabel.textContent = 'Trabajando…';
   streamingIndicator.append(streamingLabel);
 
   statusGroup.append(streamingIndicator);
   header.append(statusGroup);
 
-  // Subscriptions
   scope.add(
     appState.currentModel.subscribe((model) => {
       modelBadge.textContent = model ? model.name : 'sin modelo';
     }),
   );
-  scope.add(
-    appState.isStreaming.subscribe((streaming) => {
-      streamingIndicator.style.display = streaming ? 'inline-flex' : 'none';
-    }),
-  );
 
-  return header;
+  return {
+    root: header,
+    setStreaming: (streaming) => {
+      streamingIndicator.style.display = streaming ? 'inline-flex' : 'none';
+    },
+  };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -190,6 +220,9 @@ function createMessagesContainer() {
   const endSentinel = document.createElement('div');
   endSentinel.className = 'chat-end-sentinel';
 
+  messagesContainer.append(messagesInner);
+  messagesInner.append(endSentinel);
+
   return { messagesContainer, messagesInner, endSentinel };
 }
 
@@ -212,9 +245,7 @@ function createAutoScroll(opts: AutoScrollOptions) {
 
   function isNearBottom(): boolean {
     const distance =
-      container.scrollHeight -
-      container.scrollTop -
-      container.clientHeight;
+      container.scrollHeight - container.scrollTop - container.clientHeight;
     return distance <= NEAR_BOTTOM_PX;
   }
 
@@ -227,15 +258,12 @@ function createAutoScroll(opts: AutoScrollOptions) {
     });
   }
 
-  // Pausar auto-scroll cuando el usuario expande/colapsa un <details>
   inner.addEventListener(
     'toggle',
     (e) => {
       if (e.target instanceof HTMLDetailsElement) {
         pauseAutoScroll = true;
-        setTimeout(() => {
-          pauseAutoScroll = false;
-        }, 300);
+        setTimeout(() => { pauseAutoScroll = false; }, 300);
       }
     },
     true,
@@ -265,38 +293,15 @@ function createAutoScroll(opts: AutoScrollOptions) {
 // Render
 // ═══════════════════════════════════════════════════════════
 
-// Map de messageId → ChatBubbleHandle, para update in-place
-const bubbleHandles = new Map<string, ChatBubbleHandle>();
-
-/** Remueve los bubble DOM nodes actuales (excepto el sentinel y empty state)
- *  de messagesInner, sin perder las referencias en bubbleHandles. */
-function detachBubbleNodes(messagesInner: HTMLElement, endSentinel: HTMLElement): void {
-  for (const handle of bubbleHandles.values()) {
-    if (handle.root.parentNode === messagesInner) {
-      handle.root.remove();
-    }
-  }
-}
-
-/** Re-inserta los bubble nodes en el orden correcto, justo antes del sentinel. */
-function reattachBubbleNodes(messagesInner: HTMLElement, endSentinel: HTMLElement): void {
-  // Insertamos en orden, todos antes del sentinel
-  for (const handle of bubbleHandles.values()) {
-    messagesInner.insertBefore(handle.root, endSentinel);
-  }
-}
-
-function renderMessages(
+function renderMessagesInto(
   messagesInner: HTMLElement,
   endSentinel: HTMLElement,
-  messages: typeof appState.messages.value,
+  bubbleHandles: Map<string, ChatBubbleHandle>,
+  messages: ChatMessage[],
   pinToBottom: () => void,
 ): void {
   if (messages.length === 0) {
-    // Wipe handles y DOM
-    for (const handle of bubbleHandles.values()) {
-      handle.dispose();
-    }
+    for (const handle of bubbleHandles.values()) handle.dispose();
     bubbleHandles.clear();
     messagesInner.replaceChildren();
     messagesInner.append(renderEmptyState());
@@ -305,14 +310,10 @@ function renderMessages(
     return;
   }
 
-  // Si hay un empty state, removerlo
   const emptyState = messagesInner.querySelector('.chat-empty-state');
   if (emptyState) emptyState.remove();
 
-  // Reconciliar: para cada message, si handle existe → update, si no → crear.
-  // Después, dispose los handles que no están en messages.
   const seenIds = new Set<string>();
-
   for (const msg of messages) {
     seenIds.add(msg.id);
     const existing = bubbleHandles.get(msg.id);
@@ -324,7 +325,6 @@ function renderMessages(
     }
   }
 
-  // Dispose los que ya no están
   for (const [id, handle] of bubbleHandles) {
     if (!seenIds.has(id)) {
       handle.dispose();
@@ -333,12 +333,22 @@ function renderMessages(
     }
   }
 
-  // Sincronizar orden en el DOM: detach todos y re-attach en orden
-  // (más simple que calcular movimientos óptimos)
-  detachBubbleNodes(messagesInner, endSentinel);
-  reattachBubbleNodes(messagesInner, endSentinel);
+  // Re-attach en orden antes del sentinel.
+  for (const handle of bubbleHandles.values()) {
+    if (handle.root.parentNode !== messagesInner) {
+      messagesInner.insertBefore(handle.root, endSentinel);
+    } else {
+      messagesInner.insertBefore(handle.root, endSentinel);
+    }
+  }
 
   pinToBottom();
+}
+
+function renderEmptyStateInto(messagesInner: HTMLElement, endSentinel: HTMLElement): void {
+  messagesInner.replaceChildren();
+  messagesInner.append(renderEmptyState());
+  messagesInner.append(endSentinel);
 }
 
 function renderEmptyState(): HTMLElement {
@@ -358,7 +368,7 @@ function renderEmptyState(): HTMLElement {
   const subtitle = document.createElement('p');
   subtitle.className = 'chat-empty-subtitle';
   subtitle.textContent = appState.workingDir.value
-    ? 'Escribe un mensaje para comenzar una conversación con pi.'
+    ? 'Escribe un mensaje para comenzar una conversación.'
     : 'Selecciona una carpeta de trabajo para comenzar.';
   welcome.append(subtitle);
 
@@ -373,10 +383,13 @@ interface DialogSetupOptions {
   messagesInner: HTMLElement;
   endSentinel: HTMLElement;
   scope: ReturnType<typeof createScope>;
+  getStore_: () => ChatStore | null;
+  bubbleHandles: Map<string, ChatBubbleHandle>;
+  scroll: { pinToBottom: () => void };
 }
 
 function setupExtensionDialogs(opts: DialogSetupOptions) {
-  const { messagesInner, endSentinel, scope } = opts;
+  const { messagesInner, endSentinel, scope, getStore_, bubbleHandles, scroll } = opts;
 
   let activeDialogContainer: HTMLElement | null = null;
   let dialogKeydownCleanup: (() => void) | null = null;
@@ -393,60 +406,30 @@ function setupExtensionDialogs(opts: DialogSetupOptions) {
     switch (dialog.method) {
       case 'select':
         dialogElement = renderSelectDialog(
-          {
-            type: 'extension_ui_request',
-            id: dialog.id,
-            method: 'select',
-            title: dialog.title,
-            options: dialog.options ?? [],
-          },
-          dialog.resolve,
-          dialog.reject,
+          { type: 'extension_ui_request', id: dialog.id, method: 'select', title: dialog.title, options: dialog.options ?? [] },
+          dialog.resolve, dialog.reject,
         );
         break;
       case 'confirm':
         dialogElement = renderConfirmDialog(
-          {
-            type: 'extension_ui_request',
-            id: dialog.id,
-            method: 'confirm',
-            title: dialog.title,
-            message: dialog.message ?? '',
-          },
-          dialog.resolve,
-          dialog.reject,
+          { type: 'extension_ui_request', id: dialog.id, method: 'confirm', title: dialog.title, message: dialog.message ?? '' },
+          dialog.resolve, dialog.reject,
         );
         break;
       case 'input':
         dialogElement = renderInputDialog(
-          {
-            type: 'extension_ui_request',
-            id: dialog.id,
-            method: 'input',
-            title: dialog.title,
-            placeholder: dialog.placeholder,
-          },
-          dialog.resolve,
-          dialog.reject,
+          { type: 'extension_ui_request', id: dialog.id, method: 'input', title: dialog.title, placeholder: dialog.placeholder },
+          dialog.resolve, dialog.reject,
         );
         break;
       case 'editor':
         dialogElement = renderEditorDialog(
-          {
-            type: 'extension_ui_request',
-            id: dialog.id,
-            method: 'editor',
-            title: dialog.title,
-            prefill: dialog.prefill,
-          },
-          dialog.resolve,
-          dialog.reject,
+          { type: 'extension_ui_request', id: dialog.id, method: 'editor', title: dialog.title, prefill: dialog.prefill },
+          dialog.resolve, dialog.reject,
         );
         break;
       default:
-        console.error(
-          `[chat] Unknown extension dialog method: ${dialog.method}`,
-        );
+        console.error(`[chat] Unknown extension dialog method: ${dialog.method}`);
         dialog.reject();
         return;
     }
@@ -455,10 +438,7 @@ function setupExtensionDialogs(opts: DialogSetupOptions) {
     messagesInner.insertBefore(activeDialogContainer, endSentinel);
 
     requestAnimationFrame(() => {
-      activeDialogContainer?.scrollIntoView({
-        block: 'end',
-        behavior: 'smooth',
-      });
+      activeDialogContainer?.scrollIntoView({ block: 'end', behavior: 'smooth' });
     });
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -468,9 +448,7 @@ function setupExtensionDialogs(opts: DialogSetupOptions) {
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-
-    const cleanup = () =>
-      document.removeEventListener('keydown', handleKeyDown);
+    const cleanup = () => document.removeEventListener('keydown', handleKeyDown);
     scope.add(cleanup);
     dialogKeydownCleanup = cleanup;
   }
@@ -524,48 +502,45 @@ function setupExtensionDialogs(opts: DialogSetupOptions) {
       } else {
         removeExtensionDialog();
         if (askResponses.length > 0) {
-          addAskResult(askResponses);
+          addAskResult(askResponses, getStore_);
           askResponses = [];
+          scroll.pinToBottom();
         }
       }
     }),
   );
 }
 
-function formatDialogResponse(
-  method: string,
-  value: Record<string, unknown>,
-): string {
+function formatDialogResponse(method: string, value: Record<string, unknown>): string {
   switch (method) {
-    case "select":
-      return String(value.value ?? "");
-    case "confirm":
-      return value.confirmed ? "Sí" : "No";
-    case "input":
-      return String(value.value ?? "");
-    case "editor":
-      return String(value.value ?? "");
-    default:
-      return JSON.stringify(value);
+    case 'select': return String(value.value ?? '');
+    case 'confirm': return value.confirmed ? 'Sí' : 'No';
+    case 'input': return String(value.value ?? '');
+    case 'editor': return String(value.value ?? '');
+    default: return JSON.stringify(value);
   }
 }
 
 function addAskResult(
   responses: Array<{ question: string; answer: string }>,
+  getStore_: () => ChatStore | null,
 ): void {
-  const id = `ask-result-${Date.now()}`;
+  const ts = Date.now();
   const lines = responses.map((r) => `**${r.question}** → ${r.answer}`);
-  const content = lines.join("\n");
+  const output = lines.join('\n');
 
-  const message = {
-    id,
-    role: "toolResult" as const,
-    content,
-    timestamp: Date.now(),
-    toolResult: {
-      toolName: "ask",
+  const message: ChatMessage = {
+    id: `toolResult_ask_${ts}`,
+    role: 'toolResult',
+    parts: [{
+      type: 'toolResult',
+      toolCallId: `ask_${ts}`,
+      toolName: 'ask',
+      result: { output },
       isError: false,
-    },
+    }],
+    timestamp: ts,
   };
-  appState.messages.value = [...appState.messages.value, message];
+  const store = getStore_();
+  if (store) store.dispatch({ type: 'local_message', message });
 }

@@ -14,7 +14,7 @@
  */
 
 import { appState } from '../lib/state.ts';
-import { sendPrompt, abortPi } from '../lib/pi/index.ts';
+import { sendPrompt, abortPi, beginStreamForSession, endStream } from '../lib/pi/index.ts';
 import { navigate } from '../lib/nav.ts';
 
 export function InputBar(): HTMLElement {
@@ -83,7 +83,7 @@ export function InputBar(): HTMLElement {
       sendBtn.classList.remove('input-send-btn--send');
       sendBtn.disabled = false;
       textarea.disabled = true;
-      textarea.placeholder = 'pi está respondiendo…';
+      textarea.placeholder = 'Trabajando…';
     } else {
       // Modo send
       sendBtn.classList.add('input-send-btn--send');
@@ -110,20 +110,22 @@ export function InputBar(): HTMLElement {
     const text = textarea.value.trim();
     if (!text || !appState.workingDir.value || appState.isStreaming.value) return;
 
-    const userMsg = {
-      id: crypto.randomUUID(),
-      role: 'user' as const,
-      content: text,
-      timestamp: Date.now(),
-    };
-    appState.messages.value = [...appState.messages.value, userMsg];
+    const tabId = appState.activeTabId.value;
+    if (!tabId) return;
 
     if (appState.currentView.value !== 'chat') {
       navigate('chat');
     }
 
+    // Reclamar el routing del stream para este tab ANTES de enviar,
+    // para ganar la carrera contra un cambio de tab (D7). El mensaje
+    // del user llega después vía `message_start` de pi — no agregamos
+    // mensaje optimista para evitar duplicación al reconciliar agent_end.
+    beginStreamForSession(tabId);
+
     sendPrompt(text).catch((err) => {
       console.error('Error sending prompt:', err);
+      endStream();
     });
 
     textarea.value = '';
