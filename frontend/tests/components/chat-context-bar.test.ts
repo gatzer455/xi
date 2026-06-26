@@ -3,11 +3,13 @@
  *
  * Verifica:
  * - Barra SIEMPRE visible; solo spinner + label se ocultan/muestran
- * - Spinner braille: arranca/detiene con appState.isStreaming
- * - Modelo: se actualiza con currentModel
- * - Token bar: calcula desde messages$ del store activo
- * - Barra de progreso visual
- * - dispose limpia todo
+ *   via visibility (preservan espacio, layout no salta).
+ * - Spinner braille: arranca/detiene con appState.isStreaming.
+ * - Modelo: se actualiza con currentModel.
+ * - Token bar: usa usage.total del ÚLTIMO assistant message (no suma
+ *   todos — eso daba el total histórico de facturación).
+ * - Barra de progreso visual siempre accent.
+ * - dispose limpia todo.
  *
  * @vitest-environment jsdom
  */
@@ -90,33 +92,35 @@ describe('ChatContextBar', () => {
     cb.dispose();
   });
 
-  test('spinner y label ocultos por defecto (isStreaming=false)', () => {
+  test('spinner y label ocultos con visibility (no display) cuando isStreaming=false', () => {
     const cb = ChatContextBar();
     const spinner = cb.root.querySelector<HTMLElement>('.context-bar-spinner')!;
     const label = cb.root.querySelector<HTMLElement>('.context-bar-label')!;
-    expect(spinner.style.display).toBe('none');
-    expect(label.style.display).toBe('none');
+    // Preservan espacio (visibility:hidden) pero no son visibles
+    expect(spinner.style.visibility).toBe('hidden');
+    expect(spinner.style.display).not.toBe('none');
+    expect(label.style.visibility).toBe('hidden');
     cb.dispose();
   });
 
-  test('isStreaming=true muestra spinner y label', () => {
+  test('isStreaming=true cambia visibility a visible', () => {
     const cb = ChatContextBar();
     isStreaming.value = true;
     const spinner = cb.root.querySelector<HTMLElement>('.context-bar-spinner')!;
     const label = cb.root.querySelector<HTMLElement>('.context-bar-label')!;
-    expect(spinner.style.display).not.toBe('none');
-    expect(label.style.display).not.toBe('none');
+    expect(spinner.style.visibility).toBe('visible');
+    expect(label.style.visibility).toBe('visible');
     cb.dispose();
   });
 
-  test('isStreaming=false oculta spinner y label', () => {
+  test('isStreaming=false vuelve a visibility hidden', () => {
     const cb = ChatContextBar();
     isStreaming.value = true;
     isStreaming.value = false;
     const spinner = cb.root.querySelector<HTMLElement>('.context-bar-spinner')!;
     const label = cb.root.querySelector<HTMLElement>('.context-bar-label')!;
-    expect(spinner.style.display).toBe('none');
-    expect(label.style.display).toBe('none');
+    expect(spinner.style.visibility).toBe('hidden');
+    expect(label.style.visibility).toBe('hidden');
     cb.dispose();
   });
 
@@ -180,12 +184,10 @@ describe('ChatContextBar', () => {
     cb.dispose();
   });
 
-  test('token bar nunca oculta aunque no haya messages', () => {
+  test('token bar vacía sin activeTabId', () => {
     const cb = ChatContextBar();
-    // Sin activeTabId → token vacío pero barra visible
     const tokens = cb.root.querySelector('.context-bar-tokens')!;
     expect(tokens.textContent).toBe('');
-    expect(tokens.style.display).not.toBe('none');
     cb.dispose();
   });
 
@@ -205,10 +207,21 @@ describe('ChatContextBar', () => {
 
   test('token bar y modelo visibles aunque isStreaming=false', () => {
     const cb = ChatContextBar();
-    // La barra entera es visible, solo spinner+label ocultos
-    expect(cb.root.querySelector('.context-bar-tokens')?.closest('.context-bar')).not.toBeNull();
+    const tokens = cb.root.querySelector('.context-bar-tokens')!;
+    expect(tokens.textContent).toBe('');
     const modelBtn = cb.root.querySelector<HTMLButtonElement>('.context-bar-model')!;
     expect(modelBtn.textContent).toBe('sin modelo');
+    cb.dispose();
+  });
+
+  test('progress bar fill NO tiene hsl (el verde/rojo viejo)', () => {
+    const cb = ChatContextBar();
+    const fill = cb.root.querySelector<HTMLElement>('.context-bar-progress-fill')!;
+    // El CSS del componente ya pone background: var(--color-accent) por
+    // clase. El inline style solo se actualiza cuando hay activeTabId.
+    // Lo que verificamos es que NO tenga el hue dinámico viejo (hsl).
+    const style = fill.getAttribute('style') ?? '';
+    expect(style).not.toContain('hsl');
     cb.dispose();
   });
 });

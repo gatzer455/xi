@@ -63,8 +63,14 @@ function getContextWindow(modelId: string | null): number {
 // ─── Formateo de números ──────────────────────────────────
 
 function fmtTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1_000_000) {
+    const v = n / 1_000_000;
+    return v % 1 === 0 ? `${v}M` : `${v.toFixed(1)}M`;
+  }
+  if (n >= 1_000) {
+    const v = n / 1_000;
+    return v % 1 === 0 ? `${v}K` : `${v.toFixed(1)}K`;
+  }
   return String(n);
 }
 
@@ -149,14 +155,15 @@ export function ChatContextBar(): ChatContextBarHandle {
 
   // ═══ Suscripciones ═══
 
-  // Solo el spinner y label se ocultan cuando no hay stream.
-  // La barra completa (tokens, modelo) siempre es visible.
-  spinner.style.display = 'none';
-  label.style.display = 'none';
+  // El spinner y label se ocultan con visibility (no display:none)
+  // para preservar su espacio y evitar que la token bar se corra
+  // cuando aparecen/desaparecen.
+  spinner.style.visibility = 'hidden';
+  label.style.visibility = 'hidden';
 
   const unsubStreaming = appState.isStreaming.subscribe((streaming) => {
-    spinner.style.display = streaming ? '' : 'none';
-    label.style.display = streaming ? '' : 'none';
+    spinner.style.visibility = streaming ? 'visible' : 'hidden';
+    label.style.visibility = streaming ? 'visible' : 'hidden';
     if (streaming) {
       startSpinner();
     } else {
@@ -181,21 +188,31 @@ export function ChatContextBar(): ChatContextBarHandle {
     }
     const store = getStore(tabId);
     const messages = store.messages$.value;
-    const totalUsed = messages.reduce((sum, m) => {
-      return sum + (m.metadata?.usage?.total ?? 0);
-    }, 0);
+
+    // Buscar el ÚLTIMO assistant message CON usage (no los parciales
+    // durante streaming que no tienen metadata). El usage.total del
+    // último assistant completo refleja el contexto actual de la
+    // conversación — suma de input + output acumulados hasta ese turno.
+    // NO sumamos todos los mensajes (eso da el total histórico de
+    // tokens facturados, que incluye compactaciones y es enorme).
+    let lastUsageTotal = 0;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m.role === 'assistant' && m.metadata?.usage?.total) {
+        lastUsageTotal = m.metadata.usage.total;
+        break;
+      }
+    }
+
     const maxCtx = getContextWindow(appState.currentModel.value?.id ?? null);
-    const pct = maxCtx > 0 ? (totalUsed / maxCtx) * 100 : 0;
+    const pct = maxCtx > 0 ? (lastUsageTotal / maxCtx) * 100 : 0;
 
     // Texto: "12.3K / 128K (9.6%)"
-    tokenBar.textContent = `${fmtTokens(totalUsed)} / ${fmtTokens(maxCtx)} (${pct.toFixed(1)}%)`;
+    tokenBar.textContent = `${fmtTokens(lastUsageTotal)} / ${fmtTokens(maxCtx)} (${pct.toFixed(1)}%)`;
 
-    // Barra de progreso
+    // Barra de progreso: color ACCENT único (sin verde/amarillo/rojo)
     progressFill.style.width = `${Math.min(pct, 100)}%`;
-
-    // Cambiar color según nivel de uso
-    const hue = pct > 80 ? 0 : pct > 60 ? 40 : 120; // rojo → amarillo → verde
-    progressFill.style.background = `hsl(${hue}, 70%, 45%)`;
+    progressFill.style.background = 'var(--color-accent)';
   }
 
   const unsubTab = appState.activeTabId.subscribe((tabId) => {
@@ -215,8 +232,8 @@ export function ChatContextBar(): ChatContextBarHandle {
 
   // ═══ Tick inicial para saber si arrancar spinner ═══
   if (appState.isStreaming.value) {
-    spinner.style.display = '';
-    label.style.display = '';
+    spinner.style.visibility = 'visible';
+    label.style.visibility = 'visible';
     startSpinner();
   }
   updateTokensFromStore();
