@@ -144,6 +144,22 @@
   margin-left: var(--space-3);
 }
 .settings-button:hover { filter: brightness(0.9); }
+.settings-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.settings-button--primary {
+  background: var(--color-success, #2ea043);
+  color: #fff;
+}
+.settings-button--primary:hover { filter: brightness(1.1); }
+
+/* Settings: sección de update */
+.settings-update-row { display: flex; flex-direction: row; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.settings-update-status { font-family: var(--font-mono); font-size: var(--text-sm); }
+.settings-update-status--idle { color: var(--color-text-muted); }
+.settings-update-status--checking { color: var(--color-accent); }
+.settings-update-status--downloading { color: var(--color-accent); }
+.settings-update-status--ready { color: var(--color-success, #2ea043); }
+.settings-update-status--error { color: var(--color-error); }
+.settings-update-actions { display: flex; gap: var(--space-2); margin-left: auto; }
 
 /* Settings: sección Proveedor */
 .settings-provider-control { display: flex; flex-direction: column; gap: var(--space-3); align-items: flex-start; }

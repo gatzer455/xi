@@ -3,6 +3,7 @@ AGENTS.md
 CONTEXT.md
 .pi/
 .develop/
+.debug/
 
 # Backend (Rust / Cargo)
 backend/target/

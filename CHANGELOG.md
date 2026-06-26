@@ -140,6 +140,21 @@ Versión inicial de xi. Interfaz de escritorio para pi, dirigida a personas sin 
 
 ---
 
+## [0.1.4] - 2026-06-26
+
+Auto-update funcional. El endpoint del updater ahora apunta a GitHub Releases.
+
+### Fixed
+
+- **Updater endpoint vacío**: `tauri.conf.json` tenía `endpoints: []`. Ahora
+  apunta a `https://github.com/gatzer455/xi/releases/latest/download/latest.json`.
+  Sin esto, el updater fallaba con "Updater does not have any endpoints set".
+
+### Changed
+
+- `ensure-sidecars.js` → `ensure-sidecars.mjs`: elimina warning de Node sobre
+  módulo sin tipo declarado.
+
 ## [0.1.3] - 2026-06-25
 
 Pi ahora incluye los temas necesarios para arrancar. Versión pineada.
