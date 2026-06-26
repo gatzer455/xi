@@ -183,7 +183,7 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
       }
       streamer.updateText(newText);
     } else if (streamer) {
-      // Stream terminó:Forzamos finish con el content final.
+      // Stream terminó: forzamos finish con el content final.
       streamer.finish(newText);
       streamer = null;
       textContainer.classList.remove('message-text--streaming');
@@ -193,9 +193,7 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
       // Sin streamer: render markdown directo.
       textContainer.classList.remove('message-text--streaming');
       textContainer.classList.remove('message-text--has-cursor');
-      if (textContainer.innerHTML !== renderMarkdown(newText)) {
-        textContainer.innerHTML = renderMarkdown(newText);
-      }
+      textContainer.innerHTML = renderMarkdown(newText);
     }
     currentText = newText;
   }

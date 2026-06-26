@@ -7,8 +7,13 @@
  *     se desuscribe del store viejo y se suscribe al nuevo (re-render).
  *   - Los `bubbleHandles` viven en el closure de `ChatPage` (no
  *     module-level) — se limpian al desmontar la página.
- *   - El indicador de streaming lee el `isStreaming$` del store activo
- *     (per-tab), no el global.
+ *   - El footer "Trabajando…" es un OVERLAY transparente al fondo del
+ *     chat-area (fuera de flujo, position absolute) para que su
+ *     aparición/desaparición NO reflowe el markdown de los mensajes.
+ *     Se suscribe al `appState.isStreaming` GLOBAL, no al `isStreaming$`
+ *     per-tab: "pi está trabajando" es un hecho global de la app, no
+ *     de la tab visible — y la señal global se libera de forma fiable
+ *     en agent_end y terminated.
  *
  *   1. Layout (header + messages container + dialogs)
  *   2. Auto-scroll (sentinel + ResizeObserver)
@@ -19,6 +24,7 @@
 import { appState, type ExtensionDialogState } from '../lib/state.ts';
 import { createScope, type Page } from '../lib/scope.ts';
 import { ChatBubble, type ChatBubbleHandle } from '../components/chat-bubble.ts';
+import { ChatFooter, type ChatFooterHandle } from '../components/chat-footer.ts';
 import { getStore, type ChatStore } from '../lib/chat/stores.ts';
 import type { ChatMessage } from '../lib/chat/types.ts';
 import {
@@ -54,6 +60,10 @@ export function ChatPage(): Page {
     createMessagesContainer();
   root.append(messagesContainer);
 
+  // ═══ Footer: "Trabajando…" + spinner braille (Etapa 8) ═══
+  const footer: ChatFooterHandle = ChatFooter();
+  root.append(footer.root);
+
   // ═══ Auto-scroll ═══
   const scroll = createAutoScroll({
     container: messagesContainer,
@@ -72,13 +82,10 @@ export function ChatPage(): Page {
   // ═══ Bind al ChatStore del activeTab ═══
   let currentStore: ChatStore | null = null;
   let unsubMessages: (() => void) | null = null;
-  let unsubStreaming: (() => void) | null = null;
 
   function bindActiveTab(tabId: string | null): void {
     unsubMessages?.();
-    unsubStreaming?.();
     unsubMessages = null;
-    unsubStreaming = null;
     currentStore = null;
 
     if (!tabId) {
@@ -90,15 +97,18 @@ export function ChatPage(): Page {
     const store = getStore(tabId);
     currentStore = store;
     unsubMessages = store.messages$.subscribe(renderMessages);
-    unsubStreaming = store.isStreaming$.subscribe((streaming) => {
-      headerHandle.setStreaming(streaming);
-    });
   }
 
+  // Footer visible solo mientras hay un stream activo GLOBALMENTE.
+  // Es un overlay fuera de flujo, así que no reflowea los mensajes.
+  scope.add(appState.isStreaming.subscribe((streaming) => {
+    footer.setVisible(streaming);
+  }));
   scope.add(appState.activeTabId.subscribe(bindActiveTab));
   scope.add(() => {
     unsubMessages?.();
-    unsubStreaming?.();
+    footer.setVisible(false);
+    footer.dispose();
     for (const h of bubbleHandles.values()) h.dispose();
     bubbleHandles.clear();
   });
@@ -129,7 +139,6 @@ export function ChatPage(): Page {
 
 interface HeaderHandle {
   root: HTMLElement;
-  setStreaming(streaming: boolean): void;
 }
 
 function createHeader(scope: ReturnType<typeof createScope>): HeaderHandle {
@@ -149,19 +158,6 @@ function createHeader(scope: ReturnType<typeof createScope>): HeaderHandle {
   modelBadge.textContent = 'sin modelo';
   statusGroup.append(modelBadge);
 
-  const streamingIndicator = document.createElement('span');
-  streamingIndicator.className = 'chat-header-streaming';
-  streamingIndicator.style.display = 'none';
-
-  const spinner = document.createElement('span');
-  spinner.className = 'spinner';
-  streamingIndicator.append(spinner);
-
-  const streamingLabel = document.createElement('span');
-  streamingLabel.textContent = 'Trabajando…';
-  streamingIndicator.append(streamingLabel);
-
-  statusGroup.append(streamingIndicator);
   header.append(statusGroup);
 
   scope.add(
@@ -170,12 +166,7 @@ function createHeader(scope: ReturnType<typeof createScope>): HeaderHandle {
     }),
   );
 
-  return {
-    root: header,
-    setStreaming: (streaming) => {
-      streamingIndicator.style.display = streaming ? 'inline-flex' : 'none';
-    },
-  };
+  return { root: header };
 }
 
 // ═══════════════════════════════════════════════════════════
