@@ -26,7 +26,6 @@ import type { Recent } from "../lib/pi/index.ts";
 import { loadAuthStatus } from "../lib/auth-status.ts";
 import { icon } from "../lib/icons.ts";
 import { setApiKey, type ProviderInfo } from "../lib/pi/tauri-commands.ts";
-import { signal } from "../lib/signal.ts";
 
 export function WelcomePage(): Page {
   const root = document.createElement("div");
