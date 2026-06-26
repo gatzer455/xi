@@ -622,7 +622,7 @@ function renderSessionSection(scope: Scope): HTMLElement {
 }
 
 /** Versión de xi. Debe coincidir con backend/Cargo.toml. */
-const APP_VERSION = '0.1.4';
+const APP_VERSION = '0.1.5';
 
 function renderAboutSection(scope: Scope): HTMLElement {
   // El row muestra "xi v0.1.0 — pi v0.79.3" (o "pi desconocida" si
