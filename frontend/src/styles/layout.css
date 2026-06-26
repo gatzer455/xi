@@ -258,12 +258,11 @@
 .input-btn-icon { display: none; line-height: 1; }
 .input-send-btn--send .input-btn-icon--send { display: inline-block; }
 .input-send-btn--stop {
-  background: var(--color-warning, #dc3545);
+  /* Mismo color accent que el send button. Solo cambia el icono a ■. */
 }
-.input-send-btn--stop:hover { background: var(--color-warning-hover, #c82333); }
 .input-send-btn--stop .input-btn-icon--stop {
   display: inline-block;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
 }
 
 /* ═══ OUTPUT BOARD + CHAT AREA ═══
