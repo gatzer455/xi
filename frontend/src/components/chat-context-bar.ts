@@ -80,7 +80,9 @@ export interface ChatContextBarHandle {
 export function ChatContextBar(): ChatContextBarHandle {
   const root = document.createElement('div');
   root.className = 'context-bar';
-  root.style.display = 'none'; // oculto hasta que se necesite (isStreaming)
+  // La barra es SIEMPRE visible. Solo el spinner + "Trabajando…" se
+  // oculta/muestra según appState.isStreaming. El resto (tokens,
+  // modelo) está siempre presente.
 
   // ── Spinner ──
   const spinner = document.createElement('span');
@@ -147,8 +149,14 @@ export function ChatContextBar(): ChatContextBarHandle {
 
   // ═══ Suscripciones ═══
 
+  // Solo el spinner y label se ocultan cuando no hay stream.
+  // La barra completa (tokens, modelo) siempre es visible.
+  spinner.style.display = 'none';
+  label.style.display = 'none';
+
   const unsubStreaming = appState.isStreaming.subscribe((streaming) => {
-    root.style.display = streaming ? '' : 'none';
+    spinner.style.display = streaming ? '' : 'none';
+    label.style.display = streaming ? '' : 'none';
     if (streaming) {
       startSpinner();
     } else {
@@ -207,7 +215,8 @@ export function ChatContextBar(): ChatContextBarHandle {
 
   // ═══ Tick inicial para saber si arrancar spinner ═══
   if (appState.isStreaming.value) {
-    root.style.display = '';
+    spinner.style.display = '';
+    label.style.display = '';
     startSpinner();
   }
   updateTokensFromStore();

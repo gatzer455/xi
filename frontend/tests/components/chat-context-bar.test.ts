@@ -2,6 +2,7 @@
  * chat-context-bar.test.ts — Tests del ChatContextBar (Etapas 9–11).
  *
  * Verifica:
+ * - Barra SIEMPRE visible; solo spinner + label se ocultan/muestran
  * - Spinner braille: arranca/detiene con appState.isStreaming
  * - Modelo: se actualiza con currentModel
  * - Token bar: calcula desde messages$ del store activo
@@ -76,9 +77,9 @@ describe('ChatContextBar', () => {
     vi.useRealTimers();
   });
 
-  test('root oculto por defecto (isStreaming=false)', () => {
+  test('root siempre visible (display != none)', () => {
     const cb = ChatContextBar();
-    expect(cb.root.style.display).toBe('none');
+    expect(cb.root.style.display).not.toBe('none');
     expect(cb.root.className).toBe('context-bar');
     cb.dispose();
   });
@@ -89,18 +90,33 @@ describe('ChatContextBar', () => {
     cb.dispose();
   });
 
-  test('isStreaming=true muestra el root', () => {
+  test('spinner y label ocultos por defecto (isStreaming=false)', () => {
     const cb = ChatContextBar();
-    isStreaming.value = true;
-    expect(cb.root.style.display).not.toBe('none');
+    const spinner = cb.root.querySelector<HTMLElement>('.context-bar-spinner')!;
+    const label = cb.root.querySelector<HTMLElement>('.context-bar-label')!;
+    expect(spinner.style.display).toBe('none');
+    expect(label.style.display).toBe('none');
     cb.dispose();
   });
 
-  test('isStreaming=false oculta el root', () => {
+  test('isStreaming=true muestra spinner y label', () => {
+    const cb = ChatContextBar();
+    isStreaming.value = true;
+    const spinner = cb.root.querySelector<HTMLElement>('.context-bar-spinner')!;
+    const label = cb.root.querySelector<HTMLElement>('.context-bar-label')!;
+    expect(spinner.style.display).not.toBe('none');
+    expect(label.style.display).not.toBe('none');
+    cb.dispose();
+  });
+
+  test('isStreaming=false oculta spinner y label', () => {
     const cb = ChatContextBar();
     isStreaming.value = true;
     isStreaming.value = false;
-    expect(cb.root.style.display).toBe('none');
+    const spinner = cb.root.querySelector<HTMLElement>('.context-bar-spinner')!;
+    const label = cb.root.querySelector<HTMLElement>('.context-bar-label')!;
+    expect(spinner.style.display).toBe('none');
+    expect(label.style.display).toBe('none');
     cb.dispose();
   });
 
@@ -164,15 +180,16 @@ describe('ChatContextBar', () => {
     cb.dispose();
   });
 
-  test('token bar muestra 0 / 128K (sin mensajes)', () => {
+  test('token bar nunca oculta aunque no haya messages', () => {
     const cb = ChatContextBar();
-    // Sin activeTabId ni mensajes
+    // Sin activeTabId → token vacío pero barra visible
     const tokens = cb.root.querySelector('.context-bar-tokens')!;
     expect(tokens.textContent).toBe('');
+    expect(tokens.style.display).not.toBe('none');
     cb.dispose();
   });
 
-  test('boton modelo es un button clickeable', () => {
+  test('boton modelo es un button clickeable con title', () => {
     const cb = ChatContextBar();
     const btn = cb.root.querySelector<HTMLButtonElement>('.context-bar-model')!;
     expect(btn.tagName).toBe('BUTTON');
@@ -184,5 +201,14 @@ describe('ChatContextBar', () => {
     const cb = ChatContextBar();
     cb.dispose();
     expect(() => cb.dispose()).not.toThrow();
+  });
+
+  test('token bar y modelo visibles aunque isStreaming=false', () => {
+    const cb = ChatContextBar();
+    // La barra entera es visible, solo spinner+label ocultos
+    expect(cb.root.querySelector('.context-bar-tokens')?.closest('.context-bar')).not.toBeNull();
+    const modelBtn = cb.root.querySelector<HTMLButtonElement>('.context-bar-model')!;
+    expect(modelBtn.textContent).toBe('sin modelo');
+    cb.dispose();
   });
 });
