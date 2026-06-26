@@ -104,21 +104,10 @@ export function SettingsPage(): Page {
   title.textContent = 'Configuración';
   root.append(title);
 
-  // ─── Sección de Providers (solo con sesión activa) ───
-  // La configuración de modelo y thinking level se movió a la
-  // context bar del chat (etapa 9-10). Settings solo maneja
-  // las API keys de los providers.
-  const providerSection = document.createElement('div');
-  providerSection.className = 'settings-model-sections';
-  providerSection.append(renderProviderSection(scope));
-  root.append(providerSection);
-
-  const updateProviderVisibility = (): void => {
-    const hasSession = appState.activeTabId.value !== null;
-    providerSection.style.display = hasSession ? '' : 'none';
-  };
-  updateProviderVisibility();
-  scope.add(appState.activeTabId.subscribe(updateProviderVisibility));
+  // ─── Sección de Providers ───
+  // Siempre visible. La configuración de modelo y thinking level
+  // se movió a la context bar del chat (etapa 9-10).
+  root.append(renderProviderSection(scope));
 
   // ─── Secciones siempre visibles ─────────────────────────────
   root.append(renderAppearanceSection());
