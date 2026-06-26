@@ -147,16 +147,22 @@ function reduceToolExec(state: ChatState, toolCallId: string, newState: ToolStat
  *    enviado antes de que pi confirmara con su timestamp).
  *  - isStreaming false, streamingMessageId null. */
 function reduceAgentEnd(state: ChatState, piMessages: ChatMessage[]): ChatState {
-  const piIds = new Set(piMessages.map(m => m.id));
-
-  const merged = piMessages.map(piMsg => {
+  const piMap = new Map<string, ChatMessage>();
+  for (const piMsg of piMessages) {
     const existing = findMessage(state, piMsg.id);
-    return existing ? mergeToolCallStates(piMsg, existing) : piMsg;
-  });
+    piMap.set(piMsg.id, existing ? mergeToolCallStates(piMsg, existing) : piMsg);
+  }
 
-  // Messages locales que pi no reportó (user optimistic, etc.).
-  for (const m of state.messages) {
-    if (!piIds.has(m.id)) merged.push(m);
+  // Preservar orden de state.messages: si pi tiene el msg, usar el
+  // mergeado; si no, mantener el local en su posición original.
+  const merged = state.messages.map(m => piMap.get(m.id) ?? m);
+
+  // Agregar mensajes de pi que no estaban en state (ej: compaction
+  // que pi insertó y state no tenía aún).
+  for (const piMsg of piMessages) {
+    if (!state.messages.some(m => m.id === piMsg.id)) {
+      merged.push(piMsg);
+    }
   }
 
   return {
@@ -170,15 +176,15 @@ function reduceAgentEnd(state: ChatState, piMessages: ChatMessage[]): ChatState 
 // ─── responses ────────────────────────────────────────────
 
 /** get_messages: reemplaza el historial. Preserva isStreaming del
- *  message que se está streameando si sigue activo (R3.5). */
+ *  message que se está streameando y tool call states locales (R3.5). */
 function reduceGetMessages(state: ChatState, piMessages: ChatMessage[]): ChatState {
-  if (!state.streamingMessageId) {
-    return { ...state, messages: piMessages };
-  }
   const streamingId = state.streamingMessageId;
-  const messages = piMessages.map(m =>
-    m.id === streamingId ? { ...m, isStreaming: true } : m
-  );
+  const messages = piMessages.map(m => {
+    const merged = m.id === streamingId ? { ...m, isStreaming: true } : m;
+    // Preservar tool call states locales (pending→completed)
+    const existing = findMessage(state, m.id);
+    return existing ? mergeToolCallStates(merged, existing) : merged;
+  });
   return { ...state, messages };
 }
 

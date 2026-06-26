@@ -21,6 +21,7 @@ import { appState, setActiveTab, type Session } from '../lib/state.ts';
 import { navigate } from '../lib/nav.ts';
 import { pickAndOpenProject } from '../lib/workdir.ts';
 import { dropStore } from '../lib/chat/stores.ts';
+import { abortPi } from '../lib/pi/index.ts';
 import { icon } from '../lib/icons.ts';
 
 export function Header(): HTMLElement {
@@ -165,6 +166,14 @@ function closeTab(tabId: string): void {
   if (idx === -1) return;
 
   const wasActive = appState.activeTabId.value === tabId;
+  const wasStreaming = appState.isStreaming.value && wasActive;
+
+  // Si la tab activa está streameando, abortar el stream antes de
+  // cerrar para evitar que eventos tardíos resuciten el store.
+  if (wasStreaming) {
+    abortPi().catch(() => {});
+  }
+
   const newTabs = tabs.filter(t => t.id !== tabId);
   appState.openTabs.value = newTabs;
 

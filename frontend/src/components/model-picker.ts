@@ -41,6 +41,7 @@ export function ModelPicker(): ModelPickerHandle {
   // ═══ Panel ──
   const panel = document.createElement('div');
   panel.className = 'model-picker-panel';
+  panel.addEventListener('click', (ev) => ev.stopPropagation());
   backdrop.append(panel);
 
   // ═══ Header ──
@@ -158,6 +159,11 @@ export function ModelPicker(): ModelPickerHandle {
     footer.textContent = filtered.length === 1
       ? '1 modelo'
       : `${filtered.length} modelos`;
+
+    // Si el modelo activo no está en los filtrados, reset a 0
+    if (!list.querySelector('.model-picker-item--active')) {
+      selectedIndex = 0;
+    }
 
     // Scroll al seleccionado
     const activeItem = list.querySelector('.model-picker-item--active');

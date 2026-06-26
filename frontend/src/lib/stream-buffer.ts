@@ -36,8 +36,6 @@ export interface StreamBufferOptions {
   onUpdate: (text: string) => void;
   /** Se llama cuando flush() completa o el buffer se vacía. */
   onDone?: () => void;
-  /** Chars por segundo durante streaming normal. Default: 50. */
-  charsPerSecond?: number;
 }
 
 const CHARS_PER_FRAME = 3; // ~180 cps a 60fps — tasa fija como onyx

@@ -65,6 +65,7 @@ const mockState = vi.hoisted(() => {
   const activeTabId = mockSignal<string | null>(null);
   const isStreaming = mockSignal(false);
   const currentModel = mockSignal(null);
+  const openTabs = mockSignal<Array<{ id: string; file?: string }>>([]);
 
   // Los tipos que state-sync importa (PiModel, ThinkingLevel, Session)
   // se borran en runtime; el factory solo necesita exportar el appState.
@@ -76,10 +77,12 @@ const mockState = vi.hoisted(() => {
       thinkingLevel: mockSignal('medium'),
       availableModels: mockSignal([]),
       session: mockSignal(null),
+      openTabs,
     }),
     activeTabId,
     isStreaming,
     currentModel,
+    openTabs,
   };
 });
 
@@ -95,7 +98,11 @@ vi.mock('../../src/lib/debug-panel.ts', () => ({
 import { applyEvent, beginStreamForSession, endStream } from '../../src/lib/pi/state-sync.ts';
 import { getStore, clearStores } from '../../src/lib/chat/stores.ts';
 
-const { activeTabId, isStreaming, currentModel } = mockState;
+const { activeTabId, isStreaming, currentModel, openTabs } = mockState;
+
+function setOpenTabs(ids: string[]): void {
+  openTabs.value = ids.map((id) => ({ id }));
+}
 
 // ─── Helpers de aserción ───────────────────────────────────
 
@@ -114,6 +121,7 @@ beforeEach(() => {
   activeTabId.value = null;
   isStreaming.value = false;
   currentModel.value = null;
+  openTabs.value = [];
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -123,6 +131,7 @@ beforeEach(() => {
 describe('Bug #5 — chat NO queda vacío tras agent_end', () => {
   test('secuencia completa de un turno: el contenido queda visible', () => {
     activeTabId.value = 'tab-A';
+    setOpenTabs(["tab-A"]);
     // Reclamar el routing ANTES de mandar el prompt (como hace input.ts).
     beginStreamForSession('tab-A');
 
@@ -146,6 +155,7 @@ describe('Bug #5 — chat NO queda vacío tras agent_end', () => {
 
   test('get_messages (cargar sesión existente) preserva IDs estables', () => {
     activeTabId.value = 'tab-A';
+    setOpenTabs(["tab-A"]);
 
     // Primero un turno completo deja messages en el store.
     beginStreamForSession('tab-A');
@@ -175,6 +185,7 @@ describe('Bug #5 — chat NO queda vacío tras agent_end', () => {
 describe('Bug #1 — multi-tab routing (streamingSessionId)', () => {
   test('cambiar de tab mid-stream deja el contenido en el tab original', () => {
     activeTabId.value = 'tab-A';
+    setOpenTabs(["tab-A"]);
     const userTs = 1000;
     const asstTs = 2000;
 
@@ -220,6 +231,7 @@ describe('Bug #1 — multi-tab routing (streamingSessionId)', () => {
     // Continuación por compaction/steering que pi dispara sin que el
     // usuario mandara un prompt. No hubo beginStreamForSession.
     activeTabId.value = 'tab-C';
+    setOpenTabs(['tab-C']);
 
     applyEvent(ev.agent_start());
     applyEvent(ev.message_start(assistantPartial('continuación', 5000)));
@@ -240,6 +252,7 @@ describe('Bug #1 — multi-tab routing (streamingSessionId)', () => {
 describe('Tool calls — estado via tool_execution_* + toolResult aparte', () => {
   test('toolCall arranca pending, tool_execution lo pasa a completed, toolResult es mensaje separado', () => {
     activeTabId.value = 'tab-A';
+    setOpenTabs(["tab-A"]);
     const userTs = 1000;
     const asstTs = 2000;
     const toolCallId = 'tc-1';
@@ -282,6 +295,7 @@ describe('Tool calls — estado via tool_execution_* + toolResult aparte', () =>
 
   test('tool_execution_end con isError → state "failed"', () => {
     activeTabId.value = 'tab-A';
+    setOpenTabs(["tab-A"]);
     const asstTs = 2000;
     const toolCallId = 'tc-err';
 
@@ -306,6 +320,7 @@ describe('Tool calls — estado via tool_execution_* + toolResult aparte', () =>
 describe('Abort / terminated — isStreaming global se libera', () => {
   test('endStream() limpia el flag y el routing (abort desde InputBar)', () => {
     activeTabId.value = 'tab-A';
+    setOpenTabs(['tab-A']);
     beginStreamForSession('tab-A');
     applyEvent(ev.agent_start());
     expect(isStreaming.value).toBe(true);
@@ -321,6 +336,7 @@ describe('Abort / terminated — isStreaming global se libera', () => {
 
   test('pi terminated (lado del backend) libera el flag via endStream', () => {
     activeTabId.value = 'tab-A';
+    setOpenTabs(['tab-A']);
     beginStreamForSession('tab-A');
     applyEvent(ev.agent_start());
     expect(isStreaming.value).toBe(true);
@@ -338,6 +354,7 @@ describe('Abort / terminated — isStreaming global se libera', () => {
 describe('response get_state — popula modelo global', () => {
   test('get_state exitoso setea currentModel', () => {
     activeTabId.value = 'tab-A';
+    setOpenTabs(["tab-A"]);
     applyEvent(ev.response('get_state', true, {
       model: { id: 'gpt-4', name: 'GPT-4' },
       thinkingLevel: 'high',

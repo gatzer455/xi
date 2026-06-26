@@ -21,6 +21,9 @@
  *   CustomMessage:            { role: 'custom', ... }                                  → ignorado
  */
 
+/** Contador local para IDs estables cuando pi no provee timestamp. */
+let idCounter = 0;
+
 import type {
   ChatMessage,
   MessageId,
@@ -56,7 +59,7 @@ export function mapAgentMessage(raw: unknown): ChatMessage | null {
   const role = msg.role as string | undefined;
   if (!role) return null;
 
-  const timestamp = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
+  const timestamp = typeof msg.timestamp === 'number' ? msg.timestamp : idCounter++;
 
   switch (role) {
     case 'user':              return mapUserMessage(msg, timestamp);

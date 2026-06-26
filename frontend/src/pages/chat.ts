@@ -46,7 +46,7 @@ export function ChatPage(): Page {
   const scope = createScope();
 
   // ═══ Banner: no hay API key configurada ═══
-  const authBanner = createAuthBanner();
+  const { banner: authBanner, dispose: disposeAuthBanner } = createAuthBanner();
   root.append(authBanner);
 
   // ═══ Messages container ═══
@@ -109,6 +109,7 @@ export function ChatPage(): Page {
   return {
     root,
     dispose: () => {
+      disposeAuthBanner();
       clearDialogRenderer();
       appState.activeExtensionDialog.value = null;
       scope.dispose();
@@ -120,7 +121,7 @@ export function ChatPage(): Page {
 // Auth banner
 // ═══════════════════════════════════════════════════════════
 
-function createAuthBanner(): HTMLElement {
+function createAuthBanner(): { banner: HTMLElement; dispose: () => void } {
   const banner = document.createElement('div');
   banner.className = 'chat-auth-banner';
   banner.style.display = 'none';
@@ -137,11 +138,11 @@ function createAuthBanner(): HTMLElement {
   btn.addEventListener('click', () => navigate('settings'));
   banner.append(btn);
 
-  appState.hasAnyProvider.subscribe((hasAny) => {
+  const unsub = appState.hasAnyProvider.subscribe((hasAny) => {
     banner.style.display = hasAny ? 'none' : 'flex';
   });
 
-  return banner;
+  return { banner, dispose: unsub };
 }
 
 // ═══════════════════════════════════════════════════════════

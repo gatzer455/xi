@@ -123,14 +123,14 @@ export function InputBar(): HTMLElement {
     // mensaje optimista para evitar duplicación al reconciliar agent_end.
     beginStreamForSession(tabId);
 
-    sendPrompt(text).catch((err) => {
+    sendPrompt(text).then(() => {
+      textarea.value = '';
+      textarea.style.height = 'auto';
+      updateState();
+    }).catch((err) => {
       console.error('Error sending prompt:', err);
       endStream();
     });
-
-    textarea.value = '';
-    textarea.style.height = 'auto';
-    updateState();
   }
 
   function abort(): void {

@@ -110,12 +110,12 @@ describe('mapAgentMessage — user', () => {
     expect(m.parts).toEqual([{ type: 'text', text: 'a\n\nb' }]);
   });
 
-  it('sin timestamp → usa Date.now', () => {
-    const before = Date.now();
-    const m = mapAgentMessage({ role: 'user', content: 'x' })!;
-    const after = Date.now();
-    expect(m.timestamp).toBeGreaterThanOrEqual(before);
-    expect(m.timestamp).toBeLessThanOrEqual(after);
+  it('sin timestamp → usa contador incremental (id estable)', () => {
+    const first = mapAgentMessage({ role: 'user', content: 'x' })!;
+    const second = mapAgentMessage({ role: 'user', content: 'y' })!;
+    expect(typeof first.timestamp).toBe('number');
+    expect(typeof second.timestamp).toBe('number');
+    expect(second.timestamp).toBeGreaterThan(first.timestamp);
   });
 });
 

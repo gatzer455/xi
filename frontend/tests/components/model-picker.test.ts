@@ -89,6 +89,7 @@ const modelDeepseek = {
 
 describe('ModelPicker', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     availableModels.value = [];
     currentModel.value = null;
     document.body.innerHTML = '';

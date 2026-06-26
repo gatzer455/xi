@@ -57,8 +57,17 @@ export function beginStreamForSession(sessionId: string): void {
   appState.isStreaming.value = true;
 }
 
-/** Limpia el routing del stream (abort, error de envío, terminated). */
+/** Limpia el routing del stream (abort, error de envío, terminated).
+ *  También notifica al store activo para que resetee su isStreaming$. */
 export function endStream(): void {
+  const targetId = streamingSessionId ?? appState.activeTabId.value;
+  if (targetId) {
+    try {
+      getStore(targetId).dispatch({ type: 'agent_end', messages: [] });
+    } catch {
+      // Store puede no existir si ya se cerró el tab.
+    }
+  }
   streamingSessionId = null;
   appState.isStreaming.value = false;
 }
@@ -170,6 +179,22 @@ function routeStreamEvent(event: PiEvent): void {
   const targetId = streamingSessionId ?? appState.activeTabId.value;
   if (!targetId) {
     addEntry('system', `[state-sync] event sin target (no active tab): ${event.type}`);
+    // Aún así limpiar si es agent_end o terminated.
+    if (event.type === 'agent_end') {
+      streamingSessionId = null;
+      appState.isStreaming.value = false;
+    }
+    return;
+  }
+
+  // Si el target ya no es un tab abierto, descartar el evento
+  // (puede llegar tarde después de cerrar la tab).
+  const isOpen = appState.openTabs.value.some(t => t.id === targetId);
+  if (!isOpen) {
+    if (event.type === 'agent_end') {
+      streamingSessionId = null;
+      appState.isStreaming.value = false;
+    }
     return;
   }
 

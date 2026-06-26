@@ -621,15 +621,26 @@ async function handleDelete(session: SessionInfo): Promise<void> {
 
   try {
     await deleteSession(session.path);
+
+    // Recolectar todos los tabs que apuntan a esta sesión (puede
+    // haber múltiples tabs con distinto UUID para el mismo path).
+    const tabsToRemove = appState.openTabs.value.filter(
+      (t) => t.file === session.path || t.id === session.id
+    ).map((t) => t.id);
+
+    for (const tabId of tabsToRemove) {
+      dropStore(tabId);
+    }
+
+    appState.openTabs.value = appState.openTabs.value.filter(
+      (t) => !tabsToRemove.includes(t.id)
+    );
+
     if (isActive) {
-      // La sesión activa fue eliminada. Detener pi y limpiar tabs.
+      // La sesión activa fue eliminada. Detener pi.
       await stopPi();
-      appState.openTabs.value = appState.openTabs.value.filter(
-        (t) => t.id !== session.id,
-      );
       appState.activeTabId.value = null;
       appState.session.value = null;
-      dropStore(session.id);
     }
     await loadSessions();
   } catch (err) {
