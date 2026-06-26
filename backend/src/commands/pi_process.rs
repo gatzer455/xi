@@ -126,9 +126,12 @@ impl PiProcess {
         // un task que espera la respuesta del frontend y la escribe a
         // stdin de pi.
         eprintln!("[pi] sidecar spawned, waiting for stdout");
-        // Capturar la generación de ESTE spawn. El reader solo limpia
-        // `child` si al morir sigue siendo el proceso activo.
-        let spawned_generation = process_state.lock().unwrap().generation;
+        // Avanzar la generación ANTES de spawnear el reader y capturarla.
+        // Usamos self.generation directamente (no re-lockeamos
+        // process_state: el caller start_pi ya tiene tomado ese lock,
+        // y Mutex de Rust no es reentrante — re-lockear seria deadlock).
+        self.generation = self.generation.wrapping_add(1);
+        let spawned_generation = self.generation;
         let app_clone = app.clone();
         tauri::async_runtime::spawn(async move {
             while let Some(event) = rx.recv().await {
@@ -235,7 +238,6 @@ impl PiProcess {
             }
         });
 
-        self.generation = self.generation.wrapping_add(1);
         self.child = Some(child);
         self.cwd = Some(cwd);
 
