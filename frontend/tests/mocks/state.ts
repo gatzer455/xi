@@ -71,6 +71,7 @@ export function createMockAppState(overrides: {
     session: mockSignal(null),
     messages: mockSignal([]),
     isStreaming: mockSignal(false),
+    streamingText: mockSignal(''),
     thinkingLevel: mockSignal("medium" as const),
     isCompacting: mockSignal(false),
     online: mockSignal(true),

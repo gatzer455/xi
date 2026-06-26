@@ -44,7 +44,7 @@ export function ChatBubble(message: ChatMessage): HTMLElement {
   if (message.role === 'assistant') {
     // 1. Thinking (colapsable, primero)
     if (message.thinking && message.thinking.length > 0) {
-      content.append(ThinkingBlockUI(message.thinking));
+      content.append(ThinkingBlockUI(message.thinking, message.isStreaming));
     }
 
     // 2. Tool calls (colapsados, después del thinking)

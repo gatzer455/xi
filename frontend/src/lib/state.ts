@@ -84,6 +84,13 @@ export const appState = {
   /** true = pi está generando una respuesta. */
   isStreaming: signal(false),
 
+  /** Texto plano del mensaje que se está streameando.
+   *  Se actualiza en cada text_delta. Vacío cuando no hay streaming
+   *  activo. Usado por chat.ts para smooth streaming via StreamBuffer,
+   *  separado de messages[] para no disparar re-render completo en
+   *  cada delta. */
+  streamingText: signal(''),
+
   /** Modelo actual de pi. */
   currentModel: signal<PiModel | null>(null),
 

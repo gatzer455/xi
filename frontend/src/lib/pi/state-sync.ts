@@ -362,6 +362,7 @@ function handleToolExecution(tool: PiToolExecutionEvent): void {
 
 function handleAgentEnd(): void {
   appState.isStreaming.value = false;
+  appState.streamingText.value = '';
   if (currentAssistantMessage) {
     currentAssistantMessage.isStreaming = false;
     currentAssistantMessage = null;
@@ -384,6 +385,10 @@ function appendText(delta: string): void {
   }
   currentAssistantMessage.content += delta;
   appState.messages.value = [...appState.messages.value];
+
+  // Actualizar streamingText para que chat.ts haga smooth streaming
+  // sin necesidad de re-renderizar todos los mensajes.
+  appState.streamingText.value = currentAssistantMessage.content;
 }
 
 function ensureThinkingArray(): void {

@@ -39,6 +39,7 @@
 import { appState, type ExtensionDialogState } from "../lib/state.ts";
 import { createScope, type Page } from "../lib/scope.ts";
 import { ChatBubble } from "../components/chat-bubble.ts";
+import { ThinkingBlockUI } from "../components/thinking-block.ts";
 import {
   renderSelectDialog,
   renderConfirmDialog,
@@ -50,6 +51,7 @@ import {
   clearDialogRenderer,
 } from "../lib/pi/extension-ui-handler.ts";
 import { navigate } from "../lib/nav.ts";
+import { StreamBuffer } from "../lib/stream-buffer.ts";
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 const NEAR_BOTTOM_PX = 100;
@@ -412,7 +414,85 @@ export function ChatPage(): Page {
     }),
   );
 
-  scope.add(appState.messages.subscribe(renderMessages));
+  // === Smooth Streaming + Thinking Indicator ===
+  // StreamBuffer + rAF para revelado gradual de texto.
+  // Thinking dots: aparecen mientras pi piensa pero aun no emitio texto.
+  // Durante streaming NO re-renderizamos todos los mensajes (el
+  // StreamBuffer actualiza el DOM in-place). Al terminar, full
+  // re-render con markdown.
+
+  let streamBuffer: StreamBuffer | null = null;
+  let streamingMsgEl: HTMLElement | null = null;
+  let prevStreamLen = 0;
+
+  function updateStreamingDisplay(text: string): void {
+    if (!streamingMsgEl) {
+      streamingMsgEl = document.createElement('div');
+      streamingMsgEl.className = 'message assistant';
+
+      // Mostrar thinking blocks si el ultimo mensaje assistant tiene
+      // contenido de razonamiento (thinking_delta llega antes que text_delta)
+      const msgs = appState.messages.value;
+      const lastMsg = msgs[msgs.length - 1];
+      if (lastMsg && lastMsg.role === 'assistant' && lastMsg.thinking && lastMsg.thinking.length > 0) {
+        streamingMsgEl.append(ThinkingBlockUI(lastMsg.thinking, true));
+      }
+
+      const content = document.createElement('div');
+      content.className = 'message-content';
+      const textContainer = document.createElement('div');
+      textContainer.className = 'message-text stream-text';
+      content.append(textContainer);
+      streamingMsgEl.append(content);
+      messagesInner.insertBefore(streamingMsgEl, endSentinel);
+    }
+    const tc = streamingMsgEl.querySelector('.message-text')!;
+    tc.textContent = text;
+    let cursor = tc.querySelector('.smooth-cursor');
+    if (!cursor) {
+      cursor = document.createElement('span');
+      cursor.className = 'smooth-cursor';
+      cursor.textContent = '\u258D';
+      cursor.setAttribute('aria-hidden', 'true');
+      tc.append(cursor);
+    }
+    if (isNearBottom()) {
+      endSentinel.scrollIntoView({ block: 'end', behavior: 'instant' });
+    }
+  }
+
+  scope.add(
+    appState.streamingText.subscribe((text) => {
+      if (text && text.length > prevStreamLen) {
+        const delta = text.slice(prevStreamLen);
+        prevStreamLen = text.length;
+        if (!streamBuffer) {
+          streamBuffer = new StreamBuffer({ onUpdate: updateStreamingDisplay });
+        }
+        streamBuffer.push(delta);
+      } else if (!text && prevStreamLen > 0) {
+        // Streaming termino: revelar resto sync + re-render
+        prevStreamLen = 0;
+        if (streamBuffer) {
+          if (streamBuffer.isActive) {
+            updateStreamingDisplay(streamBuffer.total);
+          }
+          streamBuffer = null;
+        }
+        streamingMsgEl = null;
+        renderMessages(appState.messages.value);
+      }
+    }),
+  );
+
+  scope.add(
+    appState.messages.subscribe((messages) => {
+      if (appState.isStreaming.value) {
+        return;
+      }
+      renderMessages(messages);
+    }),
+  );
 
   messagesContainer.append(messagesInner);
   root.append(messagesContainer);

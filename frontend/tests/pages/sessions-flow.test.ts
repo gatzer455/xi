@@ -54,6 +54,7 @@ const mock = vi.hoisted(() => {
       session: mockSignal(null),
       messages: mockSignal([]),
       isStreaming: mockSignal(false),
+      streamingText: mockSignal(""),
       currentModel: mockSignal(null),
       thinkingLevel: mockSignal("medium" as const),
       isCompacting: mockSignal(false),

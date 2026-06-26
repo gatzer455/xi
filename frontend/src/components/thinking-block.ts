@@ -22,14 +22,30 @@ import type { ThinkingBlock } from '../lib/state.ts';
  *               en profundidad: el caller ya chequea con `?.length`).
  * @returns El `<details>` colapsable con el razonamiento dentro.
  */
-export function ThinkingBlockUI(blocks: ThinkingBlock[]): HTMLElement {
+export function ThinkingBlockUI(blocks: ThinkingBlock[], isStreaming = false): HTMLElement {
   const details = document.createElement('details');
   details.className = 'thinking-block';
 
   const summary = document.createElement('summary');
   summary.className = 'thinking-summary';
-  const count = blocks.length;
-  summary.textContent = `Pensando… (${count} ${count === 1 ? 'bloque' : 'bloques'})`;
+
+  if (isStreaming) {
+    const dots = document.createElement('span');
+    dots.className = 'thinking-dots';
+    for (let i = 0; i < 3; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'thinking-dot';
+      dots.append(dot);
+    }
+    summary.append(dots);
+    const label = document.createElement('span');
+    label.textContent = ' Pensando';
+    summary.append(label);
+  } else {
+    const count = blocks.length;
+    summary.textContent = `Pensó (${count} ${count === 1 ? 'bloque' : 'bloques'})`;
+  }
+
   details.append(summary);
 
   const body = document.createElement('div');
