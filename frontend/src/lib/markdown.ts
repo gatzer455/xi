@@ -89,12 +89,11 @@ md.renderer.rules.bullet_list_open  = addClass('md-list');
 md.renderer.rules.ordered_list_open = addClass('md-ol');
 md.renderer.rules.list_item_open    = addClass('md-li');
 md.renderer.rules.blockquote_open   = addClass('md-quote');
-// hr es self-closing (nesting=0): addClass no aplica. Igual que code_inline,
-// envolvemos el default.
-const defaultHr = md.renderer.rules.hr!;
+// hr es self-closing (nesting=0): addClass no aplica. Usamos
+// renderToken directo (hr no tiene default rule en markdown-it v14+).
 md.renderer.rules.hr = (tokens, idx, options, env, self) => {
   tokens[idx].attrPush(['class', 'md-hr']);
-  return defaultHr(tokens, idx, options, env, self);
+  return self.renderToken(tokens, idx, options);
 };
 
 // ── Inline formatting
