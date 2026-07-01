@@ -1,11 +1,14 @@
 /**
- * debug-panel.ts — Logger de eventos de pi para la consola del WebView (F12).
+ * debug-panel.ts — Logger de eventos de pi para consola F12 + terminal.
  *
- * Antes era un panel visual dentro de la app (Ctrl+`). Ahora es solo un
- * logger ligero que escribe a console.log/error para que se vea en F12.
+ * Envía logs estructurados a dos destinos simultáneamente:
+ * - F12: via console.log (WebView)
+ * - Terminal: via tauri-plugin-log (Rust stdout + archivo)
  *
  * En producción (build) es no-op.
  */
+
+import { info, warn } from '@tauri-apps/plugin-log';
 
 type Direction = 'in' | 'out' | 'system';
 
@@ -27,10 +30,20 @@ export function addEntry(direction: Direction, message: string): void {
     entries = entries.slice(-MAX_ENTRIES);
   }
 
+  // Formatear el mensaje con prefijo [xi:pi]
   const prefix = direction === 'in' ? '←' : direction === 'out' ? '→' : '⚠';
-  if (direction === 'system' && message.startsWith('[')) {
-    console.log(`[xi:pi] ${message}`);
+  const text = direction === 'system' && message.startsWith('[')
+    ? `[xi:pi] ${message}`
+    : `[xi:pi] [${prefix}] ${message}`;
+
+  // F12
+  console.log(text);
+
+  // Terminal (via tauri-plugin-log → stdout + archivo)
+  // Fire-and-forget: no await porque es logging, no crítico
+  if (direction === 'system') {
+    warn(text);
   } else {
-    console.log(`[xi:pi] [${prefix}]`, message);
+    info(text);
   }
 }
