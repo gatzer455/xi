@@ -1,6 +1,8 @@
 # Agent / LLM dev context (workspace, not part of the project)
 AGENTS.md
 CONTEXT.md
+STAGE.md
+RULES/
 .pi/
 .develop/
 .debug/

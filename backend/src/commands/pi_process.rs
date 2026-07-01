@@ -141,7 +141,8 @@ impl PiProcess {
                         if line.is_empty() {
                             continue;
                         }
-                        eprintln!("[pi stdout] {}", line);
+                        // Log filtrado: muestra tipo+size, trunca payloads grandes
+                        log_pi_stdout(&line);
 
                         // Interceptar extension_ui_request ANTES de emitir pi:raw
                         if let Some(val) = try_parse_extension_ui_request(&line) {
@@ -294,6 +295,35 @@ pub fn create_pi_state() -> PiProcessState {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/// Loguear una línea stdout de pi a la terminal con filtro inteligente.
+///
+/// - Si es JSON válido, extrae el campo `type` y muestra tipo + tamaño.
+/// - Si el payload es chico (< 300 B), lo muestra completo.
+/// - Si es grande, muestra solo el tipo + tamaño + primeros 200 chars.
+/// - Si no es JSON válido, muestra la línea tal cual (debería ser raro).
+const STDOUT_LOG_SIZE_LIMIT: usize = 300;
+const STDOUT_LOG_TRUNCATE: usize = 200;
+
+fn log_pi_stdout(line: &str) {
+    let size = line.len();
+    if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
+        let event_type = val
+            .get("type")
+            .and_then(|t| t.as_str())
+            .unwrap_or("unknown");
+        if size > STDOUT_LOG_SIZE_LIMIT {
+            let truncated = &line[..STDOUT_LOG_TRUNCATE];
+            eprintln!(
+                "[pi stdout] type={event_type} size={size}B (truncated) {truncated}…"
+            );
+        } else {
+            eprintln!("[pi stdout] type={event_type} size={size}B {line}");
+        }
+    } else {
+        eprintln!("[pi stdout] (unparseable) size={size}B {line}");
+    }
+}
 
 /// Intentar parsear una línea JSONL como `extension_ui_request`.
 ///
