@@ -8,14 +8,15 @@
  * En producción (build) es no-op.
  */
 
-import { info, warn } from '@tauri-apps/plugin-log';
+import { info, warn, error as logError } from '@tauri-apps/plugin-log';
 
 type Direction = 'in' | 'out' | 'system';
+type LogLevel = 'info' | 'warn' | 'error';
 
 const MAX_ENTRIES = 500;
 let entries: { timestamp: number; direction: Direction; message: string }[] = [];
 
-export function addEntry(direction: Direction, message: string): void {
+export function addEntry(direction: Direction, message: string, level?: LogLevel): void {
   // No-op en production
   if (!import.meta.env.DEV) return;
 
@@ -36,14 +37,37 @@ export function addEntry(direction: Direction, message: string): void {
     ? `[xi:pi] ${message}`
     : `[xi:pi] [${prefix}] ${message}`;
 
+  // Determinar nivel si no se especificó
+  const effectiveLevel: LogLevel = level ?? inferLevel(direction, message);
+
   // F12
   console.log(text);
 
   // Terminal (via tauri-plugin-log → stdout + archivo)
   // Fire-and-forget: no await porque es logging, no crítico
-  if (direction === 'system') {
-    warn(text);
-  } else {
-    info(text);
+  switch (effectiveLevel) {
+    case 'error':
+      logError(text);
+      break;
+    case 'warn':
+      warn(text);
+      break;
+    default:
+      info(text);
   }
+}
+
+/** Infiere el nivel de log según dirección y contenido del mensaje. */
+function inferLevel(direction: Direction, message: string): LogLevel {
+  if (direction === 'system') {
+    const lower = message.toLowerCase();
+    if (lower.includes('error') || lower.includes('fail') || lower.includes('exception')) {
+      return 'error';
+    }
+    if (lower.includes('warn') || lower.includes('timeout') || lower.includes('unknown')) {
+      return 'warn';
+    }
+    return 'info';
+  }
+  return 'info';
 }

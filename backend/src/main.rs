@@ -15,6 +15,9 @@ fn main() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
+                .format(|out, message, record| {
+                    out.finish(format_args!("{} {}", record.level(), message))
+                })
                 .targets([
                     Target::new(TargetKind::Stdout),
                     Target::new(TargetKind::LogDir {
