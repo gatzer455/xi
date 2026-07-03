@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod extensions;
 
 use commands::pi_process::{create_pending_requests, create_pi_state};
 use tauri::Manager;
@@ -27,6 +28,11 @@ fn main() {
                 .build(),
         )
         .setup(|app| {
+            // Copiar extensiones empaquetadas a ~/.pi/agent/extensions/ (primer inicio)
+            if let Err(e) = extensions::ensure_extensions(app) {
+                log::warn!("No se pudieron instalar las extensiones: {}", e);
+            }
+
             // Inicializar el estado del proceso pi y pending requests
             app.manage(create_pi_state());
             app.manage(create_pending_requests());

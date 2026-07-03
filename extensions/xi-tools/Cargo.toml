@@ -1,0 +1,18 @@
+[package]
+name = "xi-tools"
+version = "0.1.0"
+edition = "2021"
+description = "Cross-platform native tools for pi coding agent (bash, grep, find, ls, read, write, edit)"
+
+[[bin]]
+name = "xi-tools"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+walkdir = "2"
+regex = "1"
+ignore = "0.4"
+globset = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
