@@ -67,7 +67,11 @@ export function SettingsPage(): Page {
   const scope = createScope();
 
   // Disparar la carga de modelos al primer mount
+  // Solo cargar modelos si hay una sesión activa (hay workingDir).
+  // Sin sesión, pi no puede arrancar y getAvailableModels falla.
+  // La lista de modelos se usa en la context bar del chat, no en Settings.
   if (
+    appState.activeTabId.value &&
     appState.availableModels.value.length === 0 &&
     !modelsLoadAttempted &&
     !modelsLoading.value
