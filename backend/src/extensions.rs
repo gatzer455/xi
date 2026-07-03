@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
-use tauri::AppHandle;
 use tauri::path::BaseDirectory;
+use tauri::AppHandle;
 use tauri::Manager;
 
 /// Extensiones que xi empaqueta y debe asegurar en ~/.pi/agent/extensions/

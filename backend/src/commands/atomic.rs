@@ -40,8 +40,8 @@ pub async fn write_json<T: Serialize>(
     }
 
     // 2. Serializar
-    let serialized = serde_json::to_string_pretty(value)
-        .map_err(|e| format!("No se puede serializar: {e}"))?;
+    let serialized =
+        serde_json::to_string_pretty(value).map_err(|e| format!("No se puede serializar: {e}"))?;
 
     // 3. Atomic write: tmp + sync + rename
     let tmp_path = path.with_extension("json.tmp");
@@ -53,12 +53,10 @@ pub async fn write_json<T: Serialize>(
         let _ = file.sync_all().await;
     }
 
-    tokio::fs::rename(&tmp_path, path)
-        .await
-        .map_err(|e| {
-            let _ = std::fs::remove_file(&tmp_path);
-            format!("No se puede guardar la config: {e}")
-        })?;
+    tokio::fs::rename(&tmp_path, path).await.map_err(|e| {
+        let _ = std::fs::remove_file(&tmp_path);
+        format!("No se puede guardar la config: {e}")
+    })?;
 
     // 4. Permisos del archivo (opcional)
     #[cfg(unix)]

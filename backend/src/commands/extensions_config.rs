@@ -180,17 +180,34 @@ impl Default for ApproveRules {
         );
         rules.insert(
             "write".to_string(),
-            vec![".env".to_string(), "credentials".to_string(), "secrets".to_string()],
+            vec![
+                ".env".to_string(),
+                "credentials".to_string(),
+                "secrets".to_string(),
+            ],
         );
         rules.insert(
             "edit".to_string(),
-            vec![".env".to_string(), "credentials".to_string(), "secrets".to_string()],
+            vec![
+                ".env".to_string(),
+                "credentials".to_string(),
+                "secrets".to_string(),
+            ],
         );
 
         let mut messages = std::collections::HashMap::new();
-        messages.insert("bash".to_string(), "Confirm before running this command".to_string());
-        messages.insert("write".to_string(), "Confirm before writing to this file".to_string());
-        messages.insert("edit".to_string(), "Confirm before editing this file".to_string());
+        messages.insert(
+            "bash".to_string(),
+            "Confirm before running this command".to_string(),
+        );
+        messages.insert(
+            "write".to_string(),
+            "Confirm before writing to this file".to_string(),
+        );
+        messages.insert(
+            "edit".to_string(),
+            "Confirm before editing this file".to_string(),
+        );
 
         ApproveRules { rules, messages }
     }
