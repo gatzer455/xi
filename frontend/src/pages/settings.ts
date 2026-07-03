@@ -65,11 +65,7 @@ export function SettingsPage(): Page {
   root.className = 'settings-page';
   const scope = createScope();
 
-  // Disparar la carga de modelos al primer mount, solo si la lista
-  // está vacía Y no estamos ya cargando (main.ts puede haber
-  // disparado el request antes). `loadModels` es fire-and-forget
-  // (la respuesta llega por eventos al state-sync) e inicia un
-  // timer de 5s para mostrar error si pi no responde.
+  // Disparar la carga de modelos al primer mount
   if (
     appState.availableModels.value.length === 0 &&
     !modelsLoadAttempted &&
@@ -79,33 +75,21 @@ export function SettingsPage(): Page {
     loadModels();
   }
 
-  // Cargar la versión de pi (lazy, no en main.ts — el user solo la
-  // ve en Acerca de). El wrapper retorna 'unknown' si falla, y la
-  // sección Acerca de muestra "pi desconocida" en ese caso.
   void getPiVersion().then((version) => {
     appState.piVersion.value = version;
   });
 
-  // Cargar el estado de providers (lazy, no en main.ts — la welcome
-  // también lo hace al mount). Después de un save, esta misma función
-  // se re-ejecuta para refrescar configuredProviders.
   void loadAuthStatus();
 
-  // Refrescar el estado de pi al abrir settings para que el modelo
-  // mostrado en el dropdown esté sincronizado con lo que pi tiene
-  // en memoria. Sin esto, el modelo puede estar desactualizado si
-  // el usuario cambió de sesión o pi restarteó con un default.
   if (appState.activeTabId.value) {
     void ensurePiRunning().then(() => getPiState());
   }
 
-  // Back button: el shell del top bar sigue siendo el navegador principal.
+  // Back button
   const back = document.createElement('button');
   back.className = 'settings-back';
   back.textContent = '← Volver';
   back.addEventListener('click', () => {
-    // Volver a la vista de donde el usuario vino.
-    // previousView se actualiza en navigate() antes de ir a settings.
     navigate(appState.previousView.value);
   });
   root.append(back);
@@ -115,19 +99,98 @@ export function SettingsPage(): Page {
   title.textContent = 'Configuración';
   root.append(title);
 
-  // ─── Sección de Providers ───
-  // Siempre visible. La configuración de modelo y thinking level
-  // se movió a la context bar del chat (etapa 9-10).
-  root.append(renderProviderSection(scope));
-
-  // ─── Secciones siempre visibles ─────────────────────────────
-  root.append(renderAppearanceSection());
-  root.append(renderSessionSection(scope));
-  root.append(renderUpdateSection(scope));
-  root.append(renderExtensionsSection(scope));
-  root.append(renderAboutSection(scope));
+  // ── Tabs ────────────────────────────────────────────────
+  const tabs = renderSettingsTabs(scope);
+  root.append(tabs);
 
   return { root, dispose: () => scope.dispose() };
+}
+
+// ═══════════════════════════════════════════════════════
+// Tab navigation
+// ═══════════════════════════════════════════════════════
+
+type SettingsTab = 'provider' | 'appearance' | 'extensions' | 'about';
+
+function renderSettingsTabs(scope: Scope): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'settings-tabs';
+
+  const activeTab = signal<SettingsTab>('provider');
+
+  // Tab bar
+  const tabBar = document.createElement('div');
+  tabBar.className = 'settings-tab-bar';
+
+  const tabs: { id: SettingsTab; label: string }[] = [
+    { id: 'provider', label: 'Proveedor' },
+    { id: 'appearance', label: 'Apariencia' },
+    { id: 'extensions', label: 'Extensiones' },
+    { id: 'about', label: 'Acerca de' },
+  ];
+
+  for (const tab of tabs) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'settings-tab-btn';
+    btn.dataset.tab = tab.id;
+    btn.textContent = tab.label;
+    btn.addEventListener('click', () => { activeTab.value = tab.id; });
+    activeTab.subscribe((id) => {
+      btn.classList.toggle('settings-tab-btn--active', id === tab.id);
+    });
+    tabBar.append(btn);
+  }
+
+  container.append(tabBar);
+
+  // Tab content
+  const content = document.createElement('div');
+  content.className = 'settings-tab-content';
+
+  // Provider tab
+  const providerPane = wrapPane(renderProviderSection(scope));
+  content.append(providerPane);
+
+  // Appearance tab
+  const appearancePane = wrapPane(renderAppearanceSection());
+  content.append(appearancePane);
+
+  // Extensions tab
+  const extensionsPane = wrapPane(renderExtensionsSection(scope));
+  content.append(extensionsPane);
+
+  // About tab (update + session + about)
+  const aboutPane = wrapPane(renderUpdateSection(scope));
+  aboutPane.append(renderSessionSection(scope));
+  aboutPane.append(renderAboutSection(scope));
+  content.append(aboutPane);
+
+  // Show/hide panes based on active tab
+  const panes = [providerPane, appearancePane, extensionsPane, aboutPane];
+  activeTab.subscribe((id) => {
+    const idx = tabs.findIndex((t) => t.id === id);
+    for (let i = 0; i < panes.length; i++) {
+      panes[i].style.display = i === idx ? '' : 'none';
+    }
+    // Activar el primer tab por defecto
+    if (idx === -1) {
+      panes[0].style.display = '';
+    }
+  });
+
+  // Inicializar: mostrar solo provider
+  activeTab.value = 'provider';
+
+  container.append(content);
+  return container;
+}
+
+function wrapPane(content: HTMLElement): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'settings-tab-pane';
+  pane.append(content);
+  return pane;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1277,6 +1340,12 @@ async function loadExaStatus(
 
 // ────────────── pi-approve ────────────────────────────────
 
+const APPROVE_TOOLS = [
+  { key: 'bash', label: 'Bash', desc: 'Comandos que requieren confirmación' },
+  { key: 'write', label: 'Write', desc: 'Archivos donde escribir requiere confirmación' },
+  { key: 'edit', label: 'Edit', desc: 'Archivos donde editar requiere confirmación' },
+] as const;
+
 function renderApproveConfig(): HTMLElement {
   const block = document.createElement('div');
   block.className = 'settings-extension-block';
@@ -1288,20 +1357,92 @@ function renderApproveConfig(): HTMLElement {
 
   const desc = document.createElement('p');
   desc.className = 'settings-subsection-desc';
-  desc.textContent = 'Patrones de comandos y archivos que requieren confirmación antes de ejecutarse.';
+  desc.textContent = 'Patrones que requieren confirmación antes de ejecutarse.';
   block.append(desc);
 
+  // Estado: reglas cargadas del backend
+  const rules = signal<ApproveRules | null>(null);
   const saveStatus = signal<{ kind: 'idle' } | { kind: 'saved' } | { kind: 'error'; message: string }>({ kind: 'idle' });
 
-  // Textarea con JSON
-  const textarea = document.createElement('textarea');
-  textarea.className = 'settings-textarea';
-  textarea.rows = 10;
-  textarea.placeholder = 'Cargando reglas…';
-  textarea.spellcheck = false;
-  block.append(textarea);
+  // Tool cards
+  const toolsContainer = document.createElement('div');
+  toolsContainer.className = 'settings-approve-tools';
 
-  // Botón guardar
+  // Inputs refs para recolección al guardar
+  const toolInputs: Record<string, { patterns: HTMLInputElement; msg: HTMLInputElement }> = {};
+
+  for (const tool of APPROVE_TOOLS) {
+    const card = document.createElement('div');
+    card.className = 'settings-approve-tool';
+
+    const toolTitle = document.createElement('h4');
+    toolTitle.className = 'settings-approve-tool-title';
+    toolTitle.textContent = tool.label;
+    card.append(toolTitle);
+
+    const toolDesc = document.createElement('p');
+    toolDesc.className = 'settings-approve-tool-desc';
+    toolDesc.textContent = tool.desc;
+    card.append(toolDesc);
+
+    // Tags container (se llena cuando se cargan las reglas)
+    const tagsContainer = document.createElement('div');
+    tagsContainer.className = 'settings-approve-tags';
+    card.append(tagsContainer);
+
+    // Add pattern row
+    const addRow = document.createElement('div');
+    addRow.className = 'settings-approve-addrow';
+
+    const patternInput = document.createElement('input');
+    patternInput.type = 'text';
+    patternInput.className = 'settings-input settings-approve-input';
+    patternInput.placeholder = 'Ej: rm -rf';
+    patternInput.spellcheck = false;
+    addRow.append(patternInput);
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'settings-btn settings-btn--small';
+    addBtn.textContent = '+ Agregar';
+    addBtn.addEventListener('click', () => {
+      const val = patternInput.value.trim();
+      if (!val) return;
+      addTagToContainer(tagsContainer, val, patternInput);
+      patternInput.value = '';
+    });
+    patternInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addBtn.click();
+      }
+    });
+    addRow.append(addBtn);
+    card.append(addRow);
+
+    // Message input
+    const msgRow = document.createElement('div');
+    msgRow.className = 'settings-approve-msgrow';
+
+    const msgLabel = document.createElement('span');
+    msgLabel.className = 'settings-approve-msglabel';
+    msgLabel.textContent = 'Mensaje:';
+    msgRow.append(msgLabel);
+
+    const msgInput = document.createElement('input');
+    msgInput.type = 'text';
+    msgInput.className = 'settings-input settings-approve-msginput';
+    msgInput.placeholder = 'Confirm before running...';
+    msgInput.spellcheck = false;
+    msgRow.append(msgInput);
+    card.append(msgRow);
+
+    toolInputs[tool.key] = { patterns: patternInput, msg: msgInput };
+    toolsContainer.append(card);
+  }
+
+  block.append(toolsContainer);
+
+  // Actions
   const actions = document.createElement('div');
   actions.className = 'settings-provider-actions';
 
@@ -1310,18 +1451,32 @@ function renderApproveConfig(): HTMLElement {
   saveBtn.className = 'settings-btn settings-btn--primary';
   saveBtn.textContent = 'Guardar reglas';
   saveBtn.addEventListener('click', async () => {
+    // Recolectar patrones de los tags visibles
+    const config: ApproveRules = { rules: {}, messages: {} };
+    for (const tool of APPROVE_TOOLS) {
+      const tags = toolsContainer.querySelectorAll(
+        `.settings-approve-tool:nth-child(${APPROVE_TOOLS.indexOf(tool) + 1}) .settings-approve-tag`
+      );
+      // Fallback: buscar por tool key en data atributo
+      const allTags = toolsContainer.querySelectorAll('.settings-approve-tag');
+      const patterns: string[] = [];
+      for (const tag of allTags) {
+        if ((tag as HTMLElement).dataset.tool === tool.key) {
+          const text = (tag as HTMLElement).dataset.pattern;
+          if (text) patterns.push(text);
+        }
+      }
+      config.rules[tool.key] = patterns;
+      config.messages[tool.key] = toolInputs[tool.key].msg.value.trim() || `Confirm before using ${tool.label.toLowerCase()}`;
+    }
+
+    saveBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
     try {
-      const config: ApproveRules = JSON.parse(textarea.value);
-      saveBtn.disabled = true;
-      saveStatus.value = { kind: 'idle' };
       await setApproveRules(config);
       saveStatus.value = { kind: 'saved' };
     } catch (err) {
-      if (err instanceof SyntaxError) {
-        saveStatus.value = { kind: 'error', message: 'JSON inválido. Corregí la sintaxis.' };
-      } else {
-        saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
-      }
+      saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
     } finally {
       saveBtn.disabled = false;
     }
@@ -1347,14 +1502,59 @@ function renderApproveConfig(): HTMLElement {
   });
   block.append(feedback);
 
-  // Cargar reglas actuales
+  // Cargar reglas actuales y popular la UI
   getApproveRules()
-    .then((rules) => {
-      textarea.value = JSON.stringify(rules, null, 2);
+    .then((loaded) => {
+      for (const tool of APPROVE_TOOLS) {
+        const toolCard = toolsContainer.children[APPROVE_TOOLS.indexOf(tool)] as HTMLElement;
+        if (!toolCard) continue;
+        const tagsContainer = toolCard.querySelector('.settings-approve-tags') as HTMLElement;
+        if (!tagsContainer) continue;
+
+        const patterns = loaded.rules[tool.key] ?? [];
+        for (const pattern of patterns) {
+          addTagToContainer(tagsContainer, pattern, null, tool.key);
+        }
+
+        const msg = loaded.messages[tool.key] ?? '';
+        toolInputs[tool.key].msg.value = msg;
+      }
     })
     .catch((err) => {
-      textarea.value = 'Error al cargar reglas: ' + (err instanceof Error ? err.message : String(err));
+      saveStatus.value = { kind: 'error', message: 'Error al cargar reglas: ' + (err instanceof Error ? err.message : String(err)) };
     });
 
   return block;
+}
+
+/** Agrega un tag al container visual. Si inputRef no es null, limpia el input. */
+function addTagToContainer(
+  container: HTMLElement,
+  pattern: string,
+  inputRef: HTMLInputElement | null,
+  toolKey?: string,
+): void {
+  // Evitar duplicados
+  const existing = container.querySelectorAll('.settings-approve-tag');
+  for (const tag of existing) {
+    if ((tag as HTMLElement).dataset.pattern === pattern) return;
+  }
+
+  const tag = document.createElement('span');
+  tag.className = 'settings-approve-tag';
+  tag.dataset.pattern = pattern;
+  if (toolKey) tag.dataset.tool = toolKey;
+  tag.textContent = pattern;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'settings-approve-tag-remove';
+  removeBtn.textContent = '×';
+  removeBtn.setAttribute('aria-label', `Quitar ${pattern}`);
+  removeBtn.addEventListener('click', () => {
+    tag.remove();
+  });
+
+  tag.append(removeBtn);
+  container.append(tag);
 }
