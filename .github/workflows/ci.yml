@@ -5,13 +5,13 @@ name: CI
 # formato/clippy. Es la primera línea de defensa antes de merge.
 #
 # Estructura de jobs:
-#   1. lint      — fmt + clippy
-#   2. test      — unit tests frontend + backend
-#   3. build     — cargo build + vite build
-#   4. changes   — detecta qué archivos cambiaron (rápido, ~3s)
-#   5. e2e       — WebdriverIO + tauri-driver (solo si cambió frontend/ o e2e/)
+#   1. lint+test — fmt + clippy + unit tests (setup compartido)
+#   2. build     — cargo build + vite build
+#   3. changes   — detecta qué archivos cambiaron (rápido, ~3s)
+#   4. e2e       — WebdriverIO + tauri-driver (solo si cambió frontend/ o e2e/)
 #
 # Optimizaciones:
+#   - lint+test fusionados: el setup (system deps, pi, frontend) se hace una vez
 #   - Pi binaries cacheados por hash de package.json (evita bun --compile en cada run)
 #   - tauri-driver cacheado por runner OS (evita cargo install en cada run)
 #   - E2E condicional: se salta si no hay cambios en frontend/ o e2e/
@@ -35,11 +35,12 @@ concurrency:
 
 jobs:
   # ──────────────────────────────────────────────────────────────
-  # Lint: formato + clippy. Corre rápido (~10s con cache).
-  # Si falla, el PR no se puede merge.
+  # Lint + Test: formato, clippy y tests unitarios.
+  # Fusionados para que el setup (system deps, pi, frontend)
+  # se ejecute una sola vez en vez de duplicarse.
   # ──────────────────────────────────────────────────────────────
-  lint:
-    name: Lint
+  lint-test:
+    name: Lint & Test
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -80,12 +81,20 @@ jobs:
         if: steps.cache-pi.outputs.cache-hit != 'true'
         run: ./scripts/build-pi-sessions.sh --target linux
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install frontend deps
         run: cd frontend && npm ci
 
       - name: Build frontend
         run: cd frontend && npm run build
 
+      # ── Lint checks ──
       - name: TypeScript type-check
         run: cd frontend && npm run typecheck
 
@@ -95,63 +104,7 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --all-targets --manifest-path backend/Cargo.toml -- -D warnings
 
-  # ──────────────────────────────────────────────────────────────
-  # Test: unit tests frontend (vitest) + backend (cargo test).
-  # Son rápidos (~5s) pero verifican toda la lógica de negocio.
-  # ──────────────────────────────────────────────────────────────
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ./backend -> target
-
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Install bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install root deps
-        run: npm ci
-
-      - name: Install frontend deps
-        run: cd frontend && npm ci
-
-      - name: Cache pi binaries
-        id: cache-pi
-        uses: actions/cache@v4
-        with:
-          path: backend/binaries/
-          key: pi-${{ hashFiles('node_modules/@earendil-works/pi-coding-agent/package.json', 'backend/scripts/pi-sessions.ts') }}-${{ runner.os }}
-
-      - name: Build pi sidecar
-        if: steps.cache-pi.outputs.cache-hit != 'true'
-        run: ./scripts/build-pi.sh --target linux
-
-      - name: Build pi-sessions
-        if: steps.cache-pi.outputs.cache-hit != 'true'
-        run: ./scripts/build-pi-sessions.sh --target linux
-
-      - name: Build frontend (needed for cargo test — Tauri requiere frontendDist)
-        run: cd frontend && npm run build
-
+      # ── Unit tests ──
       - name: Frontend tests
         run: cd frontend && npm run test:run
 
