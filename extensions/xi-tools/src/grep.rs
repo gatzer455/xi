@@ -1,6 +1,7 @@
 // grep.rs — Search file contents with regex, gitignore-aware.
 //
 // Uses `regex` for pattern matching and `ignore::WalkBuilder` for traversal.
+// Supports optional --context for surrounding lines.
 
 use globset::Glob;
 use ignore::WalkBuilder;
@@ -14,9 +15,10 @@ pub fn execute(
     glob: Option<&str>,
     ignore_case: bool,
     literal: bool,
-    _context: Option<usize>,
+    context: Option<usize>,
     limit: usize,
 ) -> Result<(), String> {
+    let ctx = context.unwrap_or(0);
     let re_str = if literal {
         regex::escape(pattern)
     } else {
@@ -81,22 +83,52 @@ pub fn execute(
                 continue;
             }
         };
-        let reader = BufReader::new(file);
 
-        for (line_num, line_res) in reader.lines().enumerate() {
-            if matches >= limit {
-                break;
-            }
-            let line = match line_res {
-                Ok(l) => l,
-                Err(e) => {
-                    eprintln!("grep: read error in {}: {e}", file_path.display());
+        if ctx > 0 {
+            // Context mode: load entire file into memory
+            let lines: Vec<String> = BufReader::new(file)
+                .lines()
+                .filter_map(|l| l.ok())
+                .collect();
+            let mut last_printed = 0usize;
+            for (i, line) in lines.iter().enumerate() {
+                if matches >= limit {
                     break;
                 }
-            };
-            if re.is_match(&line) {
-                println!("{}:{}:{}", file_path.display(), line_num + 1, line);
-                matches += 1;
+                if re.is_match(line) {
+                    let start = i.saturating_sub(ctx);
+                    let end = (i + ctx + 1).min(lines.len());
+                    if start > last_printed && last_printed > 0 {
+                        println!("--");
+                    }
+                    for j in start..end {
+                        if j < last_printed {
+                            continue;
+                        }
+                        println!("{}:{}:{}", file_path.display(), j + 1, lines[j]);
+                    }
+                    last_printed = end;
+                    matches += 1;
+                }
+            }
+        } else {
+            // No context: stream line by line (more memory efficient)
+            let reader = BufReader::new(file);
+            for (line_num, line_res) in reader.lines().enumerate() {
+                if matches >= limit {
+                    break;
+                }
+                let line = match line_res {
+                    Ok(l) => l,
+                    Err(e) => {
+                        eprintln!("grep: read error in {}: {e}", file_path.display());
+                        break;
+                    }
+                };
+                if re.is_match(&line) {
+                    println!("{}:{}:{}", file_path.display(), line_num + 1, line);
+                    matches += 1;
+                }
             }
         }
     }

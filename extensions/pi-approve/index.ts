@@ -165,8 +165,9 @@ async function handleApproval(
 // ─── Extension ────────────────────────────────────────────────────────────────
 
 export default function approveExtension(pi: ExtensionAPI) {
-	// "Always" se guarda en memoria: Map<toolName, Set<pattern>>
-	// Se resetea al inicio de cada sesión (el Map se crea nuevo acá)
+	// "Always" se guarda en memoria: Map<toolName, Set<inputToCheck>>.
+	// Almacena el inputToCheck exacto (no el patrón), así que solo
+	// auto-aprueba entradas byte-idénticas durante la sesión actual.
 	const alwaysAllowed = new Map<string, Set<string>>();
 
 	pi.on("session_start", () => {

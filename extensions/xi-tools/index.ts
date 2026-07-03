@@ -196,10 +196,11 @@ async function execLs(params: { path?: string; limit?: number }, signal?: AbortS
 
 // ── Tool: read ─────────────────────────────────────────────────────────────
 
-async function execRead(params: { path: string; offset?: number; limit?: number }, signal?: AbortSignal) {
+async function execRead(params: { path: string; offset?: number; limit?: number; hashline?: boolean }, signal?: AbortSignal) {
   const flags = ["--path", params.path];
-  if (params.offset) flags.push("--offset", String(params.offset));
-  if (params.limit) flags.push("--limit", String(params.limit));
+  if (params.offset != null) flags.push("--offset", String(params.offset));
+  if (params.limit != null) flags.push("--limit", String(params.limit));
+  if (params.hashline !== false) flags.push("--hashline");
 
   const { stdout, stderr } = await xiSpawn("read", flags, undefined, signal);
   if (stderr && !stdout) {
@@ -208,10 +209,12 @@ async function execRead(params: { path: string; offset?: number; limit?: number 
       details: {},
     };
   }
-  const lines = stdout.split("\n");
+  // Extract file_hash if present
+  const fhMatch = stdout.match(/--- file_hash: (\S+)/);
+  const fileHash = fhMatch ? fhMatch[1] : undefined;
   return {
     content: [{ type: "text" as const, text: stdout }],
-    details: { lines: lines.length },
+    details: { fileHash, hashline: params.hashline !== false },
   };
 }
 
@@ -233,14 +236,30 @@ async function execWrite(params: { path: string; content: string }, signal?: Abo
 
 // ── Tool: edit ─────────────────────────────────────────────────────────────
 
-interface EditItem {
+// Hash-anchored edit operations (recommended)
+interface HashlineEdit {
+  op: "replace" | "delete" | "insert_after" | "insert_before";
+  start_hash?: string;
+  end_hash?: string;
+  hash?: string;
+  lines?: string[];
+}
+
+// Legacy edit (text-based, less reliable)
+interface LegacyEdit {
   oldText: string;
   newText: string;
 }
 
-async function execEdit(params: { path: string; edits: EditItem[] }, signal?: AbortSignal) {
-  // Mandamos edits[] como JSON por stdin (mismo patrón que pi con fs.readFile + replace)
-  const input = JSON.stringify({ edits: params.edits });
+type AnyEdit = HashlineEdit | LegacyEdit;
+
+async function execEdit(params: { path: string; file_hash?: string; edits: AnyEdit[] }, signal?: AbortSignal) {
+  // Mandamos edits[] + file_hash como JSON por stdin
+  const input = JSON.stringify({
+    path: params.path,
+    file_hash: params.file_hash,
+    edits: params.edits,
+  });
   const { stdout, stderr } = await xiSpawn("edit", ["--path", params.path], input, signal);
 
   if (stderr && !stdout) {
@@ -286,19 +305,21 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "read",
     label: "Read",
-    description: "Read the contents of a file. Supports text files and images. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files.",
-    promptSnippet: "Read file contents",
+    description: "Read the contents of a file. Output is truncated to 2000 lines or 50KB (whichever is hit first). Each line includes a 4-char content hash for hash-anchored editing. Use offset/limit for large files. The file_hash at the end enables stale-edit detection.",
+    promptSnippet: "Read file contents with line hashes for reliable editing",
     promptGuidelines: [
-      "Use read to examine files instead of cat or sed.",
-      "Use offset/limit to read large files in chunks.",
+      "Use read to examine files instead of cat or sed. Content is shown with line hashes (HASH|LINE|content).",
+      "The file_hash at the bottom is REQUIRED for editing — pass it to edit as file_hash.",
+      "Use offset/limit to read large files in chunks. Each chunk has its own file_hash.",
     ],
     parameters: Type.Object({
       path: Type.String({ description: "Path to the file to read (relative or absolute)" }),
-      offset: Type.Optional(Type.Number({ description: "Line number to start reading from (1-indexed)" })),
+      offset: Type.Optional(Type.Number({ description: "Line number to start reading from (0-indexed)" })),
       limit: Type.Optional(Type.Number({ description: "Maximum number of lines to read" })),
+      hashline: Type.Optional(Type.Boolean({ description: "Show hashes (default: true). Set false for legacy behavior." })),
     }),
     async execute(_id, params, signal) {
-      return execRead(params as { path: string; offset?: number; limit?: number }, signal);
+      return execRead(params as Parameters<typeof execRead>[0], signal);
     },
   });
 
@@ -308,25 +329,34 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "edit",
     label: "Edit",
-    description: "Edit a single file using exact text replacement. Every edits[].oldText must match a unique, non-overlapping region of the original file. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.",
-    promptSnippet: "Make precise file edits with exact text replacement, including multiple disjoint edits in one call",
+    description: "Edit a file using hash-anchored line editing or legacy text replacement. Hashline mode (recommended) uses content hashes from read output to target lines precisely. Legacy mode uses oldText/newText matching. Every edit is validated before application — stale file_hash or missing hashes are rejected immediately.",
+    promptSnippet: "Make precise file edits with hash-anchored lines (preferred) or text replacement",
     promptGuidelines: [
-      "Use edit for precise changes (edits[].oldText must match exactly).",
-      "Keep edits[].oldText small but unique.",
-      "Use write only for new files or complete rewrites.",
+      "PREFERRED: Use hashline format — copy start_hash/end_hash from read output and pass file_hash from the read details.",
+      "Hashline ops: 'replace' (start_hash/end_hash/lines), 'delete' (start_hash/end_hash), 'insert_after'/'insert_before' (hash/lines).",
+      "LEGACY: Use oldText/newText for small one-off edits. Must be unique in the file. Include enough context.",
+      "Always pass file_hash from the most recent read to enable stale-edit protection.",
     ],
     parameters: Type.Object({
       path: Type.String({ description: "Path to the file to edit (relative or absolute)" }),
+      file_hash: Type.Optional(Type.String({ description: "File hash from the most recent read output (--- file_hash: XXXX). Enables stale-edit detection." })),
       edits: Type.Array(
         Type.Object({
-          oldText: Type.String({ description: "Exact text for one targeted replacement. It must be unique in the original file and must not overlap with any other edits[].oldText in the same call." }),
-          newText: Type.String({ description: "Replacement text for this targeted edit." }),
+          // Hashline mode (preferred)
+          op: Type.Optional(Type.String({ description: "Operation: 'replace', 'delete', 'insert_after', 'insert_before'" })),
+          start_hash: Type.Optional(Type.String({ description: "Hash of the first line to replace/delete" })),
+          end_hash: Type.Optional(Type.String({ description: "Hash of the last line to replace/delete (same as start_hash for single line)" })),
+          hash: Type.Optional(Type.String({ description: "Hash of the anchor line for insert_after/insert_before" })),
+          lines: Type.Optional(Type.Array(Type.String(), { description: "New lines for replace/insert operations" })),
+          // Legacy mode (text-based)
+          oldText: Type.Optional(Type.String({ description: "[Legacy] Exact text to replace. Must be unique." })),
+          newText: Type.Optional(Type.String({ description: "[Legacy] Replacement text." })),
         }),
-        { description: "One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead." },
+        { description: "One or more targeted edits. Use hashline format (op/start_hash/end_hash/hash/lines) for reliability, or legacy format (oldText/newText) for simple cases." },
       ),
     }),
     async execute(_id, params, signal) {
-      return execEdit(params as { path: string; edits: EditItem[] }, signal);
+      return execEdit(params as Parameters<typeof execEdit>[0], signal);
     },
   });
 

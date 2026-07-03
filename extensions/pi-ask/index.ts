@@ -301,9 +301,9 @@ Ask the user for clarification when a choice materially affects the outcome.
 - Prefer 2-5 concise options.
 - Use recommended=<index> (0-indexed) to mark the default option.
 - Use description to provide Markdown/plain context (supports long explanations and structure diagrams).
+- Note: multi-select (multi: true) is planned for a future version.
 - You can ask multiple related questions in one call using questions[].
 - Do NOT include an 'Other' option; UI adds it automatically.
-- Note: multi-select (multi: true) is planned for a future version.
 `.trim();
 
 export default function askExtension(pi: ExtensionAPI) {

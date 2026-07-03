@@ -188,7 +188,7 @@ async function search(
 ): Promise<{ content: Array<{ type: "text"; text: string }> }> {
   const body: Record<string, unknown> = {
     query: params.query,
-    numResults: (params.numResults as number) || 10,
+    numResults: (params.numResults as number) ?? 10,
     contents: buildContentsOpts(params.maxCharacters as number | undefined),
   };
 
@@ -220,7 +220,7 @@ async function crawl(
 ): Promise<{ content: Array<{ type: "text"; text: string }> }> {
   const body: Record<string, unknown> = {
     urls: [params.url],
-    text: { maxCharacters: (params.maxCharacters as number) || 10000 },
+    text: { maxCharacters: (params.maxCharacters as number) ?? 10000 },
   };
 
   const data = await exaPost(apiKey, "/contents", body, signal);
@@ -301,7 +301,7 @@ export default function (pi: ExtensionAPI) {
       })),
     }),
     async execute(_id, params, signal) {
-      const p = { ...params, numResults: params.numResults || 5, maxCharacters: params.maxCharacters ?? 10000 };
+      const p = { ...params, numResults: params.numResults ?? 5, maxCharacters: params.maxCharacters ?? 10000 };
       return safeExecute(c.apiKey, () => search(c.apiKey, p as Record<string, unknown>, signal));
     },
   });
