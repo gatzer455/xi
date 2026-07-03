@@ -5,12 +5,20 @@ name: CI
 # formato/clippy. Es la primera línea de defensa antes de merge.
 #
 # Estructura de jobs:
-#   1. lint      — fmt + clippy (rápido, ~10s con cache)
-#   2. test      — unit tests frontend + backend (~5s)
-#   3. build     — cargo build + vite build (~2-3 min con cache)
-#   4. e2e       — WebdriverIO + tauri-driver (~6s + compilación)
+#   1. lint-test — fmt + clippy + unit tests (setup compartido, clippy ya compila todo)
+#   2. changes   — detecta qué archivos cambiaron (rápido, ~3s)
+#   3. e2e       — WebdriverIO + tauri-driver (solo si cambió frontend/ o e2e/)
 #
-# Tiempo total estimado: ~3-4 min (con cache en runs subsiguientes)
+# Optimizaciones:
+#   - lint+test fusionados: el setup (system deps, pi, frontend) se hace una vez
+#   - Pi binaries cacheados por hash de package.json (evita bun --compile en cada run)
+#   - tauri-driver cacheado por runner OS (evita cargo install en cada run)
+#   - E2E condicional: se salta si no hay cambios en frontend/ o e2e/
+#   - Job build eliminado: clippy --all-targets ya verifica que todo compila
+#
+# Tiempo total estimado:
+#   - Cualquier PR (con cache): ~2-3 min
+#   - Cold start:                 ~5-6 min (primer push de un PR nuevo)
 
 on:
   pull_request:
@@ -26,11 +34,12 @@ concurrency:
 
 jobs:
   # ──────────────────────────────────────────────────────────────
-  # Lint: formato + clippy. Corre rápido (~10s con cache).
-  # Si falla, el PR no se puede merge.
+  # Lint + Test: formato, clippy y tests unitarios.
+  # Fusionados para que el setup (system deps, pi, frontend)
+  # se ejecute una sola vez en vez de duplicarse.
   # ──────────────────────────────────────────────────────────────
-  lint:
-    name: Lint
+  lint-test:
+    name: Lint & Test
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -56,18 +65,35 @@ jobs:
       - name: Install root deps
         run: npm ci
 
-      - name: Build pi sidecar (needed for clippy — Tauri valida externalBin)
+      - name: Cache pi binaries
+        id: cache-pi
+        uses: actions/cache@v4
+        with:
+          path: backend/binaries/
+          key: pi-${{ hashFiles('node_modules/@earendil-works/pi-coding-agent/package.json', 'backend/scripts/pi-sessions.ts') }}-${{ runner.os }}
+
+      - name: Build pi sidecar
+        if: steps.cache-pi.outputs.cache-hit != 'true'
         run: ./scripts/build-pi.sh --target linux
 
       - name: Build pi-sessions
+        if: steps.cache-pi.outputs.cache-hit != 'true'
         run: ./scripts/build-pi-sessions.sh --target linux
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend deps
         run: cd frontend && npm ci
 
-      - name: Build frontend (needed for clippy — --all-targets incluye tests que requieren frontendDist)
+      - name: Build frontend
         run: cd frontend && npm run build
 
+      # ── Lint checks ──
       - name: TypeScript type-check
         run: cd frontend && npm run typecheck
 
@@ -77,54 +103,7 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --all-targets --manifest-path backend/Cargo.toml -- -D warnings
 
-  # ──────────────────────────────────────────────────────────────
-  # Test: unit tests frontend (vitest) + backend (cargo test).
-  # Son rápidos (~5s) pero verifican toda la lógica de negocio.
-  # ──────────────────────────────────────────────────────────────
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: ./backend -> target
-
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Install bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install root deps
-        run: npm ci
-
-      - name: Install frontend deps
-        run: cd frontend && npm ci
-
-      - name: Build pi sidecar
-        run: ./scripts/build-pi.sh --target linux
-
-      - name: Build pi-sessions
-        run: ./scripts/build-pi-sessions.sh --target linux
-
-      - name: Build frontend (needed for cargo test — Tauri requiere frontendDist)
-        run: cd frontend && npm run build
-
+      # ── Unit tests ──
       - name: Frontend tests
         run: cd frontend && npm run test:run
 
@@ -132,63 +111,40 @@ jobs:
         run: cd backend && cargo test
 
   # ──────────────────────────────────────────────────────────────
-  # Build: compilación completa del app. Verifica que todo
-  # compile sin errores (Rust + Vite). Con cache ~2-3 min.
+  # Changes: detecta qué archivos cambiaron. Jobs downstream usan
+  # esto para decidir si corren o se saltan (path filtering no se
+  # puede hacer por job individual con on.pull_request.paths).
   # ──────────────────────────────────────────────────────────────
-  build:
-    name: Build
+  changes:
+    name: Detect changes
     runs-on: ubuntu-22.04
+    outputs:
+      frontend_e2e: ${{ steps.filter.outputs.frontend_e2e }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
         with:
-          node-version: lts/*
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          fetch-depth: 0  # necesario para comparar contra base
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust
-        uses: Swatinem/rust-cache@v2
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
-          workspaces: ./backend -> target
-
-      - name: Install system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: Install bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install root deps
-        run: npm ci
-
-      - name: Install frontend deps
-        run: cd frontend && npm ci
-
-      - name: Build pi sidecar
-        run: ./scripts/build-pi.sh --target linux
-
-      - name: Build pi-sessions
-        run: ./scripts/build-pi-sessions.sh --target linux
-
-      - name: Build frontend
-        run: cd frontend && npm run build
-
-      - name: Build backend
-        run: cd backend && cargo build
+          filters: |
+            frontend_e2e:
+              - 'frontend/**'
+              - 'e2e/**'
 
   # ──────────────────────────────────────────────────────────────
   # E2E: tests de integración completos. Requiere compilar el
   # debug build de Tauri + lanzar tauri-driver. Más lento pero
   # verifica que la app real funciona end-to-end.
+  #
+  # Solo corre si cambia frontend/ o e2e/ — si un PR toca solo
+  # backend/ o docs, se salta (ahorra ~4-5 min por push).
   # ──────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend_e2e == 'true' }}
     # Nota: los tests básicos (app, welcome, settings) no requieren
     # pi con API keys. Solo sessions.spec.ts necesita pi-sessions
     # sidecar, que se compila en CI.
@@ -231,16 +187,33 @@ jobs:
       - name: Install E2E deps
         run: cd e2e && npm ci
 
+      - name: Cache pi binaries
+        id: cache-pi
+        uses: actions/cache@v4
+        with:
+          path: backend/binaries/
+          key: pi-${{ hashFiles('node_modules/@earendil-works/pi-coding-agent/package.json', 'backend/scripts/pi-sessions.ts') }}-${{ runner.os }}
+
       - name: Build pi sidecar
+        if: steps.cache-pi.outputs.cache-hit != 'true'
         run: ./scripts/build-pi.sh --target linux
 
       - name: Build pi-sessions
+        if: steps.cache-pi.outputs.cache-hit != 'true'
         run: ./scripts/build-pi-sessions.sh --target linux
 
       - name: Build frontend (needed for Tauri dev mode)
         run: cd frontend && npm run build
 
+      - name: Cache tauri-driver
+        id: cache-tauri-driver
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/tauri-driver
+          key: tauri-driver-${{ runner.os }}
+
       - name: Install tauri-driver
+        if: steps.cache-tauri-driver.outputs.cache-hit != 'true'
         run: cargo install tauri-driver --locked
 
       - name: E2E tests
