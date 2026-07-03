@@ -6,8 +6,12 @@
 # en resources/extensions/ para que Tauri las empaquete en el bundle.
 #
 # Uso:
-#   ./scripts/bundle-extensions.sh [--target linux|macos|windows]
+#   ./scripts/bundle-extensions.sh [--target <rust-triple>]
 #   Sin --target, compila para la plataforma nativa.
+#
+# Ejemplos:
+#   ./scripts/bundle-extensions.sh --target x86_64-unknown-linux-gnu
+#   ./scripts/bundle-extensions.sh --target aarch64-apple-darwin
 # ─────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -23,12 +27,7 @@ TARGET_TRIPLE=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --target)
-      case $2 in
-        linux)   TARGET_TRIPLE="x86_64-unknown-linux-gnu" ;;
-        macos)   TARGET_TRIPLE="x86_64-apple-darwin" ;;
-        windows) TARGET_TRIPLE="x86_64-pc-windows-msvc" ;;
-        *) echo "Error: target no reconocido: $2. Usa linux, macos o windows."; exit 1 ;;
-      esac
+      TARGET_TRIPLE="$2"
       shift 2
       ;;
     *)
