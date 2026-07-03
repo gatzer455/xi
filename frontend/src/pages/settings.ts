@@ -32,6 +32,17 @@ import {
   deleteApiKey,
   type ProviderInfo,
 } from '../lib/pi/tauri-commands.ts';
+import {
+  getExaConfig,
+  getExaApiKey,
+  setExaApiKey,
+  deleteExaApiKey,
+  testExaApiKey,
+  getApproveRules,
+  setApproveRules,
+  type ExaConfigStatus,
+  type ApproveRules,
+} from '../lib/pi/tauri-commands.ts';
 import { ensurePiRunning } from '../lib/pi/index.ts';
 import { loadAuthStatus } from '../lib/auth-status.ts';
 import {
@@ -43,6 +54,7 @@ import {
 import {
   checkForUpdate,
   installAndRelaunch,
+  isUpdaterAvailable,
 } from '../lib/updater.ts';
 
 // ═══════════════════════════════════════════════════════
@@ -54,12 +66,12 @@ export function SettingsPage(): Page {
   root.className = 'settings-page';
   const scope = createScope();
 
-  // Disparar la carga de modelos al primer mount, solo si la lista
-  // está vacía Y no estamos ya cargando (main.ts puede haber
-  // disparado el request antes). `loadModels` es fire-and-forget
-  // (la respuesta llega por eventos al state-sync) e inicia un
-  // timer de 5s para mostrar error si pi no responde.
+  // Disparar la carga de modelos al primer mount
+  // Solo cargar modelos si hay una sesión activa (hay workingDir).
+  // Sin sesión, pi no puede arrancar y getAvailableModels falla.
+  // La lista de modelos se usa en la context bar del chat, no en Settings.
   if (
+    appState.workingDir.value &&
     appState.availableModels.value.length === 0 &&
     !modelsLoadAttempted &&
     !modelsLoading.value
@@ -68,33 +80,21 @@ export function SettingsPage(): Page {
     loadModels();
   }
 
-  // Cargar la versión de pi (lazy, no en main.ts — el user solo la
-  // ve en Acerca de). El wrapper retorna 'unknown' si falla, y la
-  // sección Acerca de muestra "pi desconocida" en ese caso.
   void getPiVersion().then((version) => {
     appState.piVersion.value = version;
   });
 
-  // Cargar el estado de providers (lazy, no en main.ts — la welcome
-  // también lo hace al mount). Después de un save, esta misma función
-  // se re-ejecuta para refrescar configuredProviders.
   void loadAuthStatus();
 
-  // Refrescar el estado de pi al abrir settings para que el modelo
-  // mostrado en el dropdown esté sincronizado con lo que pi tiene
-  // en memoria. Sin esto, el modelo puede estar desactualizado si
-  // el usuario cambió de sesión o pi restarteó con un default.
-  if (appState.activeTabId.value) {
-    void ensurePiRunning().then(() => getPiState());
+  if (appState.workingDir.value) {
+    void ensurePiRunning().then(() => getPiState()).catch(() => {});
   }
 
-  // Back button: el shell del top bar sigue siendo el navegador principal.
+  // Back button
   const back = document.createElement('button');
   back.className = 'settings-back';
   back.textContent = '← Volver';
   back.addEventListener('click', () => {
-    // Volver a la vista de donde el usuario vino.
-    // previousView se actualiza en navigate() antes de ir a settings.
     navigate(appState.previousView.value);
   });
   root.append(back);
@@ -104,18 +104,98 @@ export function SettingsPage(): Page {
   title.textContent = 'Configuración';
   root.append(title);
 
-  // ─── Sección de Providers ───
-  // Siempre visible. La configuración de modelo y thinking level
-  // se movió a la context bar del chat (etapa 9-10).
-  root.append(renderProviderSection(scope));
-
-  // ─── Secciones siempre visibles ─────────────────────────────
-  root.append(renderAppearanceSection());
-  root.append(renderSessionSection(scope));
-  root.append(renderUpdateSection(scope));
-  root.append(renderAboutSection(scope));
+  // ── Tabs ────────────────────────────────────────────────
+  const tabs = renderSettingsTabs(scope);
+  root.append(tabs);
 
   return { root, dispose: () => scope.dispose() };
+}
+
+// ═══════════════════════════════════════════════════════
+// Tab navigation
+// ═══════════════════════════════════════════════════════
+
+type SettingsTab = 'provider' | 'appearance' | 'extensions' | 'about';
+
+function renderSettingsTabs(scope: Scope): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'settings-tabs';
+
+  const activeTab = signal<SettingsTab>('provider');
+
+  // Tab bar
+  const tabBar = document.createElement('div');
+  tabBar.className = 'settings-tab-bar';
+
+  const tabs: { id: SettingsTab; label: string }[] = [
+    { id: 'provider', label: 'Proveedor' },
+    { id: 'appearance', label: 'Apariencia' },
+    { id: 'extensions', label: 'Extensiones' },
+    { id: 'about', label: 'Acerca de' },
+  ];
+
+  for (const tab of tabs) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'settings-tab-btn';
+    btn.dataset.tab = tab.id;
+    btn.textContent = tab.label;
+    btn.addEventListener('click', () => { activeTab.value = tab.id; });
+    activeTab.subscribe((id) => {
+      btn.classList.toggle('settings-tab-btn--active', id === tab.id);
+    });
+    tabBar.append(btn);
+  }
+
+  container.append(tabBar);
+
+  // Tab content
+  const content = document.createElement('div');
+  content.className = 'settings-tab-content';
+
+  // Provider tab
+  const providerPane = wrapPane(renderProviderSection(scope));
+  content.append(providerPane);
+
+  // Appearance tab
+  const appearancePane = wrapPane(renderAppearanceSection());
+  content.append(appearancePane);
+
+  // Extensions tab
+  const extensionsPane = wrapPane(renderExtensionsSection(scope));
+  content.append(extensionsPane);
+
+  // About tab (update + session + about)
+  const aboutPane = wrapPane(renderUpdateSection(scope));
+  aboutPane.append(renderSessionSection(scope));
+  aboutPane.append(renderAboutSection(scope));
+  content.append(aboutPane);
+
+  // Show/hide panes based on active tab
+  const panes = [providerPane, appearancePane, extensionsPane, aboutPane];
+  activeTab.subscribe((id) => {
+    const idx = tabs.findIndex((t) => t.id === id);
+    for (let i = 0; i < panes.length; i++) {
+      panes[i].style.display = i === idx ? '' : 'none';
+    }
+    // Activar el primer tab por defecto
+    if (idx === -1) {
+      panes[0].style.display = '';
+    }
+  });
+
+  // Inicializar: mostrar solo provider
+  activeTab.value = 'provider';
+
+  container.append(content);
+  return container;
+}
+
+function wrapPane(content: HTMLElement): HTMLElement {
+  const pane = document.createElement('div');
+  pane.className = 'settings-tab-pane';
+  pane.append(content);
+  return pane;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -657,6 +737,16 @@ function renderAboutSection(scope: Scope): HTMLElement {
 // ═══════════════════════════════════════════════════════
 
 function renderUpdateSection(scope: Scope): HTMLElement {
+  // En dev mode, el updater no funciona (no hay releases publicados).
+  // Mostramos un mensaje claro en vez del error de red.
+  if (!isUpdaterAvailable()) {
+    return createSection({
+      title: 'Actualización',
+      description: 'No disponible en modo desarrollo. Solo funciona en la versión instalada.',
+      control: value('Ejecutá una build de release para probar el updater.'),
+    });
+  }
+
   // El control es un wrapper estable con suscripciones. La signal
   // updateStatus determina qué se ve (status text + botones).
   // El resto se actualiza en cada repaint.
@@ -1011,4 +1101,474 @@ function value(text: string): HTMLElement {
   el.className = 'settings-value';
   el.textContent = text;
   return el;
+}
+
+// ═══════════════════════════════════════════════════════
+// Sección de Extensiones
+// ═══════════════════════════════════════════════════════
+
+function renderExtensionsSection(scope: Scope): HTMLElement {
+  const controls = document.createElement('div');
+  controls.className = 'settings-extensions-controls';
+
+  // ── pi-exa ──
+  controls.append(renderExaConfig());
+
+  // ── pi-approve ──
+  controls.append(renderApproveConfig());
+
+  return createSection({
+    title: 'Extensiones',
+    description: 'Configuración de las extensiones que vienen con xi.',
+    control: controls,
+  });
+}
+
+// ────────────── pi-exa ────────────────────────────────────
+
+function renderExaConfig(): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'settings-extension-block';
+
+  const title = document.createElement('h3');
+  title.className = 'settings-subsection-title';
+  title.textContent = 'pi-exa — Búsqueda web';
+  block.append(title);
+
+  const desc = document.createElement('p');
+  desc.className = 'settings-subsection-desc';
+  desc.textContent = 'API key de Exa para buscar en internet desde pi.';
+  block.append(desc);
+
+  // Estado local
+  const saveStatus = signal<
+    | { kind: 'idle' }
+    | { kind: 'saved' }
+    | { kind: 'tested' }
+    | { kind: 'error'; message: string }
+  >({ kind: 'idle' });
+
+  // Status de la key (viene del backend)
+  const statusText = document.createElement('div');
+  statusText.className = 'settings-exa-status';
+
+  // Input + eye
+  const keyRow = document.createElement('div');
+  keyRow.className = 'settings-provider-keyrow';
+
+  const keyInput = document.createElement('input');
+  keyInput.type = 'password';
+  keyInput.className = 'settings-input settings-provider-keyinput';
+  keyInput.placeholder = 'sk-...';
+  keyInput.autocomplete = 'off';
+  keyInput.spellcheck = false;
+
+  const eyeBtn = document.createElement('button');
+  eyeBtn.type = 'button';
+  eyeBtn.className = 'settings-provider-toggle';
+  eyeBtn.setAttribute('aria-label', 'Mostrar/Ocultar API key de Exa');
+  eyeBtn.textContent = '👁';
+  eyeBtn.style.display = 'none';
+  let isKeyVisible = false;
+
+  eyeBtn.addEventListener('click', async () => {
+    if (isKeyVisible) {
+      keyInput.value = '';
+      keyInput.type = 'password';
+      eyeBtn.textContent = '👁';
+      isKeyVisible = false;
+      return;
+    }
+    if (keyInput.value === '') {
+      eyeBtn.disabled = true;
+      const key = await getExaApiKey();
+      eyeBtn.disabled = false;
+      if (key === null) {
+        saveStatus.value = { kind: 'error', message: 'No se pudo leer la key' };
+        return;
+      }
+      keyInput.value = key;
+    }
+    keyInput.type = 'text';
+    eyeBtn.textContent = '🙈';
+    isKeyVisible = true;
+  });
+
+  keyRow.append(keyInput, eyeBtn);
+  block.append(keyRow);
+
+  // Botones
+  const actions = document.createElement('div');
+  actions.className = 'settings-provider-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'settings-btn settings-btn--primary';
+  saveBtn.textContent = 'Guardar';
+  saveBtn.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    if (!key) {
+      saveStatus.value = { kind: 'error', message: 'Pegá una key antes de guardar' };
+      return;
+    }
+    saveBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    try {
+      await setExaApiKey(key);
+      saveStatus.value = { kind: 'saved' };
+      if (isKeyVisible) {
+        keyInput.value = '';
+        keyInput.type = 'password';
+        eyeBtn.textContent = '👁';
+        isKeyVisible = false;
+      }
+      loadExaStatus(statusText, eyeBtn, keyInput, deleteBtn);
+    } catch (err) {
+      saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  const testBtn = document.createElement('button');
+  testBtn.type = 'button';
+  testBtn.className = 'settings-btn';
+  testBtn.textContent = 'Probar';
+  testBtn.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    if (!key) {
+      saveStatus.value = { kind: 'error', message: 'Pegá una key antes de probar' };
+      return;
+    }
+    testBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    const errMsg = await testExaApiKey(key);
+    if (errMsg === '') {
+      saveStatus.value = { kind: 'tested' };
+    } else {
+      saveStatus.value = { kind: 'error', message: errMsg };
+    }
+    testBtn.disabled = false;
+  });
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'settings-btn settings-btn--danger';
+  deleteBtn.textContent = 'Eliminar';
+  deleteBtn.style.display = 'none';
+
+  let confirmingDelete = false;
+  let confirmTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const cancelDelete = (): void => {
+    confirmingDelete = false;
+    deleteBtn.textContent = 'Eliminar';
+    deleteBtn.classList.remove('settings-btn--confirming');
+    if (confirmTimer !== null) {
+      clearTimeout(confirmTimer);
+      confirmTimer = null;
+    }
+  };
+
+  deleteBtn.addEventListener('click', async () => {
+    if (!confirmingDelete) {
+      confirmingDelete = true;
+      deleteBtn.textContent = '¿Seguro?';
+      deleteBtn.classList.add('settings-btn--confirming');
+      confirmTimer = setTimeout(cancelDelete, 5000);
+      return;
+    }
+    if (confirmTimer !== null) {
+      clearTimeout(confirmTimer);
+      confirmTimer = null;
+    }
+    deleteBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    try {
+      await deleteExaApiKey();
+      saveStatus.value = { kind: 'saved' };
+      keyInput.value = '';
+      keyInput.type = 'password';
+      eyeBtn.textContent = '👁';
+      isKeyVisible = false;
+      loadExaStatus(statusText, eyeBtn, keyInput, deleteBtn);
+    } catch (err) {
+      saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
+    } finally {
+      deleteBtn.disabled = false;
+      cancelDelete();
+    }
+  });
+
+  actions.append(saveBtn, testBtn, deleteBtn);
+  block.append(actions);
+
+  // Feedback
+  const feedback = document.createElement('div');
+  feedback.className = 'settings-provider-feedback';
+  saveStatus.subscribe((status) => {
+    feedback.className = 'settings-provider-feedback';
+    if (status.kind === 'idle') {
+      feedback.textContent = '';
+    } else if (status.kind === 'saved') {
+      feedback.classList.add('settings-provider-feedback--ok');
+      feedback.textContent = '✓ Guardado';
+    } else if (status.kind === 'tested') {
+      feedback.classList.add('settings-provider-feedback--ok');
+      feedback.textContent = '✓ Funciona';
+    } else {
+      feedback.classList.add('settings-provider-feedback--err');
+      feedback.textContent = `✗ ${status.message}`;
+    }
+  });
+  block.append(feedback);
+
+  // Cargar estado inicial
+  loadExaStatus(statusText, eyeBtn, keyInput, deleteBtn);
+
+  return block;
+}
+
+/** Carga el estado de la key de Exa desde el backend y actualiza la UI. */
+async function loadExaStatus(
+  statusText: HTMLElement,
+  eyeBtn: HTMLElement,
+  keyInput: HTMLInputElement,
+  deleteBtn: HTMLElement,
+): Promise<void> {
+  try {
+    const config = await getExaConfig();
+    if (config.hasKey && config.last4) {
+      statusText.textContent = `Configurada (···${config.last4})`;
+      statusText.className = 'settings-exa-status settings-exa-status--configured';
+      eyeBtn.style.display = 'inline-block';
+      keyInput.placeholder = `Actual: sk-***${config.last4} — pega una nueva para cambiar`;
+    } else {
+      statusText.textContent = 'No configurada';
+      statusText.className = 'settings-exa-status';
+      eyeBtn.style.display = 'none';
+      keyInput.placeholder = 'sk-...';
+    }
+    deleteBtn.style.display = config.hasKey ? 'inline-block' : 'none';
+  } catch {
+    statusText.textContent = 'Error al cargar';
+    statusText.className = 'settings-exa-status';
+  }
+}
+
+// ────────────── pi-approve ────────────────────────────────
+
+const APPROVE_TOOLS = [
+  { key: 'bash', label: 'Bash', desc: 'Comandos que requieren confirmación' },
+  { key: 'write', label: 'Write', desc: 'Archivos donde escribir requiere confirmación' },
+  { key: 'edit', label: 'Edit', desc: 'Archivos donde editar requiere confirmación' },
+] as const;
+
+function renderApproveConfig(): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'settings-extension-block';
+
+  const title = document.createElement('h3');
+  title.className = 'settings-subsection-title';
+  title.textContent = 'pi-approve — Aprobación de comandos';
+  block.append(title);
+
+  const desc = document.createElement('p');
+  desc.className = 'settings-subsection-desc';
+  desc.textContent = 'Patrones que requieren confirmación antes de ejecutarse.';
+  block.append(desc);
+
+  // Estado: reglas cargadas del backend
+  const rules = signal<ApproveRules | null>(null);
+  const saveStatus = signal<{ kind: 'idle' } | { kind: 'saved' } | { kind: 'error'; message: string }>({ kind: 'idle' });
+
+  // Tool cards
+  const toolsContainer = document.createElement('div');
+  toolsContainer.className = 'settings-approve-tools';
+
+  // Inputs refs para recolección al guardar
+  const toolInputs: Record<string, { patterns: HTMLInputElement; msg: HTMLInputElement }> = {};
+
+  for (const tool of APPROVE_TOOLS) {
+    const card = document.createElement('div');
+    card.className = 'settings-approve-tool';
+
+    const toolTitle = document.createElement('h4');
+    toolTitle.className = 'settings-approve-tool-title';
+    toolTitle.textContent = tool.label;
+    card.append(toolTitle);
+
+    const toolDesc = document.createElement('p');
+    toolDesc.className = 'settings-approve-tool-desc';
+    toolDesc.textContent = tool.desc;
+    card.append(toolDesc);
+
+    // Tags container (se llena cuando se cargan las reglas)
+    const tagsContainer = document.createElement('div');
+    tagsContainer.className = 'settings-approve-tags';
+    card.append(tagsContainer);
+
+    // Add pattern row
+    const addRow = document.createElement('div');
+    addRow.className = 'settings-approve-addrow';
+
+    const patternInput = document.createElement('input');
+    patternInput.type = 'text';
+    patternInput.className = 'settings-input settings-approve-input';
+    patternInput.placeholder = 'Ej: rm -rf';
+    patternInput.spellcheck = false;
+    addRow.append(patternInput);
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'settings-btn settings-btn--small';
+    addBtn.textContent = '+ Agregar';
+    addBtn.addEventListener('click', () => {
+      const val = patternInput.value.trim();
+      if (!val) return;
+      addTagToContainer(tagsContainer, val, patternInput, tool.key);
+      patternInput.value = '';
+    });
+    patternInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        addBtn.click();
+      }
+    });
+    addRow.append(addBtn);
+    card.append(addRow);
+
+    // Message input
+    const msgRow = document.createElement('div');
+    msgRow.className = 'settings-approve-msgrow';
+
+    const msgLabel = document.createElement('span');
+    msgLabel.className = 'settings-approve-msglabel';
+    msgLabel.textContent = 'Mensaje:';
+    msgRow.append(msgLabel);
+
+    const msgInput = document.createElement('input');
+    msgInput.type = 'text';
+    msgInput.className = 'settings-input settings-approve-msginput';
+    msgInput.placeholder = 'Confirm before running...';
+    msgInput.spellcheck = false;
+    msgRow.append(msgInput);
+    card.append(msgRow);
+
+    toolInputs[tool.key] = { patterns: patternInput, msg: msgInput };
+    toolsContainer.append(card);
+  }
+
+  block.append(toolsContainer);
+
+  // Actions
+  const actions = document.createElement('div');
+  actions.className = 'settings-provider-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'settings-btn settings-btn--primary';
+  saveBtn.textContent = 'Guardar reglas';
+  saveBtn.addEventListener('click', async () => {
+    // Recolectar patrones de los tags visibles
+    const config: ApproveRules = { rules: {}, messages: {} };
+    for (const tool of APPROVE_TOOLS) {
+      const allTags = toolsContainer.querySelectorAll('.settings-approve-tag');
+      const patterns: string[] = [];
+      for (const tag of allTags) {
+        if ((tag as HTMLElement).dataset.tool === tool.key) {
+          const text = (tag as HTMLElement).dataset.pattern;
+          if (text) patterns.push(text);
+        }
+      }
+      config.rules[tool.key] = patterns;
+      config.messages[tool.key] = toolInputs[tool.key].msg.value.trim() || `Confirm before using ${tool.label.toLowerCase()}`;
+    }
+
+    saveBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    try {
+      await setApproveRules(config);
+      saveStatus.value = { kind: 'saved' };
+    } catch (err) {
+      saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  actions.append(saveBtn);
+  block.append(actions);
+
+  // Feedback
+  const feedback = document.createElement('div');
+  feedback.className = 'settings-provider-feedback';
+  saveStatus.subscribe((status) => {
+    feedback.className = 'settings-provider-feedback';
+    if (status.kind === 'idle') {
+      feedback.textContent = '';
+    } else if (status.kind === 'saved') {
+      feedback.classList.add('settings-provider-feedback--ok');
+      feedback.textContent = '✓ Guardado';
+    } else {
+      feedback.classList.add('settings-provider-feedback--err');
+      feedback.textContent = `✗ ${status.message}`;
+    }
+  });
+  block.append(feedback);
+
+  // Cargar reglas actuales y popular la UI
+  getApproveRules()
+    .then((loaded) => {
+      for (const tool of APPROVE_TOOLS) {
+        const toolCard = toolsContainer.children[APPROVE_TOOLS.indexOf(tool)] as HTMLElement;
+        if (!toolCard) continue;
+        const tagsContainer = toolCard.querySelector('.settings-approve-tags') as HTMLElement;
+        if (!tagsContainer) continue;
+
+        const patterns = loaded.rules[tool.key] ?? [];
+        for (const pattern of patterns) {
+          addTagToContainer(tagsContainer, pattern, null, tool.key);
+        }
+
+        const msg = loaded.messages[tool.key] ?? '';
+        toolInputs[tool.key].msg.value = msg;
+      }
+    })
+    .catch((err) => {
+      saveStatus.value = { kind: 'error', message: 'Error al cargar reglas: ' + (err instanceof Error ? err.message : String(err)) };
+    });
+
+  return block;
+}
+
+/** Agrega un tag al container visual. Si inputRef no es null, limpia el input. */
+function addTagToContainer(
+  container: HTMLElement,
+  pattern: string,
+  inputRef: HTMLInputElement | null,
+  toolKey?: string,
+): void {
+  // Evitar duplicados
+  const existing = container.querySelectorAll('.settings-approve-tag');
+  for (const tag of existing) {
+    if ((tag as HTMLElement).dataset.pattern === pattern) return;
+  }
+
+  const tag = document.createElement('span');
+  tag.className = 'settings-approve-tag';
+  tag.dataset.pattern = pattern;
+  if (toolKey) tag.dataset.tool = toolKey;
+  tag.textContent = pattern;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'settings-approve-tag-remove';
+  removeBtn.textContent = '×';
+  removeBtn.setAttribute('aria-label', `Quitar ${pattern}`);
+  removeBtn.addEventListener('click', () => {
+    tag.remove();
+  });
+
+  tag.append(removeBtn);
+  container.append(tag);
 }

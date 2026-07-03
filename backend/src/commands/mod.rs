@@ -1,5 +1,7 @@
+pub mod atomic;
 pub mod auth_config;
 pub mod extension_ui;
+pub mod extensions_config;
 pub mod files;
 pub mod pi_process;
 pub mod pi_rpc;

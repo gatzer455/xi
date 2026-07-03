@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod extensions;
 
 use commands::pi_process::{create_pending_requests, create_pi_state};
 use tauri::Manager;
@@ -30,6 +31,15 @@ fn main() {
             // Inicializar el estado del proceso pi y pending requests
             app.manage(create_pi_state());
             app.manage(create_pending_requests());
+
+            // Copiar extensiones empaquetadas en background (sin bloquear startup)
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                if let Err(e) = extensions::ensure_extensions(&handle) {
+                    log::warn!("No se pudieron instalar las extensiones: {}", e);
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -55,6 +65,13 @@ fn main() {
             commands::recents::get_recents,
             commands::recents::add_recent,
             commands::extension_ui::respond_extension_ui,
+            commands::extensions_config::get_exa_config,
+            commands::extensions_config::get_exa_api_key,
+            commands::extensions_config::set_exa_api_key,
+            commands::extensions_config::delete_exa_api_key,
+            commands::extensions_config::test_exa_api_key,
+            commands::extensions_config::get_approve_rules,
+            commands::extensions_config::set_approve_rules,
             commands::files::list_files,
             commands::files::read_file,
             commands::files::write_file,

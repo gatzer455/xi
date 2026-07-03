@@ -103,5 +103,17 @@ export function dismissBanner(): void {
  *  errores en consola durante `npm run dev`. */
 export function isUpdaterAvailable(): boolean {
   return typeof window !== 'undefined'
-    && '__TAURI_INTERNALS__' in window;
+    && '__TAURI_INTERNALS__' in window
+    && !isDevMode();
+}
+
+/** Detecta si estamos en modo desarrollo (npm run dev / tauri dev).
+ *  En dev, el updater no debe correr porque no hay release publicado.
+ *  Usa import.meta.env.DEV de Vite — en prod builds se inlinea a false. */
+function isDevMode(): boolean {
+  try {
+    return (import.meta as any).env?.DEV === true;
+  } catch {
+    return false;
+  }
 }

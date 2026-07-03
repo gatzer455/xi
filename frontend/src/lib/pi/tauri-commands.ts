@@ -309,3 +309,61 @@ export async function writeFile(path: string, content: string): Promise<void> {
   addEntry('out', `write_file: ${path}`);
   await loggedInvoke('writeFile', () => invoke('write_file', { path, content }));
 }
+
+// ═══════════════════════════════════════════════════════
+// Extensiones: pi-exa
+// ═══════════════════════════════════════════════════════
+
+export interface ExaConfigStatus {
+  hasKey: boolean;
+  last4: string | null;
+}
+
+/** Estado actual de la config de Exa (sin exponer la key completa). */
+export async function getExaConfig(): Promise<ExaConfigStatus> {
+  return loggedInvoke('getExaConfig', () => invoke('get_exa_config'));
+}
+
+/** API key completa (solo cuando el user hace click en "Ver"). */
+export async function getExaApiKey(): Promise<string | null> {
+  return loggedInvoke('getExaApiKey', () => invoke('get_exa_api_key'));
+}
+
+/** Guarda la API key de Exa. */
+export async function setExaApiKey(apiKey: string): Promise<void> {
+  await loggedInvoke('setExaApiKey', () => invoke('set_exa_api_key', { apiKey }));
+}
+
+/** Elimina la API key de Exa. */
+export async function deleteExaApiKey(): Promise<void> {
+  await loggedInvoke('deleteExaApiKey', () => invoke('delete_exa_api_key'));
+}
+
+/** Prueba una API key contra la API de Exa. Retorna '' si OK, mensaje de error si no. */
+export async function testExaApiKey(apiKey: string): Promise<string> {
+  try {
+    await invoke('test_exa_api_key', { apiKey });
+    return '';
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Extensiones: pi-approve
+// ═══════════════════════════════════════════════════════
+
+export interface ApproveRules {
+  rules: Record<string, string[]>;
+  messages: Record<string, string>;
+}
+
+/** Lee las reglas actuales de pi-approve. */
+export async function getApproveRules(): Promise<ApproveRules> {
+  return loggedInvoke('getApproveRules', () => invoke('get_approve_rules'));
+}
+
+/** Guarda las reglas de pi-approve. */
+export async function setApproveRules(config: ApproveRules): Promise<void> {
+  await loggedInvoke('setApproveRules', () => invoke('set_approve_rules', { config }));
+}

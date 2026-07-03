@@ -119,6 +119,13 @@ vi.mock("../../src/lib/pi/tauri-commands.ts", () => ({
   testApiKey: vi.fn(),
   getApiKey: vi.fn(),
   deleteApiKey: vi.fn(),
+  // Extension commands — needed by renderExtensionsSection
+  getExaConfig: vi.fn(() => Promise.resolve({ hasKey: false, last4: null })),
+  setExaApiKey: vi.fn(() => Promise.resolve()),
+  deleteExaApiKey: vi.fn(() => Promise.resolve()),
+  testExaApiKey: vi.fn(() => Promise.resolve()),
+  getApproveRules: vi.fn(() => Promise.resolve({ rules: {}, messages: {} })),
+  setApproveRules: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../../src/lib/pi/index.ts", () => ({
@@ -144,6 +151,7 @@ vi.mock("../../src/lib/settings-storage.ts", () => ({
 vi.mock("../../src/lib/updater.ts", () => ({
   checkForUpdate: vi.fn(),
   installAndRelaunch: vi.fn(),
+  isUpdaterAvailable: vi.fn(() => false),
 }));
 
 // ─── Tests ───────────────────────────────────────────────────────────────

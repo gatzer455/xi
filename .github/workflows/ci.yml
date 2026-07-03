@@ -52,7 +52,9 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ./backend -> target
+          workspaces: |
+            ./backend -> target
+            ./extensions/xi-tools -> target
 
       - name: Install system deps
         run: |
@@ -79,6 +81,9 @@ jobs:
       - name: Build pi-sessions
         if: steps.cache-pi.outputs.cache-hit != 'true'
         run: ./scripts/build-pi-sessions.sh --target linux
+
+      - name: Check xi-tools (compile check)
+        run: cargo check --manifest-path extensions/xi-tools/Cargo.toml
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -168,7 +173,9 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ./backend -> target
+          workspaces: |
+            ./backend -> target
+            ./extensions/xi-tools -> target
 
       - name: Install system deps
         run: |

@@ -138,11 +138,10 @@ async function main(): Promise<void> {
   //    si la red está lenta, queremos que la UI esté usable antes
   //    de que un request de update la frene. Si el updater no está
   //    disponible (dev mode o build sin plugin), salimos silencioso.
-  //    El check de pi upstream corre junto con el de xi: ambos son
-  //    GETs chiquitos que no compiten.
   setTimeout(() => {
-    if (!isUpdaterAvailable()) return;
-    void checkForUpdate();
+    if (isUpdaterAvailable()) {
+      void checkForUpdate();
+    }
     void getPiUpstreamVersion();
   }, 2500);
 

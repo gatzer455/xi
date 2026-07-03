@@ -61,3 +61,8 @@ docs/pi-approve-diagnosis.md
 
 # wdio test artifacts
 e2e/test-results/
+
+# Extension bundling
+resources/extensions/*
+!resources/extensions/.gitkeep
+extensions/xi-tools/target/
