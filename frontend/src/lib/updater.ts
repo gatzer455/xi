@@ -108,7 +108,12 @@ export function isUpdaterAvailable(): boolean {
 }
 
 /** Detecta si estamos en modo desarrollo (npm run dev / tauri dev).
- *  En dev, el updater no debe correr porque no hay release publicado. */
+ *  En dev, el updater no debe correr porque no hay release publicado.
+ *  Usa import.meta.env.DEV de Vite — en prod builds se inlinea a false. */
 function isDevMode(): boolean {
-  return !!(window as any).__TAURI_DEV__;
+  try {
+    return (import.meta as any).env?.DEV === true;
+  } catch {
+    return false;
+  }
 }
