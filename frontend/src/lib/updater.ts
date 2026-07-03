@@ -103,5 +103,12 @@ export function dismissBanner(): void {
  *  errores en consola durante `npm run dev`. */
 export function isUpdaterAvailable(): boolean {
   return typeof window !== 'undefined'
-    && '__TAURI_INTERNALS__' in window;
+    && '__TAURI_INTERNALS__' in window
+    && !isDevMode();
+}
+
+/** Detecta si estamos en modo desarrollo (npm run dev / tauri dev).
+ *  En dev, el updater no debe correr porque no hay release publicado. */
+function isDevMode(): boolean {
+  return !!(window as any).__TAURI_DEV__;
 }

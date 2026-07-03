@@ -54,6 +54,7 @@ import {
 import {
   checkForUpdate,
   installAndRelaunch,
+  isUpdaterAvailable,
 } from '../lib/updater.ts';
 
 // ═══════════════════════════════════════════════════════
@@ -732,6 +733,16 @@ function renderAboutSection(scope: Scope): HTMLElement {
 // ═══════════════════════════════════════════════════════
 
 function renderUpdateSection(scope: Scope): HTMLElement {
+  // En dev mode, el updater no funciona (no hay releases publicados).
+  // Mostramos un mensaje claro en vez del error de red.
+  if (!isUpdaterAvailable()) {
+    return createSection({
+      title: 'Actualización',
+      description: 'No disponible en modo desarrollo. Solo funciona en la versión instalada.',
+      control: value('Ejecutá una build de release para probar el updater.'),
+    });
+  }
+
   // El control es un wrapper estable con suscripciones. La signal
   // updateStatus determina qué se ve (status text + botones).
   // El resto se actualiza en cada repaint.
