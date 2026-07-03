@@ -15,6 +15,7 @@ use std::path::Path;
 /// * `value` — Valor a serializar (Serialize).
 /// * `file_mode` — Si `Some(mode)`, hace chmod al archivo (Unix, ej: 0o600).
 /// * `dir_mode` — Si `Some(mode)`, hace chmod al directorio padre (Unix, ej: 0o700).
+#[allow(unused_variables)]
 pub async fn write_json<T: Serialize>(
     path: &Path,
     value: &T,
