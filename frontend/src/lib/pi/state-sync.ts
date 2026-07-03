@@ -75,7 +75,14 @@ export function endStream(): void {
 // ─── Punto de entrada ─────────────────────────────────────
 
 export function applyEvent(event: PiEvent): void {
-  addEntry('in', JSON.stringify(event, null, 2));
+  // Resumen del evento: tipo + comando (si response) + tamaño
+  const size = JSON.stringify(event).length;
+  if (event.type === 'response') {
+    const cmd = (event as PiResponseEvent).command ?? 'unknown';
+    addEntry('in', `↩ response:${cmd} size=${size}B`);
+  } else {
+    addEntry('in', `↩ ${event.type} size=${size}B`);
+  }
 
   if (event.type === 'response') {
     handleResponse(event as PiResponseEvent);

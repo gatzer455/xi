@@ -5,12 +5,27 @@ mod commands;
 
 use commands::pi_process::{create_pending_requests, create_pi_state};
 use tauri::Manager;
+use tauri_plugin_log::{Target, TargetKind};
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .format(|out, message, record| {
+                    out.finish(format_args!("{} {}", record.level(), message))
+                })
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::LogDir {
+                        file_name: Some("xi.log".into()),
+                    }),
+                ])
+                .build(),
+        )
         .setup(|app| {
             // Inicializar el estado del proceso pi y pending requests
             app.manage(create_pi_state());

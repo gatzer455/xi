@@ -35,7 +35,7 @@ import { OutputBoard } from './components/output.ts';
 import { ChatContextBar } from './components/chat-context-bar.ts';
 import { InputBar } from './components/input.ts';
 import { UpdateBanner } from './components/update-banner.ts';
-import { initDebugPanel, addEntry } from './lib/debug-panel.ts';
+import { addEntry } from './lib/debug-panel.ts';
 import {
   loadTheme,
   loadFontSize,
@@ -146,13 +146,7 @@ async function main(): Promise<void> {
     void getPiUpstreamVersion();
   }, 2500);
 
-  // 7. Montar debug panel (solo en dev)
-  if (import.meta.env.DEV) {
-    const debugContainer = initDebugPanel();
-    document.body.append(debugContainer);
-  }
-
-  // 8. Decidir vista inicial: si pi está corriendo con cwd, sessions;
+  // 7. Decidir vista inicial: si pi está corriendo con cwd, sessions;
   //    si no, welcome. El default de currentView es 'welcome'.
   //    Siempre vamos a sessions (no a chat) para forzar al usuario
   //    a elegir o crear una sesión antes de chatear.

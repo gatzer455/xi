@@ -23,6 +23,7 @@
     "shell:allow-spawn",
     "shell:default",
     "updater:default",
-    "process:default"
+    "process:default",
+    "log:default"
   ]
 }

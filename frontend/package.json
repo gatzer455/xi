@@ -25,6 +25,7 @@
     "@fontsource/adwaita-sans": "^5.2.1",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-dialog": "^2.7.1",
+    "@tauri-apps/plugin-log": "^2.8.0",
     "@tauri-apps/plugin-process": "^2.0.0",
     "@tauri-apps/plugin-updater": "^2.0.0",
     "highlight.js": "^11.11.1",
