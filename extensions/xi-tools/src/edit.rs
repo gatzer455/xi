@@ -38,32 +38,35 @@ pub fn execute(path: &str) -> Result<(), String> {
     let mut content =
         fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
 
-    // Verificar que todos los oldText existen (preflight)
+    // Verificar que todos los oldText existen (preflight).
+    // Truncado char-safe: chars().take(200) no paniquea en UTF-8.
     for edit in &parsed.edits {
         if !content.contains(&edit.old_text) {
-            let preview = if edit.old_text.len() > 200 {
-                format!("{}…", &edit.old_text[..200])
-            } else {
-                edit.old_text.clone()
-            };
+            let preview: String = edit.old_text.chars().take(200).collect();
+            let suffix = if edit.old_text.chars().count() > 200 { "…" } else { "" };
             return Err(format!(
-                "oldText not found in file:\n```\n{preview}\n```"
+                "oldText not found in file:\n```\n{preview}{suffix}\n```"
             ));
         }
     }
 
-    // Aplicar reemplazos (cada uno solo en su primera ocurrencia)
-    let mut applied = 0usize;
+    // Aplicar reemplazos (cada uno solo en su primera ocurrencia).
+    // Si después del preflight un edit falla, es un bug — el archivo
+    // NO puede haber cambiado entre el check y la aplicación.
+    // En ese caso, no escribimos (el archivo queda intacto).
     for edit in &parsed.edits {
-        // Solo reemplazar la primera ocurrencia (exact match principle)
         if let Some(pos) = content.find(&edit.old_text) {
             let end = pos + edit.old_text.len();
             content.replace_range(pos..end, &edit.new_text);
-            applied += 1;
+        } else {
+            return Err(format!(
+                "oldText disappeared during application (file was modified externally?):\n```\n{}\n```",
+                edit.old_text.chars().take(200).collect::<String>()
+            ));
         }
     }
 
     fs::write(path, &content).map_err(|e| format!("cannot write {path}: {e}"))?;
-    println!("Applied {applied} edit(s) to {path}");
+    println!("Applied {} edit(s) to {path}", parsed.edits.len());
     Ok(())
 }

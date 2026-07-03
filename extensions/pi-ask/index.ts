@@ -29,7 +29,7 @@ const QuestionItemSchema = Type.Object({
 		description: "Available options. Do not include 'Other'.",
 		minItems: 1,
 	}),
-	multi: Type.Optional(Type.Boolean({ description: "Allow multi-select" })),
+	// multi-select not yet supported by pi's UI API — planned for future
 	recommended: Type.Optional(
 		Type.Number({ description: "0-indexed recommended option. '(Recommended)' is shown automatically." }),
 	),
@@ -203,7 +203,11 @@ async function handleSingleQuestion(
 	const optionLabels = appendRecommendedTagToOptionLabels(baseOptionLabels, question.recommended);
 	const optionsWithOther = [...optionLabels, OTHER_OPTION];
 
-	const selected = await ui.select(question.question, optionsWithOther);
+	const prompt = question.description
+		? `${question.question}\n\n${question.description}`
+		: question.question;
+
+	const selected = await ui.select(prompt, optionsWithOther);
 	if (selected === undefined) return { selectedOptions: [] };
 
 	if (selected === OTHER_OPTION) {
@@ -295,11 +299,11 @@ Ask the user for clarification when a choice materially affects the outcome.
 
 - Use when multiple valid approaches have different trade-offs.
 - Prefer 2-5 concise options.
-- Use multi=true when multiple answers are valid.
 - Use recommended=<index> (0-indexed) to mark the default option.
 - Use description to provide Markdown/plain context (supports long explanations and structure diagrams).
 - You can ask multiple related questions in one call using questions[].
 - Do NOT include an 'Other' option; UI adds it automatically.
+- Note: multi-select (multi: true) is planned for a future version.
 `.trim();
 
 export default function askExtension(pi: ExtensionAPI) {

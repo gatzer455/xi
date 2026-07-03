@@ -42,10 +42,31 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
         .spawn()
         .map_err(|e| format!("failed to spawn {shell}: {e}"))?;
 
+    // Take stdout/stderr BEFORE waiting — draining after wait() can
+    // deadlock on OS pipes if the child produced more output than the
+    // pipe buffer (~64KB on Linux).
+    let mut stdout_reader = child.stdout.take().unwrap();
+    let mut stderr_reader = child.stderr.take().unwrap();
+
+    // Drain output in a separate thread while waiting
+    let stdout_handle = std::thread::spawn(move || {
+        let mut out = String::new();
+        stdout_reader
+            .read_to_string(&mut out)
+            .unwrap_or_default();
+        out
+    });
+    let stderr_handle = std::thread::spawn(move || {
+        let mut err = String::new();
+        stderr_reader
+            .read_to_string(&mut err)
+            .unwrap_or_default();
+        err
+    });
+
     // Wait with optional timeout
     let exit = if let Some(secs) = timeout_secs {
         let dur = Duration::from_secs(secs as u64);
-        // Simple polling approach for timeout
         let start = std::time::Instant::now();
         loop {
             match child.try_wait() {
@@ -66,28 +87,26 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
         child.wait().ok()
     };
 
-    // Collect output
-    let stdout = child.stdout.as_mut().unwrap();
-    let mut out = String::new();
-    stdout
-        .read_to_string(&mut out)
-        .unwrap_or_default();
-
-    let stderr = child.stderr.as_mut().unwrap();
-    let mut err = String::new();
-    stderr
-        .read_to_string(&mut err)
-        .unwrap_or_default();
+    // Collect output from reader threads
+    let stdout = stdout_handle
+        .join()
+        .unwrap_or_else(|_| String::from("[stdout reader panicked]"));
+    let stderr = stderr_handle
+        .join()
+        .unwrap_or_else(|_| String::from("[stderr reader panicked]"));
 
     // Print output
-    print!("{out}");
-    if !err.is_empty() {
-        eprint!("{err}");
+    print!("{stdout}");
+    if !stderr.is_empty() {
+        eprint!("{stderr}");
     }
 
+    // Propagate exit code: non-zero exits → error so callers see it
     if let Some(status) = exit {
         if !status.success() {
-            eprintln!("[exit code: {}]", status.code().unwrap_or(-1));
+            let code = status.code().unwrap_or(-1);
+            eprintln!("[exit code: {code}]");
+            return Err(format!("command exited with code {code}"));
         }
     }
 

@@ -28,10 +28,11 @@ pub fn execute(path: &str, offset: Option<usize>, limit: Option<usize>) -> Resul
 
         let bytes = line.len() + 1; // +1 for newline
         if total_bytes + bytes > MAX_BYTES {
-            // Print partial content
+            // Print partial content (char-safe: no raw byte slicing)
             let remaining = MAX_BYTES.saturating_sub(total_bytes);
             if remaining > 0 {
-                print!("{}", &line[..remaining.min(line.len())]);
+                let partial: String = line.chars().take(remaining).collect();
+                print!("{partial}");
             }
             truncated = true;
             break;
@@ -44,9 +45,7 @@ pub fn execute(path: &str, offset: Option<usize>, limit: Option<usize>) -> Resul
 
     if truncated {
         eprintln!(
-            "[truncated — limit: {}/{} lines, {}KB. Use offset/limit to read more.]",
-            line_count,
-            limit.unwrap_or(0),
+            "[truncated — limit: {line_count}/{max_lines} lines, {}KB. Use offset/limit to read more.]",
             MAX_BYTES / 1024
         );
     }

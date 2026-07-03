@@ -25,10 +25,12 @@ import { fileURLToPath } from "node:url";
 function findBinary(): string {
   // 1. Binary alongside the extension
   const extDir = dirname(fileURLToPath(import.meta.url));
-  const local = join(extDir, "bin", "xi-tools");
+  // On Windows, the bundled binary has a .exe extension
+  const name = process.platform === "win32" ? "xi-tools.exe" : "xi-tools";
+  const local = join(extDir, "bin", name);
   if (existsSync(local)) return local;
 
-  // 2. PATH lookup
+  // 2. PATH lookup (shell will resolve .exe on Windows automatically)
   return "xi-tools";
 }
 
@@ -47,9 +49,14 @@ function xiSpawn(tool: string, flags: string[], stdin?: string, signal?: AbortSi
   return new Promise((resolve, reject) => {
     const bin = findBinary();
     const args = [tool, ...flags];
+    const isWindows = process.platform === "win32";
     const child = spawn(bin, args, {
       stdio: [stdin !== undefined ? "pipe" : "ignore", "pipe", "pipe"],
       windowsHide: true,
+      // On Unix, create a new process group so process.kill(-pid)
+      // kills the whole command tree (shell + children).
+      // On Windows, detached has different semantics — use taskkill.
+      ...(!isWindows && { detached: true }),
     });
 
     if (stdin !== undefined) {
@@ -65,7 +72,13 @@ function xiSpawn(tool: string, flags: string[], stdin?: string, signal?: AbortSi
 
     const onAbort = () => {
       if (child.pid) {
-        try { process.kill(-child.pid, "SIGKILL"); } catch {}
+        if (isWindows) {
+          // No process groups on Windows — kill the direct child
+          try { child.kill(); } catch {}
+        } else {
+          // Kill the process group (pid is the PGID since detached=true)
+          try { process.kill(-child.pid, "SIGKILL"); } catch {}
+        }
       }
     };
 

@@ -74,15 +74,26 @@ pub fn execute(
             }
         }
 
-        let file = File::open(file_path)
-            .map_err(|e| format!("cannot open {}: {e}", file_path.display()))?;
+        let file = match File::open(file_path) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("grep: cannot open {}: {e}", file_path.display());
+                continue;
+            }
+        };
         let reader = BufReader::new(file);
 
         for (line_num, line_res) in reader.lines().enumerate() {
             if matches >= limit {
                 break;
             }
-            let line = line_res.map_err(|e| format!("read error: {e}"))?;
+            let line = match line_res {
+                Ok(l) => l,
+                Err(e) => {
+                    eprintln!("grep: read error in {}: {e}", file_path.display());
+                    break;
+                }
+            };
             if re.is_match(&line) {
                 println!("{}:{}:{}", file_path.display(), line_num + 1, line);
                 matches += 1;

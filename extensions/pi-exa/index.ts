@@ -257,7 +257,8 @@ async function safeExecute(
 // ── Extension ──────────────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
-  const config = getExaConfig();
+  // NO cacheamos la config al boot: cada tool debe leerla al ejecutarse
+  // para que los cambios desde Settings surtan efecto sin reload.
 
   // web_search_exa — basic web search (minimal params)
   pi.registerTool({
@@ -276,7 +277,8 @@ export default function (pi: ExtensionAPI) {
       })),
     }),
     async execute(_id, params, signal) {
-      return safeExecute(config.apiKey, () => search(config.apiKey, params as Record<string, unknown>, signal));
+      const c = getExaConfig();
+      return safeExecute(c.apiKey, () => search(c.apiKey, params as Record<string, unknown>, signal));
     },
   });
 
@@ -300,7 +302,7 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_id, params, signal) {
       const p = { ...params, numResults: params.numResults || 5, maxCharacters: params.maxCharacters ?? 10000 };
-      return safeExecute(config.apiKey, () => search(config.apiKey, p as Record<string, unknown>, signal));
+      return safeExecute(c.apiKey, () => search(c.apiKey, p as Record<string, unknown>, signal));
     },
   });
 
@@ -318,7 +320,8 @@ export default function (pi: ExtensionAPI) {
       })),
     }),
     async execute(_id, params, signal) {
-      return safeExecute(config.apiKey, () => crawl(config.apiKey, params as Record<string, unknown>, signal));
+      const c2 = getExaConfig();
+      return safeExecute(c2.apiKey, () => crawl(c2.apiKey, params as Record<string, unknown>, signal));
     },
   });
 
@@ -360,7 +363,8 @@ export default function (pi: ExtensionAPI) {
       })),
     }),
     async execute(_id, params, signal) {
-      return safeExecute(config.apiKey, () => search(config.apiKey, params as Record<string, unknown>, signal));
+      const c3 = getExaConfig();
+      return safeExecute(c3.apiKey, () => search(c3.apiKey, params as Record<string, unknown>, signal));
     },
   });
 }

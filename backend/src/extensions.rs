@@ -12,12 +12,22 @@ const BUNDLED_EXTENSIONS: &[&str] = &["xi-tools", "pi-approve", "pi-ask", "pi-ex
 /// Si las extensiones ya están instaladas, no hace nada.
 /// Si estamos en modo dev y no se ha ejecutado bundle-extensions.sh,
 /// se salta silenciosamente.
+///
+/// Cada extensión se chequea individualmente: si una falla al
+/// copiarse, las demás siguen (no queremos que un error de
+/// permisos en pi-exa impida instalar xi-tools).
 pub fn ensure_extensions(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let home = app.path().home_dir()?;
     let target_dir = home.join(".pi/agent/extensions");
 
-    // Sentinel: si xi-tools ya existe, asumimos que todas están
-    if target_dir.join("xi-tools/index.ts").exists() {
+    // Sentinel: chequeamos cada extensión individualmente.
+    // Si alguna no existe, la instalamos. Las que ya están se saltean.
+    let missing: Vec<&&str> = BUNDLED_EXTENSIONS
+        .iter()
+        .filter(|ext| !target_dir.join(ext).join("index.ts").exists())
+        .collect();
+
+    if missing.is_empty() {
         log::info!("[extensions] Ya instaladas en ~/.pi/agent/extensions/");
         return Ok(());
     }
@@ -35,26 +45,36 @@ pub fn ensure_extensions(app: &tauri::App) -> Result<(), Box<dyn std::error::Err
 
     fs::create_dir_all(&target_dir)?;
 
-    for ext in BUNDLED_EXTENSIONS {
+    let mut installed = 0usize;
+    for ext in &missing {
         let src = source_dir.join(ext);
         let dst = target_dir.join(ext);
 
-        if src.exists() {
-            log::info!("[extensions] Instalando {}...", ext);
-            // Si ya existe de una instalación parcial, sobrescribir
+        if !src.exists() {
+            log::warn!("[extensions] {ext} no encontrada en el bundle");
+            continue;
+        }
+
+        if let Err(e) = (|| -> std::io::Result<()> {
             if dst.exists() {
                 fs::remove_dir_all(&dst)?;
             }
-            copy_dir_all(&src, &dst)?;
-        } else {
-            log::warn!("[extensions] {} no encontrada en el bundle", ext);
+            copy_dir_all(&src, &dst)
+        })() {
+            log::warn!("[extensions] Error instalando {ext}: {e}");
+            continue;
         }
+
+        log::info!("[extensions] Instalada {ext}");
+        installed += 1;
     }
 
-    log::info!(
-        "[extensions] Instaladas en {}",
-        target_dir.display()
-    );
+    if installed > 0 {
+        log::info!(
+            "[extensions] {installed} extension(es) instalada(s) en {}",
+            target_dir.display()
+        );
+    }
     Ok(())
 }
 
