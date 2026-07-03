@@ -7,7 +7,7 @@
 // Patrón: mismo que auth_config.rs (atomic write, chmod 600, leer → modificar → escribir).
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 // ═══════════════════════════════════════════════════════
 // Paths
@@ -105,7 +105,7 @@ pub async fn delete_exa_api_key() -> Result<(), String> {
     Ok(())
 }
 
-async fn write_exa_config(path: &PathBuf, api_key: &str) -> Result<(), String> {
+async fn write_exa_config(path: &Path, api_key: &str) -> Result<(), String> {
     let json = serde_json::json!({ "apiKey": api_key });
     super::atomic::write_json(path, &json, Some(0o600), None).await
 }

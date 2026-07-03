@@ -23,7 +23,7 @@
 
 use serde::Serialize;
 use serde_json::Value;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Path al archivo auth.json de pi. Estructura: ~/.pi/agent/auth.json.
 /// Si `PI_AUTH_PATH` está seteado (override para tests), se usa ese.
@@ -173,10 +173,7 @@ pub async fn delete_api_key(provider: String) -> Result<(), String> {
 
 /// Helper compartido: serializa el map y hace atomic write + chmod 600.
 /// Usado por set_api_key y delete_api_key.
-async fn write_auth_map(
-    path: &PathBuf,
-    map: &serde_json::Map<String, Value>,
-) -> Result<(), String> {
+async fn write_auth_map(path: &Path, map: &serde_json::Map<String, Value>) -> Result<(), String> {
     super::atomic::write_json(path, map, Some(0o600), Some(0o700)).await
 }
 
