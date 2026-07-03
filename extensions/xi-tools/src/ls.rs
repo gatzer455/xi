@@ -6,8 +6,7 @@ pub fn execute(path: Option<&str>, limit: usize) -> Result<(), String> {
     let dir = path.unwrap_or(".");
     let mut entries: Vec<String> = Vec::new();
 
-    let dir_entries =
-        fs::read_dir(dir).map_err(|e| format!("cannot read {dir}: {e}"))?;
+    let dir_entries = fs::read_dir(dir).map_err(|e| format!("cannot read {dir}: {e}"))?;
 
     for entry in dir_entries {
         if entries.len() >= limit {

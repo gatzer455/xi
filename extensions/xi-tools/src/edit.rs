@@ -51,8 +51,7 @@ enum EditOp {
     },
 }
 
-const BASE64URL: &[u8; 64] =
-    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const BASE64URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 pub fn execute(path: &str) -> Result<(), String> {
     // Read JSON from stdin
@@ -64,13 +63,34 @@ pub fn execute(path: &str) -> Result<(), String> {
     let parsed: EditInput =
         serde_json::from_str(&input).map_err(|e| format!("invalid JSON: {e}"))?;
 
-    let file_path = if parsed.path.is_empty() { path } else { &parsed.path };
-    let file_path = if file_path.is_empty() { path } else { file_path };
+    let file_path = if parsed.path.is_empty() {
+        path
+    } else {
+        &parsed.path
+    };
+    let file_path = if file_path.is_empty() {
+        path
+    } else {
+        file_path
+    };
 
-    // Detect format: if any edit has oldText, use legacy
-    let is_legacy = parsed.edits.iter().any(|e| matches!(e, EditOp::Legacy { .. }));
+    // Detect format: reject mixed batches (silent data loss otherwise)
+    let has_legacy = parsed
+        .edits
+        .iter()
+        .any(|e| matches!(e, EditOp::Legacy { .. }));
+    let has_hashline = parsed
+        .edits
+        .iter()
+        .any(|e| matches!(e, EditOp::Hashline { .. }));
 
-    if is_legacy {
+    if has_legacy && has_hashline {
+        return Err(
+            "No mezcles ediciones legacy (oldText/newText) y hashline en la misma petición.".into(),
+        );
+    }
+
+    if has_legacy {
         return execute_legacy(file_path, &parsed.edits);
     }
 
@@ -125,11 +145,18 @@ fn execute_hashline(
     let mut resolved: Vec<ResolvedEdit> = Vec::new();
     for (idx, edit) in edits.iter().enumerate() {
         match edit {
-            EditOp::Hashline { op, start_hash, end_hash, hash, lines: new_lines } => {
+            EditOp::Hashline {
+                op,
+                start_hash,
+                end_hash,
+                hash,
+                lines: new_lines,
+            } => {
                 let new_lines = new_lines.clone().unwrap_or_default();
                 match op.as_str() {
                     "replace" => {
-                        let start = start_hash.as_ref()
+                        let start = start_hash
+                            .as_ref()
                             .and_then(|h| hash_to_line.get(h))
                             .copied()
                             .ok_or_else(|| {
@@ -139,9 +166,7 @@ fn execute_hashline(
                                     start_hash.as_deref().unwrap_or("?")
                                 )
                             })?;
-                        let end = match end_hash.as_ref()
-                            .and_then(|h| hash_to_line.get(h))
-                            .copied()
+                        let end = match end_hash.as_ref().and_then(|h| hash_to_line.get(h)).copied()
                         {
                             Some(e) => e,
                             None => {
@@ -163,7 +188,8 @@ fn execute_hashline(
                         });
                     }
                     "delete" => {
-                        let start = start_hash.as_ref()
+                        let start = start_hash
+                            .as_ref()
                             .and_then(|h| hash_to_line.get(h))
                             .copied()
                             .ok_or_else(|| {
@@ -172,9 +198,7 @@ fn execute_hashline(
                                     start_hash.as_deref().unwrap_or("?")
                                 )
                             })?;
-                        let end = match end_hash.as_ref()
-                            .and_then(|h| hash_to_line.get(h))
-                            .copied()
+                        let end = match end_hash.as_ref().and_then(|h| hash_to_line.get(h)).copied()
                         {
                             Some(e) => e,
                             None => {
@@ -200,9 +224,7 @@ fn execute_hashline(
                             format!("edits[{idx}]: falta 'hash' para insert_after/insert_before")
                         })?;
                         let target = hash_to_line.get(target_hash).copied().ok_or_else(|| {
-                            format!(
-                                "edits[{idx}]: hash '{target_hash}' no encontrado"
-                            )
+                            format!("edits[{idx}]: hash '{target_hash}' no encontrado")
                         })?;
                         resolved.push(ResolvedEdit {
                             op: "insert".into(),
@@ -269,8 +291,7 @@ fn execute_hashline(
 // ── Legacy editing (pi-compatible) ─────────────────────────────────────────
 
 fn execute_legacy(path: &str, edits: &[EditOp]) -> Result<(), String> {
-    let mut content =
-        fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    let mut content = fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
 
     // Extract legacy edits
     let legacy_edits: Vec<(&str, &str)> = edits

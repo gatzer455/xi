@@ -68,9 +68,7 @@ pub fn execute(
 
         // Apply glob filter to relative path
         if let Some(ref matcher) = glob_matcher {
-            let relative = file_path
-                .strip_prefix(search_path)
-                .unwrap_or(file_path);
+            let relative = file_path.strip_prefix(search_path).unwrap_or(file_path);
             if !matcher.is_match(relative) {
                 continue;
             }

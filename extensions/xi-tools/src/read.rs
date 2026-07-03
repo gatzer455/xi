@@ -15,8 +15,7 @@ use std::fs;
 use std::io::Read;
 use xxhash_rust::xxh32::xxh32;
 
-const BASE64URL: &[u8; 64] =
-    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+const BASE64URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
 pub fn execute(
     path: &str,
@@ -49,7 +48,12 @@ pub fn execute(
     let display_lines: Vec<&str> = content.lines().collect();
     let start = offset.unwrap_or(0);
     let max = limit.unwrap_or(2000);
-    let selected: Vec<&str> = display_lines.iter().skip(start).take(max).copied().collect();
+    let selected: Vec<&str> = display_lines
+        .iter()
+        .skip(start)
+        .take(max)
+        .copied()
+        .collect();
 
     if selected.is_empty() {
         println!("(empty file)");
@@ -111,9 +115,6 @@ fn encode_hash(hash: u32) -> String {
     let b4 = (hash & 0x3F) as usize;
     format!(
         "{}{}{}{}",
-        BASE64URL[b1] as char,
-        BASE64URL[b2] as char,
-        BASE64URL[b3] as char,
-        BASE64URL[b4] as char,
+        BASE64URL[b1] as char, BASE64URL[b2] as char, BASE64URL[b3] as char, BASE64URL[b4] as char,
     )
 }

@@ -110,24 +110,37 @@ fn main() {
 
     let result = match cli.command {
         Command::Bash { timeout, cwd } => bash::execute(timeout, cwd.as_deref()),
-        Command::Grep { pattern, path, glob, ignore_case, literal, context, limit } => {
-            grep::execute(&pattern, path.as_deref(), glob.as_deref(), ignore_case, literal, context, limit)
-        }
-        Command::Find { pattern, path, limit } => {
-            find::execute(&pattern, path.as_deref(), limit)
-        }
-        Command::Ls { path, limit } => {
-            ls::execute(path.as_deref(), limit)
-        }
-        Command::Read { path, offset, limit, hashline } => {
-            read::execute(&path, offset, limit, hashline)
-        }
-        Command::Write { path } => {
-            write::execute(&path)
-        }
-        Command::Edit { path } => {
-            edit::execute(&path)
-        }
+        Command::Grep {
+            pattern,
+            path,
+            glob,
+            ignore_case,
+            literal,
+            context,
+            limit,
+        } => grep::execute(
+            &pattern,
+            path.as_deref(),
+            glob.as_deref(),
+            ignore_case,
+            literal,
+            context,
+            limit,
+        ),
+        Command::Find {
+            pattern,
+            path,
+            limit,
+        } => find::execute(&pattern, path.as_deref(), limit),
+        Command::Ls { path, limit } => ls::execute(path.as_deref(), limit),
+        Command::Read {
+            path,
+            offset,
+            limit,
+            hashline,
+        } => read::execute(&path, offset, limit, hashline),
+        Command::Write { path } => write::execute(&path),
+        Command::Edit { path } => edit::execute(&path),
     };
 
     if let Err(e) = result {

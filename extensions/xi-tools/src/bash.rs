@@ -51,16 +51,12 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
     // Drain output in a separate thread while waiting
     let stdout_handle = std::thread::spawn(move || {
         let mut out = String::new();
-        stdout_reader
-            .read_to_string(&mut out)
-            .unwrap_or_default();
+        stdout_reader.read_to_string(&mut out).unwrap_or_default();
         out
     });
     let stderr_handle = std::thread::spawn(move || {
         let mut err = String::new();
-        stderr_reader
-            .read_to_string(&mut err)
-            .unwrap_or_default();
+        stderr_reader.read_to_string(&mut err).unwrap_or_default();
         err
     });
 
@@ -105,7 +101,10 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
 
     // Timeout → error
     if timed_out {
-        return Err(format!("command timed out after {}s", timeout_secs.unwrap()));
+        return Err(format!(
+            "command timed out after {}s",
+            timeout_secs.unwrap()
+        ));
     }
 
     // Propagate exit code: non-zero exits → error so callers see it
@@ -133,7 +132,10 @@ fn detect_shell() -> (String, String) {
     if let Some(ps) = pwsh {
         (ps, "-Command".into())
     } else {
-        (std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".into()), "/c".into())
+        (
+            std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".into()),
+            "/c".into(),
+        )
     }
 }
 

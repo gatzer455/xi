@@ -25,10 +25,8 @@ pub fn execute(path: &str) -> Result<(), String> {
             .map(|ext| format!("{ext}.tmp"))
             .unwrap_or_else(|| "tmp".to_string()),
     );
-    fs::write(&tmp, &content)
-        .map_err(|e| format!("cannot write {}: {e}", tmp.display()))?;
-    fs::rename(&tmp, p)
-        .map_err(|e| format!("cannot finalize write to {path}: {e}"))?;
+    fs::write(&tmp, &content).map_err(|e| format!("cannot write {}: {e}", tmp.display()))?;
+    fs::rename(&tmp, p).map_err(|e| format!("cannot finalize write to {path}: {e}"))?;
     println!("Wrote {} bytes to {path}", content.len());
     Ok(())
 }
