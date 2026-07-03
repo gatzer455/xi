@@ -5,12 +5,21 @@ name: CI
 # formato/clippy. Es la primera línea de defensa antes de merge.
 #
 # Estructura de jobs:
-#   1. lint      — fmt + clippy (rápido, ~10s con cache)
-#   2. test      — unit tests frontend + backend (~5s)
-#   3. build     — cargo build + vite build (~2-3 min con cache)
-#   4. e2e       — WebdriverIO + tauri-driver (~6s + compilación)
+#   1. lint      — fmt + clippy
+#   2. test      — unit tests frontend + backend
+#   3. build     — cargo build + vite build
+#   4. changes   — detecta qué archivos cambiaron (rápido, ~3s)
+#   5. e2e       — WebdriverIO + tauri-driver (solo si cambió frontend/ o e2e/)
 #
-# Tiempo total estimado: ~3-4 min (con cache en runs subsiguientes)
+# Optimizaciones:
+#   - Pi binaries cacheados por hash de package.json (evita bun --compile en cada run)
+#   - tauri-driver cacheado por runner OS (evita cargo install en cada run)
+#   - E2E condicional: se salta si no hay cambios en frontend/ o e2e/
+#
+# Tiempo total estimado:
+#   - Frontend PR: ~3 min (con cache en runs subsiguientes)
+#   - Backend PR:  ~2 min (E2E se salta)
+#   - Cold start:  ~5-6 min (primer push de un PR nuevo)
 
 on:
   pull_request:
