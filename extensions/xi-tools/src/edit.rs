@@ -104,6 +104,12 @@ fn execute_hashline(
     let mut hash_to_line: HashMap<String, usize> = HashMap::new();
     for (i, line) in lines.iter().enumerate() {
         let h = compute_line_hash(i + 1, line);
+        if hash_to_line.contains_key(&h) {
+            return Err(format!(
+                "edits: colisión de hash en línea {} — el hash '{}' ya existe.                  Archivo demasiado corto o líneas idénticas.",
+                i + 1, h
+            ));
+        }
         hash_to_line.insert(h, i);
     }
 
@@ -133,10 +139,21 @@ fn execute_hashline(
                                     start_hash.as_deref().unwrap_or("?")
                                 )
                             })?;
-                        let end = end_hash.as_ref()
+                        let end = match end_hash.as_ref()
                             .and_then(|h| hash_to_line.get(h))
                             .copied()
-                            .unwrap_or(start);
+                        {
+                            Some(e) => e,
+                            None => {
+                                if end_hash.is_some() {
+                                    return Err(format!(
+                                        "edits[{idx}]: end_hash '{}' no encontrado en el archivo.                                          Vuelve a leer el archivo con read --hashline.",
+                                        end_hash.as_deref().unwrap_or("?")
+                                    ));
+                                }
+                                start
+                            }
+                        };
                         resolved.push(ResolvedEdit {
                             op: "replace".into(),
                             start_line: start,
@@ -155,10 +172,21 @@ fn execute_hashline(
                                     start_hash.as_deref().unwrap_or("?")
                                 )
                             })?;
-                        let end = end_hash.as_ref()
+                        let end = match end_hash.as_ref()
                             .and_then(|h| hash_to_line.get(h))
                             .copied()
-                            .unwrap_or(start);
+                        {
+                            Some(e) => e,
+                            None => {
+                                if end_hash.is_some() {
+                                    return Err(format!(
+                                        "edits[{idx}]: end_hash '{}' no encontrado en el archivo.                                          Vuelve a leer el archivo con read --hashline.",
+                                        end_hash.as_deref().unwrap_or("?")
+                                    ));
+                                }
+                                start
+                            }
+                        };
                         resolved.push(ResolvedEdit {
                             op: "delete".into(),
                             start_line: start,
@@ -220,8 +248,11 @@ fn execute_hashline(
         }
     }
 
-    // Write result
-    let output = result.join("\n");
+    // Write result (preserve trailing newline if original had one)
+    let mut output = result.join("\n");
+    if content.ends_with('\n') {
+        output.push('\n');
+    }
     if output == content {
         return Err("No changes made — el resultado es idéntico al original.".into());
     }

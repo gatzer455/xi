@@ -1,4 +1,4 @@
-// read.rs — Read file contents with optional hashline annotations.
+// read.rs — Read file contents with optional offset/limit and hashline mode.
 //
 // When --hashline is set, each line is prefixed with a 4-char content hash:
 //   aB3x|fn main() {
@@ -6,6 +6,10 @@
 //
 // Hash: xxhash32(normalized line) → 4-char base64url (24-bit entropy).
 // This enables hash-anchored editing with zero ambiguity.
+//
+// The file_hash and all_lines are derived from the FULL file content,
+// not the truncated display buffer. This ensures offset/limit reads
+// produce consistent hashes for stale-edit detection.
 
 use std::fs;
 use std::io::Read;
@@ -25,9 +29,15 @@ pub fn execute(
     let size = file
         .read_to_string(&mut content)
         .map_err(|e| format!("cannot read {path}: {e}"))?;
-    // Truncation warning
+
+    // Compute all_lines and file_hash from the FULL content (before truncation)
+    let all_lines: Vec<String> = content.lines().map(String::from).collect();
+    let file_hash = compute_file_hash(&all_lines.iter().map(String::as_str).collect::<Vec<_>>());
+
+    // Apply truncation for display output only
     let max_bytes = 50 * 1024;
-    if size > max_bytes {
+    let truncated = size > max_bytes;
+    if truncated {
         content.truncate(max_bytes);
         let trunc_note = format!(
             "\n[truncated — {size} bytes total, showing first {max_bytes} bytes. Use offset/limit to read more.]"
@@ -35,13 +45,11 @@ pub fn execute(
         content.push_str(&trunc_note);
     }
 
-    let all_lines: Vec<&str> = content.lines().collect();
+    // Use display lines for output, but original all_lines for line count
+    let display_lines: Vec<&str> = content.lines().collect();
     let start = offset.unwrap_or(0);
     let max = limit.unwrap_or(2000);
-    let selected: Vec<&str> = all_lines.iter().skip(start).take(max).copied().collect();
-
-    // File hash (for stale detection on edits)
-    let file_hash = compute_file_hash(&all_lines);
+    let selected: Vec<&str> = display_lines.iter().skip(start).take(max).copied().collect();
 
     if selected.is_empty() {
         println!("(empty file)");
@@ -51,8 +59,8 @@ pub fn execute(
         return Ok(());
     }
 
-    // If truncated, warn
-    if start > 0 || selected.len() < all_lines.len() {
+    // If truncated, warn (compare against full line count from all_lines)
+    if truncated || start > 0 || selected.len() < all_lines.len() {
         eprintln!(
             "[truncated — lines {start}-{} of {}, {size}B. Use offset/limit to read more.]",
             start + selected.len(),
@@ -60,12 +68,13 @@ pub fn execute(
         );
     }
 
-    for (i, line) in selected.iter().enumerate() {
-        let line_num = start + i + 1;
-        if hashline {
-            let hash = compute_line_hash(line_num, line);
-            println!("{hash}|{line_num}|{line}");
-        } else {
+    if hashline {
+        for &line in &selected {
+            let h = compute_line_hash(&line);
+            println!("{h}|{line}");
+        }
+    } else {
+        for &line in &selected {
             println!("{line}");
         }
     }
@@ -77,38 +86,34 @@ pub fn execute(
     Ok(())
 }
 
-/// Compute a file-level hash over normalized lines (used for stale detection).
-pub fn compute_file_hash(lines: &[&str]) -> String {
-    let mut hasher = xxhash_rust::xxh32::Xxh32::new(0);
+fn compute_line_hash(line: &str) -> String {
+    // Normalize: trim trailing whitespace, keep everything else.
+    let trimmed = line.trim_end();
+    let hash = xxh32(trimmed.as_bytes(), 0xED17);
+    encode_hash(hash)
+}
+
+/// Generic hash for file-level staleness detection.
+fn compute_file_hash(lines: &[&str]) -> String {
+    let mut hasher = xxhash_rust::xxh32::Xxh32::new(0xED18);
     for line in lines {
         hasher.update(line.as_bytes());
         hasher.update(b"\n");
     }
     let hash = hasher.digest();
-    hash_to_base64url(hash)
+    encode_hash(hash)
 }
 
-/// Compute a 4-char hash for a single line (used for hash-anchored editing).
-pub fn compute_line_hash(line_num: usize, content: &str) -> String {
-    // Normalize: trim trailing whitespace, normalize whitespace to single spaces
-    let normalized = normalize_line(content);
-    // Use line number as discriminator for repeated content
-    let input = format!("L{line_num}:{normalized}");
-    let hash = xxh32(input.as_bytes(), 0);
-    hash_to_base64url(hash)
-}
-
-/// Normalize a line for hashing: trim trailing whitespace.
-fn normalize_line(line: &str) -> String {
-    line.trim_end().to_string()
-}
-
-/// Encode a 32-bit hash as 4-char URL-safe base64.
-fn hash_to_base64url(hash: u32) -> String {
-    let mut out = String::with_capacity(4);
-    for i in 0..4 {
-        let idx = ((hash >> (18 - i * 6)) & 0x3F) as usize;
-        out.push(BASE64URL[idx] as char);
-    }
-    out
+fn encode_hash(hash: u32) -> String {
+    let b1 = ((hash >> 18) & 0x3F) as usize;
+    let b2 = ((hash >> 12) & 0x3F) as usize;
+    let b3 = ((hash >> 6) & 0x3F) as usize;
+    let b4 = (hash & 0x3F) as usize;
+    format!(
+        "{}{}{}{}",
+        BASE64URL[b1] as char,
+        BASE64URL[b2] as char,
+        BASE64URL[b3] as char,
+        BASE64URL[b4] as char,
+    )
 }

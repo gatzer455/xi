@@ -310,7 +310,7 @@ export default function (pi: ExtensionAPI) {
     promptGuidelines: [
       "Use read to examine files instead of cat or sed. Content is shown with line hashes (HASH|LINE|content).",
       "The file_hash at the bottom is REQUIRED for editing — pass it to edit as file_hash.",
-      "Use offset/limit to read large files in chunks. Each chunk has its own file_hash.",
+      "The file_hash is file-scoped — pass the same file_hash from the most recent read of the file, regardless of offset/limit chunking.",
     ],
     parameters: Type.Object({
       path: Type.String({ description: "Path to the file to read (relative or absolute)" }),
