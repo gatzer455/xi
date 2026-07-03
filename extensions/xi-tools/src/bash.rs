@@ -65,6 +65,7 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
     });
 
     // Wait with optional timeout
+    let mut timed_out = false;
     let exit = if let Some(secs) = timeout_secs {
         let dur = Duration::from_secs(secs as u64);
         let start = std::time::Instant::now();
@@ -76,6 +77,7 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
                         let _ = child.kill();
                         let _ = child.wait();
                         eprintln!("[timeout: {secs}s]");
+                        timed_out = true;
                         break None;
                     }
                     std::thread::sleep(Duration::from_millis(100));
@@ -99,6 +101,11 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
     print!("{stdout}");
     if !stderr.is_empty() {
         eprint!("{stderr}");
+    }
+
+    // Timeout → error
+    if timed_out {
+        return Err(format!("command timed out after {}s", timeout_secs.unwrap()));
     }
 
     // Propagate exit code: non-zero exits → error so callers see it

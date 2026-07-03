@@ -52,8 +52,9 @@ pub async fn get_exa_config() -> Result<ExaConfigStatus, String> {
     let config = read_exa_config(&path).await?;
 
     let last4 = config.api_key.as_ref().and_then(|k| {
-        if k.len() >= 4 {
-            Some(k[k.len() - 4..].to_string())
+        let chars: Vec<char> = k.chars().collect();
+        if chars.len() >= 4 {
+            Some(chars[chars.len() - 4..].iter().collect())
         } else if k.is_empty() {
             None
         } else {
@@ -96,9 +97,11 @@ pub async fn set_exa_api_key(api_key: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn delete_exa_api_key() -> Result<(), String> {
     let path = exa_config_path();
-    write_exa_config(&path, "").await?;
-    // Si el archivo queda con apiKey: "", mejor borrarlo.
-    let _ = tokio::fs::remove_file(&path).await;
+    if path.exists() {
+        tokio::fs::remove_file(&path)
+            .await
+            .map_err(|e| format!("No se puede eliminar la config de Exa: {e}"))?;
+    }
     Ok(())
 }
 

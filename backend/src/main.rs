@@ -28,14 +28,18 @@ fn main() {
                 .build(),
         )
         .setup(|app| {
-            // Copiar extensiones empaquetadas a ~/.pi/agent/extensions/ (primer inicio)
-            if let Err(e) = extensions::ensure_extensions(app) {
-                log::warn!("No se pudieron instalar las extensiones: {}", e);
-            }
-
             // Inicializar el estado del proceso pi y pending requests
             app.manage(create_pi_state());
             app.manage(create_pending_requests());
+
+            // Copiar extensiones empaquetadas en background (sin bloquear startup)
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                if let Err(e) = extensions::ensure_extensions(&handle) {
+                    log::warn!("No se pudieron instalar las extensiones: {}", e);
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

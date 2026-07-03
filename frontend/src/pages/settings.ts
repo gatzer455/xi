@@ -71,7 +71,7 @@ export function SettingsPage(): Page {
   // Sin sesión, pi no puede arrancar y getAvailableModels falla.
   // La lista de modelos se usa en la context bar del chat, no en Settings.
   if (
-    appState.activeTabId.value &&
+    appState.workingDir.value &&
     appState.availableModels.value.length === 0 &&
     !modelsLoadAttempted &&
     !modelsLoading.value
@@ -86,8 +86,8 @@ export function SettingsPage(): Page {
 
   void loadAuthStatus();
 
-  if (appState.activeTabId.value) {
-    void ensurePiRunning().then(() => getPiState());
+  if (appState.workingDir.value) {
+    void ensurePiRunning().then(() => getPiState()).catch(() => {});
   }
 
   // Back button
@@ -1166,6 +1166,7 @@ function renderExaConfig(): HTMLElement {
   const eyeBtn = document.createElement('button');
   eyeBtn.type = 'button';
   eyeBtn.className = 'settings-provider-toggle';
+  eyeBtn.setAttribute('aria-label', 'Mostrar/Ocultar API key de Exa');
   eyeBtn.textContent = '👁';
   eyeBtn.style.display = 'none';
   let isKeyVisible = false;
@@ -1215,7 +1216,13 @@ function renderExaConfig(): HTMLElement {
     try {
       await setExaApiKey(key);
       saveStatus.value = { kind: 'saved' };
-      loadExaStatus(statusText, eyeBtn, keyInput, isKeyVisible);
+      if (isKeyVisible) {
+        keyInput.value = '';
+        keyInput.type = 'password';
+        eyeBtn.textContent = '👁';
+        isKeyVisible = false;
+      }
+      loadExaStatus(statusText, eyeBtn, keyInput, deleteBtn);
     } catch (err) {
       saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
     } finally {
@@ -1284,7 +1291,7 @@ function renderExaConfig(): HTMLElement {
       keyInput.type = 'password';
       eyeBtn.textContent = '👁';
       isKeyVisible = false;
-      loadExaStatus(statusText, eyeBtn, keyInput, isKeyVisible);
+      loadExaStatus(statusText, eyeBtn, keyInput, deleteBtn);
     } catch (err) {
       saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
     } finally {
@@ -1317,7 +1324,7 @@ function renderExaConfig(): HTMLElement {
   block.append(feedback);
 
   // Cargar estado inicial
-  loadExaStatus(statusText, eyeBtn, keyInput, isKeyVisible);
+  loadExaStatus(statusText, eyeBtn, keyInput, deleteBtn);
 
   return block;
 }
@@ -1327,7 +1334,7 @@ async function loadExaStatus(
   statusText: HTMLElement,
   eyeBtn: HTMLElement,
   keyInput: HTMLInputElement,
-  isKeyVisible: boolean,
+  deleteBtn: HTMLElement,
 ): Promise<void> {
   try {
     const config = await getExaConfig();
@@ -1342,11 +1349,7 @@ async function loadExaStatus(
       eyeBtn.style.display = 'none';
       keyInput.placeholder = 'sk-...';
     }
-    // Actualizar visibilidad del delete btn (no tenemos referencia directa, usamos el DOM)
-    const deleteBtn = eyeBtn.parentElement?.parentElement?.querySelector('.settings-btn--danger') as HTMLElement | null;
-    if (deleteBtn) {
-      deleteBtn.style.display = config.hasKey ? 'inline-block' : 'none';
-    }
+    deleteBtn.style.display = config.hasKey ? 'inline-block' : 'none';
   } catch {
     statusText.textContent = 'Error al cargar';
     statusText.className = 'settings-exa-status';
@@ -1423,7 +1426,7 @@ function renderApproveConfig(): HTMLElement {
     addBtn.addEventListener('click', () => {
       const val = patternInput.value.trim();
       if (!val) return;
-      addTagToContainer(tagsContainer, val, patternInput);
+      addTagToContainer(tagsContainer, val, patternInput, tool.key);
       patternInput.value = '';
     });
     patternInput.addEventListener('keypress', (e) => {
@@ -1469,10 +1472,6 @@ function renderApproveConfig(): HTMLElement {
     // Recolectar patrones de los tags visibles
     const config: ApproveRules = { rules: {}, messages: {} };
     for (const tool of APPROVE_TOOLS) {
-      const tags = toolsContainer.querySelectorAll(
-        `.settings-approve-tool:nth-child(${APPROVE_TOOLS.indexOf(tool) + 1}) .settings-approve-tag`
-      );
-      // Fallback: buscar por tool key en data atributo
       const allTags = toolsContainer.querySelectorAll('.settings-approve-tag');
       const patterns: string[] = [];
       for (const tag of allTags) {

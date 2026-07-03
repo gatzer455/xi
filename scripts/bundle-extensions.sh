@@ -84,7 +84,7 @@ echo "  📋 Copiando pi-exa..."
 mkdir -p "$RESOURCES_DIR/pi-exa"
 cp "$EXT_DIR/pi-exa/index.ts" "$RESOURCES_DIR/pi-exa/"
 # Template sin API key (el usuario la pondrá desde settings)
-echo '{"apiKey": null}' > "$RESOURCES_DIR/pi-exa/exa-config.json"
+cp "$EXT_DIR/pi-exa/exa-config.json" "$RESOURCES_DIR/pi-exa/"
 
 # ── Reporte ───────────────────────────────────────────────────────
 echo ""

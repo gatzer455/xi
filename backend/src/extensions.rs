@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use tauri::AppHandle;
 use tauri::path::BaseDirectory;
 use tauri::Manager;
 
@@ -16,9 +17,9 @@ const BUNDLED_EXTENSIONS: &[&str] = &["xi-tools", "pi-approve", "pi-ask", "pi-ex
 /// Cada extensión se chequea individualmente: si una falla al
 /// copiarse, las demás siguen (no queremos que un error de
 /// permisos en pi-exa impida instalar xi-tools).
-pub fn ensure_extensions(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+pub fn ensure_extensions(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let home = app.path().home_dir()?;
-    let target_dir = home.join(".pi/agent/extensions");
+    let target_dir = home.join(".pi").join("agent").join("extensions");
 
     // Sentinel: chequeamos cada extensión individualmente.
     // Si alguna no existe, la instalamos. Las que ya están se saltean.
