@@ -106,44 +106,8 @@ pub async fn delete_exa_api_key() -> Result<(), String> {
 }
 
 async fn write_exa_config(path: &PathBuf, api_key: &str) -> Result<(), String> {
-    if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|e| format!("No se puede crear el directorio: {e}"))?;
-    }
-
     let json = serde_json::json!({ "apiKey": api_key });
-    let serialized = serde_json::to_string_pretty(&json)
-        .map_err(|e| format!("No se puede serializar: {e}"))?;
-
-    // Atomic write
-    let tmp_path = path.with_extension("json.tmp");
-    tokio::fs::write(&tmp_path, &serialized)
-        .await
-        .map_err(|e| format!("No se puede escribir: {e}"))?;
-
-    if let Ok(file) = tokio::fs::File::open(&tmp_path).await {
-        let _ = file.sync_all().await;
-    }
-
-    tokio::fs::rename(&tmp_path, path)
-        .await
-        .map_err(|e| {
-            let _ = std::fs::remove_file(&tmp_path);
-            format!("No se puede guardar la config: {e}")
-        })?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(meta) = tokio::fs::metadata(path).await {
-            let mut perms = meta.permissions();
-            perms.set_mode(0o600);
-            let _ = tokio::fs::set_permissions(path, perms).await;
-        }
-    }
-
-    Ok(())
+    super::atomic::write_json(path, &json, Some(0o600), None).await
 }
 
 /// Valida una API key de Exa contra la API real (mismo patrón que test_api_key).
@@ -254,32 +218,5 @@ pub async fn get_approve_rules() -> Result<ApproveRules, String> {
 /// Guarda las reglas de pi-approve. Atomic write.
 #[tauri::command]
 pub async fn set_approve_rules(config: ApproveRules) -> Result<(), String> {
-    let path = approve_rules_path();
-
-    if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|e| format!("No se puede crear el directorio: {e}"))?;
-    }
-
-    let serialized = serde_json::to_string_pretty(&config)
-        .map_err(|e| format!("No se puede serializar: {e}"))?;
-
-    let tmp_path = path.with_extension("json.tmp");
-    tokio::fs::write(&tmp_path, &serialized)
-        .await
-        .map_err(|e| format!("No se puede escribir: {e}"))?;
-
-    if let Ok(file) = tokio::fs::File::open(&tmp_path).await {
-        let _ = file.sync_all().await;
-    }
-
-    tokio::fs::rename(&tmp_path, &path)
-        .await
-        .map_err(|e| {
-            let _ = std::fs::remove_file(&tmp_path);
-            format!("No se puede guardar approve-rules.json: {e}")
-        })?;
-
-    Ok(())
+    super::atomic::write_json(&approve_rules_path(), &config, None, None).await
 }

@@ -177,55 +177,7 @@ async fn write_auth_map(
     path: &PathBuf,
     map: &serde_json::Map<String, Value>,
 ) -> Result<(), String> {
-    // 1. Asegurar que el directorio ~/.pi/agent existe.
-    if let Some(parent) = path.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(|e| format!("No se puede crear el directorio de config: {e}"))?;
-
-        // Setear permisos 700 en el directorio (owner-only).
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if let Ok(meta) = tokio::fs::metadata(parent).await {
-                let mut perms = meta.permissions();
-                perms.set_mode(0o700);
-                let _ = tokio::fs::set_permissions(parent, perms).await;
-            }
-        }
-    }
-
-    // 2. Serializar.
-    let serialized =
-        serde_json::to_string_pretty(map).map_err(|e| format!("No se puede serializar: {e}"))?;
-
-    // 3. Atomic write: tmp + rename.
-    let tmp_path = path.with_extension("json.tmp");
-    tokio::fs::write(&tmp_path, &serialized)
-        .await
-        .map_err(|e| format!("No se puede escribir el archivo temporal: {e}"))?;
-
-    if let Ok(file) = tokio::fs::File::open(&tmp_path).await {
-        let _ = file.sync_all().await;
-    }
-
-    if let Err(e) = tokio::fs::rename(&tmp_path, path).await {
-        let _ = tokio::fs::remove_file(&tmp_path).await;
-        return Err(format!("No se puede escribir la config: {e}"));
-    }
-
-    // 4. chmod 600.
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        if let Ok(meta) = tokio::fs::metadata(path).await {
-            let mut perms = meta.permissions();
-            perms.set_mode(0o600);
-            let _ = tokio::fs::set_permissions(path, perms).await;
-        }
-    }
-
-    Ok(())
+    super::atomic::write_json(path, map, Some(0o600), Some(0o700)).await
 }
 
 /// Escribe (o actualiza) la API key de un provider en auth.json.

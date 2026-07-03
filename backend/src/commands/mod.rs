@@ -1,3 +1,4 @@
+pub mod atomic;
 pub mod auth_config;
 pub mod extension_ui;
 pub mod extensions_config;
