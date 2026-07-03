@@ -127,8 +127,9 @@ fn detect_shell() -> (String, String) {
 
 #[cfg(windows)]
 fn detect_shell() -> (String, String) {
-    // On Windows, prefer PowerShell if available
-    let pwsh = which("pwsh.exe").or_else(|| which("powershell.exe"));
+    // PowerShell 5 (built-in) no soporta &&, solo usar pwsh (v7+)
+    // Si no está pwsh, usar cmd.exe que sí soporta &&
+    let pwsh = which("pwsh.exe");
     if let Some(ps) = pwsh {
         (ps, "-Command".into())
     } else {
