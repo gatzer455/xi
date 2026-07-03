@@ -1,11 +1,13 @@
 /**
- * debug-panel.ts — Logger de eventos de pi para consola F12 + terminal.
+ * debug-panel.ts — Logger de eventos de pi para consola F12 + terminal + archivo.
  *
- * Envía logs estructurados a dos destinos simultáneamente:
- * - F12: via console.log (WebView)
- * - Terminal: via tauri-plugin-log (Rust stdout + archivo)
+ * Envía logs estructurados a tres destinos:
+ * - F12: via console.log (WebView) — solo en dev
+ * - Terminal: via tauri-plugin-log (Rust stdout)
+ * - Archivo: via tauri-plugin-log (xi.log)
  *
- * En producción (build) es no-op.
+ * En producción (build) el console.log se omite, pero los logs
+ * siguen yendo a stdout + archivo vía el plugin.
  */
 
 import { info, warn, error as logError } from '@tauri-apps/plugin-log';
@@ -17,34 +19,29 @@ const MAX_ENTRIES = 500;
 let entries: { timestamp: number; direction: Direction; message: string }[] = [];
 
 export function addEntry(direction: Direction, message: string, level?: LogLevel): void {
-  // No-op en production
-  if (!import.meta.env.DEV) return;
+  // Truncar mensajes muy largos para evitar saturar
+  const truncated = message.length > 2000 ? message.slice(0, 2000) + '… [truncated]' : message;
 
-  const entry = {
-    timestamp: Date.now(),
-    direction,
-    message: message.length > 2000 ? message.slice(0, 2000) + '… [truncated]' : message,
-  };
+  const entry = { timestamp: Date.now(), direction, message: truncated };
 
   entries.push(entry);
   if (entries.length > MAX_ENTRIES) {
     entries = entries.slice(-MAX_ENTRIES);
   }
 
-  // Formatear el mensaje con prefijo [xi:pi]
+  // Formatear el mensaje con prefijo [xi:pi] usando el texto ya truncado
   const prefix = direction === 'in' ? '←' : direction === 'out' ? '→' : '⚠';
-  const text = direction === 'system' && message.startsWith('[')
-    ? `[xi:pi] ${message}`
-    : `[xi:pi] [${prefix}] ${message}`;
+  const text = direction === 'system' && truncated.startsWith('[')
+    ? `[xi:pi] ${truncated}`
+    : `[xi:pi] [${prefix}] ${truncated}`;
 
-  // Determinar nivel si no se especificó
-  const effectiveLevel: LogLevel = level ?? inferLevel(direction, message);
+  // F12 — solo en dev
+  if (import.meta.env.DEV) {
+    console.log(text);
+  }
 
-  // F12
-  console.log(text);
-
-  // Terminal (via tauri-plugin-log → stdout + archivo)
-  // Fire-and-forget: no await porque es logging, no crítico
+  // Terminal + archivo (via tauri-plugin-log) — en todos los builds
+  const effectiveLevel: LogLevel = level ?? inferLevel(direction, truncated);
   switch (effectiveLevel) {
     case 'error':
       logError(text);

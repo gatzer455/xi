@@ -313,13 +313,15 @@ fn log_pi_stdout(line: &str) {
             .and_then(|t| t.as_str())
             .unwrap_or("unknown");
         if size > STDOUT_LOG_SIZE_LIMIT {
-            let truncated = &line[..STDOUT_LOG_TRUNCATE];
-            eprintln!("[pi stdout] type={event_type} size={size}B (truncated) {truncated}…");
+            // chars().take() es UTF-8-safe: no paniquea si el corte
+            // cae en medio de un carácter multi-byte.
+            let truncated: String = line.chars().take(STDOUT_LOG_TRUNCATE).collect();
+            log::info!("[pi stdout] type={event_type} size={size}B (truncated) {truncated}…");
         } else {
-            eprintln!("[pi stdout] type={event_type} size={size}B {line}");
+            log::info!("[pi stdout] type={event_type} size={size}B {line}");
         }
     } else {
-        eprintln!("[pi stdout] (unparseable) size={size}B {line}");
+        log::info!("[pi stdout] (unparseable) size={size}B {line}");
     }
 }
 
