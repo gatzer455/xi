@@ -87,6 +87,9 @@ enum Command {
         /// Maximum lines to read
         #[arg(long)]
         limit: Option<usize>,
+        /// Prepend line numbers (hashline mode)
+        #[arg(long)]
+        hashline: bool,
     },
     /// Write content to a file (reads content from stdin)
     Write {
@@ -116,8 +119,8 @@ fn main() {
         Command::Ls { path, limit } => {
             ls::execute(path.as_deref(), limit)
         }
-        Command::Read { path, offset, limit } => {
-            read::execute(&path, offset, limit)
+        Command::Read { path, offset, limit, hashline } => {
+            read::execute(&path, offset, limit, hashline)
         }
         Command::Write { path } => {
             write::execute(&path)
