@@ -32,6 +32,17 @@ import {
   deleteApiKey,
   type ProviderInfo,
 } from '../lib/pi/tauri-commands.ts';
+import {
+  getExaConfig,
+  getExaApiKey,
+  setExaApiKey,
+  deleteExaApiKey,
+  testExaApiKey,
+  getApproveRules,
+  setApproveRules,
+  type ExaConfigStatus,
+  type ApproveRules,
+} from '../lib/pi/tauri-commands.ts';
 import { ensurePiRunning } from '../lib/pi/index.ts';
 import { loadAuthStatus } from '../lib/auth-status.ts';
 import {
@@ -113,6 +124,7 @@ export function SettingsPage(): Page {
   root.append(renderAppearanceSection());
   root.append(renderSessionSection(scope));
   root.append(renderUpdateSection(scope));
+  root.append(renderExtensionsSection(scope));
   root.append(renderAboutSection(scope));
 
   return { root, dispose: () => scope.dispose() };
@@ -1011,4 +1023,338 @@ function value(text: string): HTMLElement {
   el.className = 'settings-value';
   el.textContent = text;
   return el;
+}
+
+// ═══════════════════════════════════════════════════════
+// Sección de Extensiones
+// ═══════════════════════════════════════════════════════
+
+function renderExtensionsSection(scope: Scope): HTMLElement {
+  const controls = document.createElement('div');
+  controls.className = 'settings-extensions-controls';
+
+  // ── pi-exa ──
+  controls.append(renderExaConfig());
+
+  // ── pi-approve ──
+  controls.append(renderApproveConfig());
+
+  return createSection({
+    title: 'Extensiones',
+    description: 'Configuración de las extensiones que vienen con xi.',
+    control: controls,
+  });
+}
+
+// ────────────── pi-exa ────────────────────────────────────
+
+function renderExaConfig(): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'settings-extension-block';
+
+  const title = document.createElement('h3');
+  title.className = 'settings-subsection-title';
+  title.textContent = 'pi-exa — Búsqueda web';
+  block.append(title);
+
+  const desc = document.createElement('p');
+  desc.className = 'settings-subsection-desc';
+  desc.textContent = 'API key de Exa para buscar en internet desde pi.';
+  block.append(desc);
+
+  // Estado local
+  const saveStatus = signal<
+    | { kind: 'idle' }
+    | { kind: 'saved' }
+    | { kind: 'tested' }
+    | { kind: 'error'; message: string }
+  >({ kind: 'idle' });
+
+  // Status de la key (viene del backend)
+  const statusText = document.createElement('div');
+  statusText.className = 'settings-exa-status';
+
+  // Input + eye
+  const keyRow = document.createElement('div');
+  keyRow.className = 'settings-provider-keyrow';
+
+  const keyInput = document.createElement('input');
+  keyInput.type = 'password';
+  keyInput.className = 'settings-input settings-provider-keyinput';
+  keyInput.placeholder = 'sk-...';
+  keyInput.autocomplete = 'off';
+  keyInput.spellcheck = false;
+
+  const eyeBtn = document.createElement('button');
+  eyeBtn.type = 'button';
+  eyeBtn.className = 'settings-provider-toggle';
+  eyeBtn.textContent = '👁';
+  eyeBtn.style.display = 'none';
+  let isKeyVisible = false;
+
+  eyeBtn.addEventListener('click', async () => {
+    if (isKeyVisible) {
+      keyInput.value = '';
+      keyInput.type = 'password';
+      eyeBtn.textContent = '👁';
+      isKeyVisible = false;
+      return;
+    }
+    if (keyInput.value === '') {
+      eyeBtn.disabled = true;
+      const key = await getExaApiKey();
+      eyeBtn.disabled = false;
+      if (key === null) {
+        saveStatus.value = { kind: 'error', message: 'No se pudo leer la key' };
+        return;
+      }
+      keyInput.value = key;
+    }
+    keyInput.type = 'text';
+    eyeBtn.textContent = '🙈';
+    isKeyVisible = true;
+  });
+
+  keyRow.append(keyInput, eyeBtn);
+  block.append(keyRow);
+
+  // Botones
+  const actions = document.createElement('div');
+  actions.className = 'settings-provider-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'settings-btn settings-btn--primary';
+  saveBtn.textContent = 'Guardar';
+  saveBtn.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    if (!key) {
+      saveStatus.value = { kind: 'error', message: 'Pegá una key antes de guardar' };
+      return;
+    }
+    saveBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    try {
+      await setExaApiKey(key);
+      saveStatus.value = { kind: 'saved' };
+      loadExaStatus(statusText, eyeBtn, keyInput, isKeyVisible);
+    } catch (err) {
+      saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  const testBtn = document.createElement('button');
+  testBtn.type = 'button';
+  testBtn.className = 'settings-btn';
+  testBtn.textContent = 'Probar';
+  testBtn.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
+    if (!key) {
+      saveStatus.value = { kind: 'error', message: 'Pegá una key antes de probar' };
+      return;
+    }
+    testBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    const errMsg = await testExaApiKey(key);
+    if (errMsg === '') {
+      saveStatus.value = { kind: 'tested' };
+    } else {
+      saveStatus.value = { kind: 'error', message: errMsg };
+    }
+    testBtn.disabled = false;
+  });
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'settings-btn settings-btn--danger';
+  deleteBtn.textContent = 'Eliminar';
+  deleteBtn.style.display = 'none';
+
+  let confirmingDelete = false;
+  let confirmTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const cancelDelete = (): void => {
+    confirmingDelete = false;
+    deleteBtn.textContent = 'Eliminar';
+    deleteBtn.classList.remove('settings-btn--confirming');
+    if (confirmTimer !== null) {
+      clearTimeout(confirmTimer);
+      confirmTimer = null;
+    }
+  };
+
+  deleteBtn.addEventListener('click', async () => {
+    if (!confirmingDelete) {
+      confirmingDelete = true;
+      deleteBtn.textContent = '¿Seguro?';
+      deleteBtn.classList.add('settings-btn--confirming');
+      confirmTimer = setTimeout(cancelDelete, 5000);
+      return;
+    }
+    if (confirmTimer !== null) {
+      clearTimeout(confirmTimer);
+      confirmTimer = null;
+    }
+    deleteBtn.disabled = true;
+    saveStatus.value = { kind: 'idle' };
+    try {
+      await deleteExaApiKey();
+      saveStatus.value = { kind: 'saved' };
+      keyInput.value = '';
+      keyInput.type = 'password';
+      eyeBtn.textContent = '👁';
+      isKeyVisible = false;
+      loadExaStatus(statusText, eyeBtn, keyInput, isKeyVisible);
+    } catch (err) {
+      saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
+    } finally {
+      deleteBtn.disabled = false;
+      cancelDelete();
+    }
+  });
+
+  actions.append(saveBtn, testBtn, deleteBtn);
+  block.append(actions);
+
+  // Feedback
+  const feedback = document.createElement('div');
+  feedback.className = 'settings-provider-feedback';
+  saveStatus.subscribe((status) => {
+    feedback.className = 'settings-provider-feedback';
+    if (status.kind === 'idle') {
+      feedback.textContent = '';
+    } else if (status.kind === 'saved') {
+      feedback.classList.add('settings-provider-feedback--ok');
+      feedback.textContent = '✓ Guardado';
+    } else if (status.kind === 'tested') {
+      feedback.classList.add('settings-provider-feedback--ok');
+      feedback.textContent = '✓ Funciona';
+    } else {
+      feedback.classList.add('settings-provider-feedback--err');
+      feedback.textContent = `✗ ${status.message}`;
+    }
+  });
+  block.append(feedback);
+
+  // Cargar estado inicial
+  loadExaStatus(statusText, eyeBtn, keyInput, isKeyVisible);
+
+  return block;
+}
+
+/** Carga el estado de la key de Exa desde el backend y actualiza la UI. */
+async function loadExaStatus(
+  statusText: HTMLElement,
+  eyeBtn: HTMLElement,
+  keyInput: HTMLInputElement,
+  isKeyVisible: boolean,
+): Promise<void> {
+  try {
+    const config = await getExaConfig();
+    if (config.hasKey && config.last4) {
+      statusText.textContent = `Configurada (···${config.last4})`;
+      statusText.className = 'settings-exa-status settings-exa-status--configured';
+      eyeBtn.style.display = 'inline-block';
+      keyInput.placeholder = `Actual: sk-***${config.last4} — pega una nueva para cambiar`;
+    } else {
+      statusText.textContent = 'No configurada';
+      statusText.className = 'settings-exa-status';
+      eyeBtn.style.display = 'none';
+      keyInput.placeholder = 'sk-...';
+    }
+    // Actualizar visibilidad del delete btn (no tenemos referencia directa, usamos el DOM)
+    const deleteBtn = eyeBtn.parentElement?.parentElement?.querySelector('.settings-btn--danger') as HTMLElement | null;
+    if (deleteBtn) {
+      deleteBtn.style.display = config.hasKey ? 'inline-block' : 'none';
+    }
+  } catch {
+    statusText.textContent = 'Error al cargar';
+    statusText.className = 'settings-exa-status';
+  }
+}
+
+// ────────────── pi-approve ────────────────────────────────
+
+function renderApproveConfig(): HTMLElement {
+  const block = document.createElement('div');
+  block.className = 'settings-extension-block';
+
+  const title = document.createElement('h3');
+  title.className = 'settings-subsection-title';
+  title.textContent = 'pi-approve — Aprobación de comandos';
+  block.append(title);
+
+  const desc = document.createElement('p');
+  desc.className = 'settings-subsection-desc';
+  desc.textContent = 'Patrones de comandos y archivos que requieren confirmación antes de ejecutarse.';
+  block.append(desc);
+
+  const saveStatus = signal<{ kind: 'idle' } | { kind: 'saved' } | { kind: 'error'; message: string }>({ kind: 'idle' });
+
+  // Textarea con JSON
+  const textarea = document.createElement('textarea');
+  textarea.className = 'settings-textarea';
+  textarea.rows = 10;
+  textarea.placeholder = 'Cargando reglas…';
+  textarea.spellcheck = false;
+  block.append(textarea);
+
+  // Botón guardar
+  const actions = document.createElement('div');
+  actions.className = 'settings-provider-actions';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'settings-btn settings-btn--primary';
+  saveBtn.textContent = 'Guardar reglas';
+  saveBtn.addEventListener('click', async () => {
+    try {
+      const config: ApproveRules = JSON.parse(textarea.value);
+      saveBtn.disabled = true;
+      saveStatus.value = { kind: 'idle' };
+      await setApproveRules(config);
+      saveStatus.value = { kind: 'saved' };
+    } catch (err) {
+      if (err instanceof SyntaxError) {
+        saveStatus.value = { kind: 'error', message: 'JSON inválido. Corregí la sintaxis.' };
+      } else {
+        saveStatus.value = { kind: 'error', message: err instanceof Error ? err.message : String(err) };
+      }
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  actions.append(saveBtn);
+  block.append(actions);
+
+  // Feedback
+  const feedback = document.createElement('div');
+  feedback.className = 'settings-provider-feedback';
+  saveStatus.subscribe((status) => {
+    feedback.className = 'settings-provider-feedback';
+    if (status.kind === 'idle') {
+      feedback.textContent = '';
+    } else if (status.kind === 'saved') {
+      feedback.classList.add('settings-provider-feedback--ok');
+      feedback.textContent = '✓ Guardado';
+    } else {
+      feedback.classList.add('settings-provider-feedback--err');
+      feedback.textContent = `✗ ${status.message}`;
+    }
+  });
+  block.append(feedback);
+
+  // Cargar reglas actuales
+  getApproveRules()
+    .then((rules) => {
+      textarea.value = JSON.stringify(rules, null, 2);
+    })
+    .catch((err) => {
+      textarea.value = 'Error al cargar reglas: ' + (err instanceof Error ? err.message : String(err));
+    });
+
+  return block;
 }
