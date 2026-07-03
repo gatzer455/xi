@@ -1,6 +1,6 @@
 [package]
 name = "xi-backend"
-version = "0.1.5"
+version = "0.2.0"
 edition = "2021"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
