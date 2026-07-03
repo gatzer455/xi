@@ -314,9 +314,7 @@ fn log_pi_stdout(line: &str) {
             .unwrap_or("unknown");
         if size > STDOUT_LOG_SIZE_LIMIT {
             let truncated = &line[..STDOUT_LOG_TRUNCATE];
-            eprintln!(
-                "[pi stdout] type={event_type} size={size}B (truncated) {truncated}…"
-            );
+            eprintln!("[pi stdout] type={event_type} size={size}B (truncated) {truncated}…");
         } else {
             eprintln!("[pi stdout] type={event_type} size={size}B {line}");
         }
