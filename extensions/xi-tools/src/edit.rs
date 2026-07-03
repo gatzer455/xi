@@ -105,6 +105,12 @@ fn execute_hashline(
     edits: &[EditOp],
 ) -> Result<(), String> {
     let content = fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    // Detect line ending style — preserve CRLF on Windows
+    let line_ending = if content.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
     let lines: Vec<String> = content.lines().map(|l| l.to_string()).collect();
 
     // Verify file hash
@@ -270,10 +276,10 @@ fn execute_hashline(
         }
     }
 
-    // Write result (preserve trailing newline if original had one)
-    let mut output = result.join("\n");
-    if content.ends_with('\n') {
-        output.push('\n');
+    // Write result (preserve line endings and trailing newline)
+    let mut output = result.join(line_ending);
+    if content.ends_with(line_ending) {
+        output.push_str(line_ending);
     }
     if output == content {
         return Err("No changes made — el resultado es idéntico al original.".into());
