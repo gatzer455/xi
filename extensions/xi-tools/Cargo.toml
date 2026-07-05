@@ -19,7 +19,7 @@ serde_json = "1"
 xxhash-rust = { version = "0.8", features = ["xxh32"] }
 
 # Cross-platform POSIX shell (embebido)
-brush-core = { git = "https://github.com/gatzer455/brush" }
-brush-builtins = { git = "https://github.com/gatzer455/brush" }
+brush-core = { git = "https://github.com/reubeno/brush" }
+brush-builtins = { git = "https://github.com/reubeno/brush" }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "process", "sync", "time"] }
 futures = "0.3"
