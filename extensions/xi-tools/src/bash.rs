@@ -7,7 +7,6 @@
 use std::io::Read;
 use std::time::Duration;
 
-use brush_builtins::{BuiltinSet, ShellBuilderExt};
 use brush_core::{
     ExecutionParameters, ProfileLoadBehavior, RcLoadBehavior, Shell, SourceInfo,
     extensions::DefaultShellExtensions,
@@ -42,7 +41,6 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
             .rc(RcLoadBehavior::Skip)
             .exit_after_one_command(true)
             .no_editing(true)
-            .default_builtins(BuiltinSet::BashMode)
             .build()
             .await
             .map_err(|e| format!("failed to initialize shell: {e}"))?;
