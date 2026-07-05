@@ -6,7 +6,7 @@
 //
 // In the future, this will use brush-shell for true cross-platform POSIX execution.
 
-use std::io::Read;
+use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
@@ -22,16 +22,25 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
         return Err("empty command".into());
     }
 
-    // Detect shell
-    let (shell, shell_arg) = detect_shell();
+    // Detect shell configuration
+    let shell_cfg = detect_shell();
 
     // Build the process
-    let mut cmd = Command::new(&shell);
-    cmd.arg(shell_arg)
-        .arg(&command)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    let mut cmd = Command::new(&shell_cfg.path);
+    for arg in &shell_cfg.args {
+        cmd.arg(arg);
+    }
+
+    if shell_cfg.use_stdin {
+        // cmd.exe: pass command via stdin to avoid quoting issues
+        // (cmd /c "echo \"hola\"" breaks because cmd doesn't understand \")
+        cmd.stdin(Stdio::piped());
+    } else {
+        // sh -c / pwsh -Command: pass command as argument (safe)
+        cmd.arg(&command);
+        cmd.stdin(Stdio::null());
+    }
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
@@ -40,11 +49,16 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
     // Spawn
     let mut child = cmd
         .spawn()
-        .map_err(|e| format!("failed to spawn {shell}: {e}"))?;
+        .map_err(|e| format!("failed to spawn {}: {e}", shell_cfg.path))?;
 
-    // Take stdout/stderr BEFORE waiting — draining after wait() can
-    // deadlock on OS pipes if the child produced more output than the
-    // pipe buffer (~64KB on Linux).
+    // For stdin-based shells (cmd.exe), pipe command and close stdin first
+    if shell_cfg.use_stdin {
+        if let Some(mut stdin) = child.stdin.take() {
+            let _ = writeln!(stdin, "{}", command);
+            // Drop closes stdin → EOF → cmd.exe executes and exits
+        }
+    }
+
     let mut stdout_reader = child.stdout.take().unwrap();
     let mut stderr_reader = child.stderr.take().unwrap();
 
@@ -119,33 +133,50 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
     Ok(())
 }
 
-#[cfg(unix)]
-fn detect_shell() -> (String, String) {
-    // Use /bin/sh (POSIX standard, available on all Unix systems)
-    ("/bin/sh".into(), "-c".into())
+struct ShellConfig {
+    path: String,
+    args: Vec<String>,
+    /// Use stdin pipe instead of CLI arg (avoids cmd.exe quoting issues)
+    use_stdin: bool,
 }
 
-#[cfg(windows)]
-fn detect_shell() -> (String, String) {
-    // PowerShell 5 (built-in) no soporta &&, solo usar pwsh (v7+)
-    // Si no está pwsh, usar cmd.exe que sí soporta &&
-    let pwsh = which("pwsh.exe");
-    if let Some(ps) = pwsh {
-        (ps, "-Command".into())
-    } else {
-        (
-            std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".into()),
-            "/c".into(),
-        )
+#[cfg(unix)]
+fn detect_shell() -> ShellConfig {
+    ShellConfig {
+        path: "/bin/sh".into(),
+        args: vec!["-c".into()],
+        use_stdin: false,
     }
 }
 
 #[cfg(windows)]
-fn which(name: &str) -> Option<String> {
+fn detect_shell() -> ShellConfig {
+    // PowerShell 5 (built-in) no soporta &&, solo usar pwsh (v7+)
+    let pwsh = detect_pwsh();
+    if let Some(ps) = pwsh {
+        ShellConfig {
+            path: ps,
+            args: vec!["-NoProfile".into(), "-Command".into()],
+            use_stdin: false,
+        }
+    } else {
+        // cmd.exe via stdin to avoid quoting hell:
+        //   Rust auto-escapes \" → cmd.exe doesn't understand it
+        //   Piping via stdin bypasses the argument parser entirely
+        ShellConfig {
+            path: std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".into()),
+            args: vec![],
+            use_stdin: true,
+        }
+    }
+}
+
+#[cfg(windows)]
+fn detect_pwsh() -> Option<String> {
     // Search in COMSPEC directory first, then PATH
     if let Ok(comspec) = std::env::var("COMSPEC") {
         let dir = std::path::Path::new(&comspec).parent()?;
-        let candidate = dir.join(name);
+        let candidate = dir.join("pwsh.exe");
         if candidate.exists() {
             return Some(candidate.to_string_lossy().into());
         }
@@ -153,7 +184,7 @@ fn which(name: &str) -> Option<String> {
     // Search PATH
     std::env::var_os("PATH").and_then(|paths| {
         std::env::split_paths(&paths).find_map(|dir| {
-            let candidate = dir.join(name);
+            let candidate = dir.join("pwsh.exe");
             if candidate.exists() {
                 Some(candidate.to_string_lossy().into())
             } else {
