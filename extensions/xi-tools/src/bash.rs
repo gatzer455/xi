@@ -6,7 +6,7 @@
 //
 // In the future, this will use brush-shell for true cross-platform POSIX execution.
 
-use std::io::{Read, Write};
+use std::io::Read;
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
@@ -31,10 +31,16 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
         cmd.arg(arg);
     }
 
-    if shell_cfg.use_stdin {
-        // cmd.exe: pass command via stdin to avoid quoting issues
-        // (cmd /c "echo \"hola\"" breaks because cmd doesn't understand \")
-        cmd.stdin(Stdio::piped());
+    if shell_cfg.raw_cmd {
+        // cmd.exe on Windows: use raw_arg to bypass Rust's auto-escaping
+        // Rust docs: "This is useful for passing arguments to cmd.exe /c"
+        // Pattern: cmd /Q /S /C "command"  → /S forces outer-quote stripping
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.raw_arg(&format!("\"{}\"", command));
+        }
+        cmd.stdin(Stdio::null());
     } else {
         // sh -c / pwsh -Command: pass command as argument (safe)
         cmd.arg(&command);
@@ -50,14 +56,6 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
     let mut child = cmd
         .spawn()
         .map_err(|e| format!("failed to spawn {}: {e}", shell_cfg.path))?;
-
-    // For stdin-based shells (cmd.exe), pipe command and close stdin first
-    if shell_cfg.use_stdin {
-        if let Some(mut stdin) = child.stdin.take() {
-            let _ = writeln!(stdin, "{}", command);
-            // Drop closes stdin → EOF → cmd.exe executes and exits
-        }
-    }
 
     let mut stdout_reader = child.stdout.take().unwrap();
     let mut stderr_reader = child.stderr.take().unwrap();
@@ -136,8 +134,9 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
 struct ShellConfig {
     path: String,
     args: Vec<String>,
-    /// Use stdin pipe instead of CLI arg (avoids cmd.exe quoting issues)
-    use_stdin: bool,
+    /// On Windows for cmd.exe: use raw_arg to bypass Rust's auto-escaping
+    /// (sh -c and pwsh use normal arg() which handles \" correctly)
+    raw_cmd: bool,
 }
 
 #[cfg(unix)]
@@ -145,7 +144,7 @@ fn detect_shell() -> ShellConfig {
     ShellConfig {
         path: "/bin/sh".into(),
         args: vec!["-c".into()],
-        use_stdin: false,
+        raw_cmd: false,
     }
 }
 
@@ -157,23 +156,25 @@ fn detect_shell() -> ShellConfig {
         ShellConfig {
             path: ps,
             args: vec!["-NoProfile".into(), "-Command".into()],
-            use_stdin: false,
+            raw_cmd: false,
         }
     } else {
-        // cmd.exe via stdin to avoid quoting hell:
-        //   Rust auto-escapes \" → cmd.exe doesn't understand it
-        //   Piping via stdin bypasses the argument parser entirely
+        // cmd.exe: use raw_arg to bypass Rust's broken auto-escaping
+        // Rust escapes \" → cmd.exe doesn't understand it
+        // raw_arg passes the text verbatim without any quoting/escaping
+        // Combined with /S /C, outer quotes are stripped by cmd.exe:
+        //   cmd /Q /S /C "echo \"hola\" && whoami"
+        //   → cmd strips outer quotes → echo "hola" && whoami
         ShellConfig {
             path: std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".into()),
-            args: vec![],
-            use_stdin: true,
+            args: vec!["/Q".into(), "/S".into(), "/C".into()],
+            raw_cmd: true,
         }
     }
 }
 
 #[cfg(windows)]
 fn detect_pwsh() -> Option<String> {
-    // Search in COMSPEC directory first, then PATH
     if let Ok(comspec) = std::env::var("COMSPEC") {
         let dir = std::path::Path::new(&comspec).parent()?;
         let candidate = dir.join("pwsh.exe");
@@ -181,7 +182,6 @@ fn detect_pwsh() -> Option<String> {
             return Some(candidate.to_string_lossy().into());
         }
     }
-    // Search PATH
     std::env::var_os("PATH").and_then(|paths| {
         std::env::split_paths(&paths).find_map(|dir| {
             let candidate = dir.join("pwsh.exe");
