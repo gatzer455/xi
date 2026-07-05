@@ -47,10 +47,12 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
             .await
             .map_err(|e| format!("failed to initialize shell: {e}"))?;
 
-        // Set working directory if provided
-        // (brush handles cd; we set the process cwd before spawning brush)
+        // Set working directory via brush's shell API (not std::env,
+        // which would mutate the global process state).
         if let Some(dir) = cwd {
-            let _ = std::env::set_current_dir(dir);
+            shell
+                .set_working_dir(dir)
+                .map_err(|e| format!("failed to set working directory: {e}"))?;
         }
 
         // Setup execution parameters
