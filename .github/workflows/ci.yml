@@ -53,9 +53,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
-            ./backend -> target
-            ./extensions/xi-tools -> target
-
+            ./apps/desktop/backend -> target
       - name: Install system deps
         run: |
           sudo apt-get update
@@ -88,7 +86,30 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          cache-dependency-path: apps/desktop/frontend/package-lock.json
+
+      - name: Install frontend deps
+        run: cd apps/desktop/frontend && npm ci
+
+      - name: Build frontend
+        run: cd apps/desktop/frontend && npm run build
+
+      # ── Lint checks ──
+      - name: TypeScript type-check
+        run: cd apps/desktop/frontend && npm run typecheck
+
+      - name: cargo fmt
+        run: cargo fmt --all --manifest-path apps/desktop/backend/Cargo.toml -- --check
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets --manifest-path apps/desktop/backend/Cargo.toml -- -D warnings
+
+      # ── Unit tests ──
+      - name: Frontend tests
+        run: cd apps/desktop/frontend && npm run test:run
+
+      - name: Backend tests
+        run: cd apps/desktop/backend && cargo test
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
