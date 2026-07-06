@@ -3,8 +3,8 @@
   "version": "0.2.2",
   "identifier": "com.xi.app",
   "build": {
-    "beforeDevCommand": "npm run dev --prefix ./frontend",
-    "beforeBuildCommand": "npm run build --prefix ./frontend",
+    "beforeDevCommand": "cd apps/desktop/frontend && npm run dev",
+    "beforeBuildCommand": "cd apps/desktop/frontend && npm run build",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../frontend/dist"
   },
@@ -32,7 +32,7 @@
       "binaries/theme/dark.json": "theme/dark.json",
       "binaries/theme/light.json": "theme/light.json",
       "binaries/theme/theme-schema.json": "theme/theme-schema.json",
-      "../resources/extensions/": "extensions/"
+      "../../../resources/extensions/": "extensions/"
     },
     "createUpdaterArtifacts": true,
     "icon": [

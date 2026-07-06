@@ -7,13 +7,13 @@ name: CI
 # Estructura de jobs:
 #   1. lint-test — fmt + clippy + unit tests (setup compartido, clippy ya compila todo)
 #   2. changes   — detecta qué archivos cambiaron (rápido, ~3s)
-#   3. e2e       — WebdriverIO + tauri-driver (solo si cambió frontend/ o e2e/)
+#   3. e2e       — WebdriverIO + tauri-driver (solo si cambió apps/desktop/frontend/ o e2e/)
 #
 # Optimizaciones:
 #   - lint+test fusionados: el setup (system deps, pi, frontend) se hace una vez
 #   - Pi binaries cacheados por hash de package.json (evita bun --compile en cada run)
 #   - tauri-driver cacheado por runner OS (evita cargo install en cada run)
-#   - E2E condicional: se salta si no hay cambios en frontend/ o e2e/
+#   - E2E condicional: se salta si no hay cambios en apps/desktop/frontend/ o e2e/
 #   - Job build eliminado: clippy --all-targets ya verifica que todo compila
 #
 # Tiempo total estimado:
@@ -53,8 +53,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
-            ./backend -> target
-            ./extensions/xi-tools -> target
+            ./apps/desktop/backend -> target
+            ./packages/xi-tools -> target
 
       - name: Install system deps
         run: |
@@ -71,8 +71,8 @@ jobs:
         id: cache-pi
         uses: actions/cache@v4
         with:
-          path: backend/binaries/
-          key: pi-${{ hashFiles('node_modules/@earendil-works/pi-coding-agent/package.json', 'backend/scripts/pi-sessions.ts') }}-${{ runner.os }}
+          path: apps/desktop/backend/binaries/
+          key: pi-${{ hashFiles('node_modules/@earendil-works/pi-coding-agent/package.json', 'apps/desktop/backend/scripts/pi-sessions.ts') }}-${{ runner.os }}
 
       - name: Build pi sidecar
         if: steps.cache-pi.outputs.cache-hit != 'true'
@@ -83,37 +83,37 @@ jobs:
         run: ./scripts/build-pi-sessions.sh --target linux
 
       - name: Check xi-tools (compile check)
-        run: cargo check --manifest-path extensions/xi-tools/Cargo.toml
+        run: cargo check --manifest-path packages/xi-tools/Cargo.toml
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: apps/desktop/frontend/package-lock.json
 
       - name: Install frontend deps
-        run: cd frontend && npm ci
+        run: cd apps/desktop/frontend && npm ci
 
       - name: Build frontend
-        run: cd frontend && npm run build
+        run: cd apps/desktop/frontend && npm run build
 
       # ── Lint checks ──
       - name: TypeScript type-check
-        run: cd frontend && npm run typecheck
+        run: cd apps/desktop/frontend && npm run typecheck
 
       - name: cargo fmt
-        run: cargo fmt --all --manifest-path backend/Cargo.toml -- --check
+        run: cargo fmt --all --manifest-path apps/desktop/backend/Cargo.toml -- --check
 
       - name: cargo clippy
-        run: cargo clippy --all-targets --manifest-path backend/Cargo.toml -- -D warnings
+        run: cargo clippy --all-targets --manifest-path apps/desktop/backend/Cargo.toml -- -D warnings
 
       # ── Unit tests ──
       - name: Frontend tests
-        run: cd frontend && npm run test:run
+        run: cd apps/desktop/frontend && npm run test:run
 
       - name: Backend tests
-        run: cd backend && cargo test
+        run: cd apps/desktop/backend && cargo test
 
   # ──────────────────────────────────────────────────────────────
   # Changes: detecta qué archivos cambiaron. Jobs downstream usan
@@ -135,7 +135,7 @@ jobs:
         with:
           filters: |
             frontend_e2e:
-              - 'frontend/**'
+              - 'apps/desktop/frontend/**'
               - 'e2e/**'
 
   # ──────────────────────────────────────────────────────────────
@@ -143,8 +143,8 @@ jobs:
   # debug build de Tauri + lanzar tauri-driver. Más lento pero
   # verifica que la app real funciona end-to-end.
   #
-  # Solo corre si cambia frontend/ o e2e/ — si un PR toca solo
-  # backend/ o docs, se salta (ahorra ~4-5 min por push).
+  # Solo corre si cambia apps/desktop/frontend/ o e2e/ — si un PR toca solo
+  # apps/desktop/backend/ o docs, se salta (ahorra ~4-5 min por push).
   # ──────────────────────────────────────────────────────────────
   e2e:
     name: E2E Tests
@@ -164,7 +164,7 @@ jobs:
           node-version: lts/*
           cache: npm
           cache-dependency-path: |
-            frontend/package-lock.json
+            apps/desktop/frontend/package-lock.json
             e2e/package-lock.json
 
       - name: Setup Rust
@@ -174,8 +174,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
-            ./backend -> target
-            ./extensions/xi-tools -> target
+            ./apps/desktop/backend -> target
+            ./packages/xi-tools -> target
 
       - name: Install system deps
         run: |
@@ -189,7 +189,7 @@ jobs:
         run: npm ci
 
       - name: Install frontend deps
-        run: cd frontend && npm ci
+        run: cd apps/desktop/frontend && npm ci
 
       - name: Install E2E deps
         run: cd e2e && npm ci
@@ -198,8 +198,8 @@ jobs:
         id: cache-pi
         uses: actions/cache@v4
         with:
-          path: backend/binaries/
-          key: pi-${{ hashFiles('node_modules/@earendil-works/pi-coding-agent/package.json', 'backend/scripts/pi-sessions.ts') }}-${{ runner.os }}
+          path: apps/desktop/backend/binaries/
+          key: pi-${{ hashFiles('node_modules/@earendil-works/pi-coding-agent/package.json', 'apps/desktop/backend/scripts/pi-sessions.ts') }}-${{ runner.os }}
 
       - name: Build pi sidecar
         if: steps.cache-pi.outputs.cache-hit != 'true'
@@ -210,7 +210,7 @@ jobs:
         run: ./scripts/build-pi-sessions.sh --target linux
 
       - name: Build frontend (needed for Tauri dev mode)
-        run: cd frontend && npm run build
+        run: cd apps/desktop/frontend && npm run build
 
       - name: Cache tauri-driver
         id: cache-tauri-driver

@@ -17,7 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 
 // Path al binario de Tauri (debug build)
-const TAURI_APP = path.join(ROOT, 'backend', 'target', 'debug', 'xi-backend');
+const TAURI_APP = path.join(ROOT, 'apps', 'desktop', 'backend', 'target', 'debug', 'xi-backend');
 
 // Proceso de tauri-driver — se inicia en beforeSession, se cierra en afterSession
 let tauriDriver: ReturnType<typeof spawn> | null = null;
@@ -53,7 +53,7 @@ export const config: WebdriverIO.Config = {
   onPrepare: () => {
     console.log('\n🔨 Compilando xi en modo debug...\n');
     spawnSync('cargo', ['build'], {
-      cwd: path.join(ROOT, 'backend'),
+      cwd: path.join(ROOT, 'apps', 'desktop', 'backend'),
       stdio: 'inherit',
     });
   },

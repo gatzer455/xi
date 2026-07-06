@@ -1,5 +1,5 @@
 /**
- * pi-exa — Web & code search via Exa API v1.2.0
+ * xi-exa — Web & code search via Exa API v1.2.0
  *
  * Provides four tools:
  *   web_search_exa        — basic web search
@@ -66,7 +66,7 @@ function getExaConfig(): ExaConfig {
     const key = tryReadConfig(configPath);
     if (key) return { apiKey: key };
   } catch (err) {
-    console.error("[pi-exa] Could not load config:", err);
+    console.error("[xi-exa] Could not load config:", err);
   }
 
   return { apiKey: null };
@@ -249,7 +249,7 @@ async function safeExecute(
     return await fn();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error("[pi-exa] Tool error:", err);
+    console.error("[xi-exa] Tool error:", err);
     return { content: [{ type: "text", text: `Error: ${message}` }] };
   }
 }

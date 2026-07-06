@@ -98,7 +98,7 @@ function readConfigFile(path: string): ApproveRules | null {
 		const raw = readFileSync(path, "utf-8");
 		return JSON.parse(raw) as ApproveRules;
 	} catch (err) {
-		console.warn(`[pi-approve] Failed to parse ${path}:`, err);
+		console.warn(`[xi-approve] Failed to parse ${path}:`, err);
 		return null;
 	}
 }

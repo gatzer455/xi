@@ -115,7 +115,7 @@ fn execute_hashline(
 
     // Verify file hash
     if let Some(expected_hash) = file_hash {
-        let actual_hash = file_hash_for(&lines);
+        let actual_hash = compute_file_hash(&lines.iter().map(|s| s.as_str()).collect::<Vec<_>>());
         if actual_hash != *expected_hash {
             return Err(format!(
                 "⚠️  STALE EDIT — el archivo cambió desde que lo leíste.\n\
@@ -129,7 +129,7 @@ fn execute_hashline(
     // Build line_hash → line_number map
     let mut hash_to_line: HashMap<String, usize> = HashMap::new();
     for (i, line) in lines.iter().enumerate() {
-        let h = compute_line_hash(i + 1, line);
+        let h = compute_line_hash(line);
         if hash_to_line.contains_key(&h) {
             return Err(format!(
                 "edits: colisión de hash en línea {} — el hash '{}' ya existe.                  Archivo demasiado corto o líneas idénticas.",
@@ -287,7 +287,7 @@ fn execute_hashline(
     fs::write(path, &output).map_err(|e| format!("cannot write {path}: {e}"))?;
 
     // Show new hashes for changed region
-    let new_file_hash = file_hash_for(&result);
+    let new_file_hash = compute_file_hash(&result.iter().map(|s| s.as_str()).collect::<Vec<_>>());
     println!("Applied {} edit(s) to {path}", resolved.len());
     println!("--- new file_hash: {new_file_hash}");
 
@@ -348,40 +348,35 @@ fn execute_legacy(path: &str, edits: &[EditOp]) -> Result<(), String> {
 
     // Offer hashline migration hint
     let lines: Vec<&str> = content.lines().collect();
-    let fh = file_hash_for_strs(&lines);
+    let fh = compute_file_hash(&lines);
     println!("--- hint: usa read --hashline para edición más confiable (file_hash: {fh})");
 
     Ok(())
 }
 
-// ── Hashing helpers ────────────────────────────────────────────────────────
-
-fn compute_line_hash(line_num: usize, content: &str) -> String {
-    let normalized = content.trim_end();
-    let input = format!("L{line_num}:{normalized}");
-    let hash = xxh32(input.as_bytes(), 0);
-    hash_to_base64url(hash)
+fn compute_line_hash(line: &str) -> String {
+    // Normalize: trim trailing whitespace, keep everything else.
+    let trimmed = line.trim_end();
+    let hash = xxh32(trimmed.as_bytes(), 0xED17);
+    encode_hash(hash)
 }
 
-fn file_hash_for(lines: &[String]) -> String {
-    let strs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
-    file_hash_for_strs(&strs)
-}
-
-fn file_hash_for_strs(lines: &[&str]) -> String {
-    let mut hasher = xxhash_rust::xxh32::Xxh32::new(0);
+fn compute_file_hash(lines: &[&str]) -> String {
+    let mut hasher = xxhash_rust::xxh32::Xxh32::new(0xED18);
     for line in lines {
         hasher.update(line.as_bytes());
         hasher.update(b"\n");
     }
-    hash_to_base64url(hasher.digest())
+    encode_hash(hasher.digest())
 }
 
-fn hash_to_base64url(hash: u32) -> String {
-    let mut out = String::with_capacity(4);
-    for i in 0..4 {
-        let idx = ((hash >> (18 - i * 6)) & 0x3F) as usize;
-        out.push(BASE64URL[idx] as char);
-    }
-    out
+fn encode_hash(hash: u32) -> String {
+    let b1 = ((hash >> 18) & 0x3F) as usize;
+    let b2 = ((hash >> 12) & 0x3F) as usize;
+    let b3 = ((hash >> 6) & 0x3F) as usize;
+    let b4 = (hash & 0x3F) as usize;
+    format!(
+        "{}{}{}{}",
+        BASE64URL[b1] as char, BASE64URL[b2] as char, BASE64URL[b3] as char, BASE64URL[b4] as char,
+    )
 }

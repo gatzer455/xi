@@ -8,14 +8,14 @@ RULES/
 .debug/
 
 # Backend (Rust / Cargo)
-backend/target/
+apps/desktop/backend/target/
 
 # Sidecar pi compilado + su package.json (regenerado por build-pi.sh)
-backend/binaries/
-backend/pi-x86_64-unknown-linux-gnu
-backend/pi-sessions-x86_64-unknown-linux-gnu
-backend/.git/        # sub-repo accidental que crea tauri/cargo
-backend/.gitignore   # lo ignora el .gitignore raíz
+apps/desktop/backend/binaries/
+apps/desktop/backend/pi-x86_64-unknown-linux-gnu
+apps/desktop/backend/pi-sessions-x86_64-unknown-linux-gnu
+apps/desktop/backend/.git/        # sub-repo accidental que crea tauri/cargo
+apps/desktop/backend/.gitignore   # lo ignora el .gitignore raíz
 
 # Frontend (Node / Vite)
 node_modules/
@@ -65,4 +65,4 @@ e2e/test-results/
 # Extension bundling
 resources/extensions/*
 !resources/extensions/.gitkeep
-extensions/xi-tools/target/
+packages/xi-tools/target/

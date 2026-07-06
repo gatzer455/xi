@@ -65,8 +65,8 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
-            ./backend -> target
-            ./extensions/xi-tools -> target
+            ./apps/desktop/backend -> target
+            ./packages/xi-tools -> target
 
       - name: Install system deps (Linux)
         if: matrix.platform == 'ubuntu-22.04'
@@ -85,7 +85,7 @@ jobs:
         run: npm ci
 
       - name: Install frontend deps
-        run: cd frontend && npm ci
+        run: cd apps/desktop/frontend && npm ci
 
       - name: Build pi sidecar
         shell: bash
