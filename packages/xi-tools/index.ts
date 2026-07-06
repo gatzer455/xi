@@ -260,16 +260,27 @@ async function execEdit(params: { path: string; file_hash?: string; edits: AnyEd
     file_hash: params.file_hash,
     edits: params.edits,
   });
-  const { stdout, stderr } = await xiSpawn("edit", ["--path", params.path], input, signal);
+  const { stdout, stderr, code } = await xiSpawn("edit", ["--path", params.path], input, signal);
 
-  if (stderr && !stdout) {
+  // Si el binario falló (exit code != 0), reportar error
+  if (code !== 0 && code !== null) {
+    const msg = stderr || stdout || "edit failed";
     return {
-      content: [{ type: "text" as const, text: `edit error: ${stderr.slice(0, 500)}` }],
+      content: [{ type: "text" as const, text: `⛔ edit error: ${msg.slice(0, 2000)}` }],
       details: {},
     };
   }
+
+  // Éxito: combinar stdout (mensaje general) + stderr (change log)
+  const output = [
+    stdout?.trim(),
+    stderr?.trim(),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return {
-    content: [{ type: "text" as const, text: stdout || `Applied ${params.edits.length} edit(s) to ${params.path}` }],
+    content: [{ type: "text" as const, text: output || `✅ Applied ${params.edits.length} edit(s) to ${params.path}` }],
     details: { applied: params.edits.length },
   };
 }
