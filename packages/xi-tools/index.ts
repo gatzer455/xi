@@ -262,6 +262,49 @@ interface LegacyEdit {
 
 type AnyEdit = HashlineEdit | LegacyEdit;
 
+/**
+ * Genera un diff unificado simple para pi.
+ * Pi espera details.diff para mostrar el resultado en el box verde.
+ */
+function generateSimpleDiff(oldContent: string, newContent: string): string {
+  const oldLines = oldContent.split("\n");
+  const newLines = newContent.split("\n");
+  const maxLen = Math.max(oldLines.length, newLines.length);
+  const result: string[] = [];
+  let inHunk = false;
+
+  for (let i = 0; i < maxLen; i++) {
+    const oldLine = i < oldLines.length ? oldLines[i] : undefined;
+    const newLine = i < newLines.length ? newLines[i] : undefined;
+
+    if (oldLine !== newLine) {
+      if (!inHunk) {
+        const ctxStart = Math.max(0, i - 2);
+        const ctxEnd = Math.min(maxLen, i + 3);
+        result.push(`@@ -${ctxStart + 1},${ctxEnd - ctxStart} +${ctxStart + 1},${ctxEnd - ctxStart} @@`);
+        for (let j = ctxStart; j < i; j++) {
+          result.push(" " + (j < oldLines.length ? oldLines[j] : ""));
+        }
+        inHunk = true;
+      }
+      if (oldLine !== undefined) result.push("-" + oldLine);
+      if (newLine !== undefined) result.push("+" + newLine);
+    } else if (inHunk) {
+      result.push(" " + oldLine);
+      let ctxCount = 0;
+      for (let j = i + 1; j < Math.min(i + 3, maxLen); j++) {
+        const o = j < oldLines.length ? oldLines[j] : undefined;
+        const n = j < newLines.length ? newLines[j] : undefined;
+        if (o === n && o !== undefined) { result.push(" " + o); ctxCount++; }
+        else break;
+      }
+      i += ctxCount;
+      inHunk = false;
+    }
+  }
+  return result.join("\n");
+}
+
 async function execEdit(params: { path: string; file_hash?: string; edits: AnyEdit[] }, signal?: AbortSignal) {
   // Leer el contenido ANTES del edit para generar diff después
   let oldContent = "";
@@ -290,17 +333,20 @@ async function execEdit(params: { path: string; file_hash?: string; edits: AnyEd
     };
   }
 
-  // Éxito: combinar stdout (mensaje general) + stderr (change log)
-  const output = [
-    stdout?.trim(),
-    stderr?.trim(),
-  ]
-    .filter(Boolean)
-    .join("\n");
+  // Generar diff entre old y new content
+  let diff = "";
+  try {
+    const newContent = readFileSync(params.path, "utf-8");
+    diff = generateSimpleDiff(oldContent, newContent);
+  } catch {}
+
+  // Mensaje corto en content (lo muestra el built-in renderer)
+  const firstLine = stdout?.trim()?.split("\n")[0] || "";
+  const shortMsg = firstLine.replace("✅ ", "") || `Applied ${params.edits.length} edit(s) to ${params.path}`;
 
   return {
-    content: [{ type: "text" as const, text: output || `✅ Applied ${params.edits.length} edit(s) to ${params.path}` }],
-    details: { applied: params.edits.length },
+    content: [{ type: "text" as const, text: shortMsg }],
+    details: { diff, applied: params.edits.length },
   };
 }
 
