@@ -556,6 +556,7 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
         hour: "2-digit",
         minute: "2-digit",
       });
+      if (!piSession.file) return;
       await renameSession(piSession.file, dateName);
       piSession.name = dateName;
     }
