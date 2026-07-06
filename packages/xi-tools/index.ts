@@ -30,7 +30,15 @@ function findBinary(): string {
   const local = join(extDir, "bin", name);
   if (existsSync(local)) return local;
 
-  // 2. PATH lookup (shell will resolve .exe on Windows automatically)
+  // 2. Release build (desarrollo: cargo build --release)
+  const release = join(extDir, "target", "release", name);
+  if (existsSync(release)) return release;
+
+  // 3. Debug build (desarrollo: cargo build)
+  const debug = join(extDir, "target", "debug", name);
+  if (existsSync(debug)) return debug;
+
+  // 4. PATH lookup (shell will resolve .exe on Windows automatically)
   return "xi-tools";
 }
 
