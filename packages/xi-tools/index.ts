@@ -381,6 +381,18 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, params, signal) {
       return execEdit(params as Parameters<typeof execEdit>[0], signal);
     },
+
+    // TUI: mostrar resultado del edit con los colores del tema
+    renderResult(result, _options, theme, context) {
+      const text = result.content?.[0]?.text || "Done";
+      const color = context.isError ? "error" : "success";
+      const { Container, Text, Spacer } = await import("@earendil-works/pi-tui");
+      const component = context.lastComponent ?? new Container();
+      component.clear();
+      component.addChild(new Spacer(1));
+      component.addChild(new Text(theme.fg(color, text), 1, 0));
+      return component;
+    },
   });
 
   // ═══════════════════════════════════════════════════════════════════════
