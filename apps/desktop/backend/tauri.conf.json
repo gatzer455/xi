@@ -32,7 +32,7 @@
       "binaries/theme/dark.json": "theme/dark.json",
       "binaries/theme/light.json": "theme/light.json",
       "binaries/theme/theme-schema.json": "theme/theme-schema.json",
-      "../../resources/extensions/": "extensions/"
+      "../../../resources/extensions/": "extensions/"
     },
     "createUpdaterArtifacts": true,
     "icon": [
