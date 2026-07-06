@@ -5,6 +5,7 @@
 
 mod bash;
 mod edit;
+mod exec;
 mod find;
 mod grep;
 mod ls;
@@ -31,6 +32,8 @@ enum Command {
         #[arg(long)]
         cwd: Option<String>,
     },
+    /// Internal subprocess: run brush-core (used by 'bash' via processkit)
+    Exec {},
     /// Search file contents with regex
     Grep {
         /// Search pattern (regex or literal)
@@ -110,6 +113,7 @@ fn main() {
 
     let result = match cli.command {
         Command::Bash { timeout, cwd } => bash::execute(timeout, cwd.as_deref()),
+        Command::Exec { .. } => exec::execute(),
         Command::Grep {
             pattern,
             path,
