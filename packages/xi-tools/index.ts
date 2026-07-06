@@ -205,11 +205,10 @@ async function execLs(params: { path?: string; limit?: number }, signal?: AbortS
 
 // ── Tool: read ─────────────────────────────────────────────────────────────
 
-async function execRead(params: { path: string; offset?: number; limit?: number; hashline?: boolean }, signal?: AbortSignal) {
+async function execRead(params: { path: string; offset?: number; limit?: number }, signal?: AbortSignal) {
   const flags = ["--path", params.path];
   if (params.offset != null) flags.push("--offset", String(params.offset));
   if (params.limit != null) flags.push("--limit", String(params.limit));
-  if (params.hashline !== false) flags.push("--hashline");
 
   const { stdout, stderr } = await xiSpawn("read", flags, undefined, signal);
   if (stderr && !stdout) {
@@ -218,12 +217,9 @@ async function execRead(params: { path: string; offset?: number; limit?: number;
       details: {},
     };
   }
-  // Extract file_hash if present
-  const fhMatch = stdout.match(/--- file_hash: (\S+)/);
-  const fileHash = fhMatch ? fhMatch[1] : undefined;
   return {
     content: [{ type: "text" as const, text: stdout }],
-    details: { fileHash, hashline: params.hashline !== false },
+    details: {},
   };
 }
 
@@ -245,111 +241,33 @@ async function execWrite(params: { path: string; content: string }, signal?: Abo
 
 // ── Tool: edit ─────────────────────────────────────────────────────────────
 
-// Hash-anchored edit operations (recommended)
-interface HashlineEdit {
-  op: "replace" | "delete" | "insert_after" | "insert_before";
-  start_hash?: string;
-  end_hash?: string;
-  hash?: string;
-  lines?: string[];
-}
-
-// Legacy edit (text-based, less reliable)
-interface LegacyEdit {
+interface EditOp {
   oldText: string;
   newText: string;
 }
 
-type AnyEdit = HashlineEdit | LegacyEdit;
-
-/**
- * Genera un diff unificado simple para pi.
- * Pi espera details.diff para mostrar el resultado en el box verde.
- */
-function generateSimpleDiff(oldContent: string, newContent: string): string {
-  const oldLines = oldContent.split("\n");
-  const newLines = newContent.split("\n");
-  const maxLen = Math.max(oldLines.length, newLines.length);
-  const result: string[] = [];
-  let inHunk = false;
-
-  for (let i = 0; i < maxLen; i++) {
-    const oldLine = i < oldLines.length ? oldLines[i] : undefined;
-    const newLine = i < newLines.length ? newLines[i] : undefined;
-
-    if (oldLine !== newLine) {
-      if (!inHunk) {
-        const ctxStart = Math.max(0, i - 2);
-        const ctxEnd = Math.min(maxLen, i + 3);
-        result.push(`@@ -${ctxStart + 1},${ctxEnd - ctxStart} +${ctxStart + 1},${ctxEnd - ctxStart} @@`);
-        for (let j = ctxStart; j < i; j++) {
-          result.push(" " + (j < oldLines.length ? oldLines[j] : ""));
-        }
-        inHunk = true;
-      }
-      if (oldLine !== undefined) result.push("-" + oldLine);
-      if (newLine !== undefined) result.push("+" + newLine);
-    } else if (inHunk) {
-      result.push(" " + oldLine);
-      let ctxCount = 0;
-      for (let j = i + 1; j < Math.min(i + 3, maxLen); j++) {
-        const o = j < oldLines.length ? oldLines[j] : undefined;
-        const n = j < newLines.length ? newLines[j] : undefined;
-        if (o === n && o !== undefined) { result.push(" " + o); ctxCount++; }
-        else break;
-      }
-      i += ctxCount;
-      inHunk = false;
-    }
-  }
-  return result.join("\n");
-}
-
-async function execEdit(params: { path: string; file_hash?: string; edits: AnyEdit[] }, signal?: AbortSignal) {
-  // Leer el contenido ANTES del edit para generar diff después
-  let oldContent = "";
-  try {
-    oldContent = readFileSync(params.path, "utf-8");
-  } catch {}
-
-  // Mandamos edits[] + file_hash como JSON por stdin
-  const input = JSON.stringify({
-    path: params.path,
-    file_hash: params.file_hash,
-    edits: params.edits,
-  });
+async function execEdit(params: { path: string; edits: EditOp[] }, signal?: AbortSignal) {
+  const input = JSON.stringify({ edits: params.edits });
   const { stdout, stderr, code } = await xiSpawn("edit", ["--path", params.path], input, signal);
 
-  // Si el binario falló (exit code != 0), reportar error
   if (code !== 0 && code !== null) {
     const msg = stderr?.trim() || stdout?.trim() || "edit failed";
-    // Si el mensaje ya empieza con ⛔/⚠️/✅/💡, usarlo directo (el binario ya lo formateó)
-    const fullMsg = ["⛔", "⚠️", "✅", "💡"].some(p => msg.startsWith(p))
-      ? msg
-      : `⛔ edit error: ${msg.slice(0, 2000)}`;
+    return { content: [{ type: "text" as const, text: msg }], details: {} };
+  }
+
+  try {
+    const parsed = JSON.parse(stdout || "{}");
     return {
-      content: [{ type: "text" as const, text: fullMsg }],
+      content: [{ type: "text" as const, text: parsed.content || "Done." }],
+      details: parsed.details || {},
+    };
+  } catch {
+    return {
+      content: [{ type: "text" as const, text: stdout?.trim() || "Done." }],
       details: {},
     };
   }
-
-  // Generar diff entre old y new content
-  let diff = "";
-  try {
-    const newContent = readFileSync(params.path, "utf-8");
-    diff = generateSimpleDiff(oldContent, newContent);
-  } catch {}
-
-  // Mensaje corto en content (lo muestra el built-in renderer)
-  const firstLine = stdout?.trim()?.split("\n")[0] || "";
-  const shortMsg = firstLine.replace("✅ ", "") || `Applied ${params.edits.length} edit(s) to ${params.path}`;
-
-  return {
-    content: [{ type: "text" as const, text: shortMsg }],
-    details: { diff, applied: params.edits.length },
-  };
 }
-
 // ── Extension Entry Point ──────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
@@ -381,81 +299,47 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "read",
     label: "Read",
-    description: "Read the contents of a file. Output is truncated to 2000 lines or 50KB (whichever is hit first). Each line includes a 4-char content hash for hash-anchored editing. Use offset/limit for large files. The file_hash at the end enables stale-edit detection.",
-    promptSnippet: "Read file contents with line hashes for reliable editing",
+    description: "Read the contents of a file. Output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files.",
+    promptSnippet: "Read file contents with line numbers for reference",
     promptGuidelines: [
-      "Use read to examine files instead of cat or sed. Content is shown with line hashes (HASH|LINE|content).",
-      "The file_hash at the bottom is REQUIRED for editing — pass it to edit as file_hash.",
-      "The file_hash is file-scoped — pass the same file_hash from the most recent read of the file, regardless of offset/limit chunking.",
+      "Use read to examine file contents. Content is shown with line numbers for reference.",
     ],
     parameters: Type.Object({
       path: Type.String({ description: "Path to the file to read (relative or absolute)" }),
       offset: Type.Optional(Type.Number({ description: "Line number to start reading from (0-indexed)" })),
       limit: Type.Optional(Type.Number({ description: "Maximum number of lines to read" })),
-      hashline: Type.Optional(Type.Boolean({ description: "Show hashes (default: true). Set false for legacy behavior." })),
     }),
     async execute(_id, params, signal) {
       return execRead(params as Parameters<typeof execRead>[0], signal);
     },
   });
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // edit — misma interfaz que pi built-in
+    // ═══════════════════════════════════════════════════════════════════════
+  // edit — exact text replacement (oldText → newText)
   // ═══════════════════════════════════════════════════════════════════════
   pi.registerTool({
     name: "edit",
     label: "Edit",
-    description: "Edit a file using hash-anchored line editing or legacy text replacement. Hashline mode (recommended) uses content hashes from read output to target lines precisely. Legacy mode uses oldText/newText matching. Every edit is validated before application — stale file_hash or missing hashes are rejected immediately.",
-    promptSnippet: "Make precise file edits with hash-anchored lines (preferred) or text replacement",
+    description: "Edit a file using exact text replacement. Each edits[].oldText must match a unique, non-overlapping region of the original file. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits.",
+    promptSnippet: "Make precise file edits with exact text replacement, including multiple disjoint edits in one call",
     promptGuidelines: [
-      "PREFERRED: Use hashline format — copy start_hash/end_hash from read output and pass file_hash from the read details.",
-      "Hashline ops: 'replace' (start_hash/end_hash/lines), 'delete' (start_hash/end_hash), 'insert_after'/'insert_before' (hash/lines).",
-      "LEGACY: Use oldText/newText for small one-off edits. Must be unique in the file. Include enough context.",
-      "Always pass file_hash from the most recent read to enable stale-edit protection.",
+      "Use edits[].oldText/edits[].newText for exact text replacement (must match exactly including whitespace)",
+      "When changing multiple separate locations in one file, use one edit call with multiple entries in edits[]",
+      "Each edits[].oldText is matched against the original file, not after earlier edits are applied.",
+      "Keep edits[].oldText as small as possible while still being unique in the file.",
     ],
     parameters: Type.Object({
       path: Type.String({ description: "Path to the file to edit (relative or absolute)" }),
-      file_hash: Type.Optional(Type.String({ description: "File hash from the most recent read output (--- file_hash: XXXX). Enables stale-edit detection." })),
       edits: Type.Array(
         Type.Object({
-          // Hashline mode (preferred)
-          op: Type.Optional(Type.String({ description: "Operation: 'replace', 'delete', 'insert_after', 'insert_before'" })),
-          start_hash: Type.Optional(Type.String({ description: "Hash of the first line to replace/delete" })),
-          end_hash: Type.Optional(Type.String({ description: "Hash of the last line to replace/delete (same as start_hash for single line)" })),
-          hash: Type.Optional(Type.String({ description: "Hash of the anchor line for insert_after/insert_before" })),
-          lines: Type.Optional(Type.Array(Type.String(), { description: "New lines for replace/insert operations" })),
-          // Legacy mode (text-based)
-          oldText: Type.Optional(Type.String({ description: "[Legacy] Exact text to replace. Must be unique." })),
-          newText: Type.Optional(Type.String({ description: "[Legacy] Replacement text." })),
+          oldText: Type.String({ description: "Exact text to replace. Must be unique in the file." }),
+          newText: Type.String({ description: "Replacement text for this targeted edit." }),
         }),
-        { description: "One or more targeted edits. Use hashline format (op/start_hash/end_hash/hash/lines) for reliability, or legacy format (oldText/newText) for simple cases." },
+        { description: "One or more targeted replacements. Each is matched against the original file, not incrementally." },
       ),
     }),
     async execute(_id, params, signal) {
       return execEdit(params as Parameters<typeof execEdit>[0], signal);
-    },
-
-    // TUI: cambiar fondo del box a verde/rojo + mostrar resultado
-    renderResult(result, _options, theme, context) {
-      // Actualizar el fondo del call component (creado por el built-in renderCall)
-      const callComponent = context.state?.callComponent;
-      if (callComponent && typeof callComponent.setBgFn === "function") {
-        callComponent.settledError = context.isError;
-        const bgKey = context.isError ? "toolErrorBg" : "toolSuccessBg";
-        callComponent.setBgFn((text) => theme.bg(bgKey, text));
-        callComponent.clear();
-        const path = context.args?.path || "";
-        callComponent.addChild(new Text(theme.fg("toolTitle", theme.bold("edit")) + " " + path, 0, 0));
-      }
-
-      // Mostrar texto del resultado
-      const text = result.content?.[0]?.text || "";
-      const component = context.lastComponent ?? new Container();
-      component.clear();
-      if (text) {
-        component.addChild(new Text(text, 1, 0));
-      }
-      return component;
     },
   });
 

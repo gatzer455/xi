@@ -1,60 +1,311 @@
-// edit.rs — Hash-anchored file editing for LLM agents.
+// edit.rs — Exact text replacement with fuzzy matching.
 //
-// Reads a JSON object from stdin. Supports two formats:
+// Reads a JSON object from stdin:
+//   {"edits": [{"oldText": "before", "newText": "after"}]}
 //
-// 1. Hashline (new): uses content hashes to target lines. No text matching needed.
-//    {"path": "...", "file_hash": "aB3c", "edits": [
-//      {"op": "replace", "start_hash": "aB3x", "end_hash": "aB3x", "lines": ["new"]},
-//      {"op": "delete", "start_hash": "xYz9", "end_hash": "pQr1"},
-//      {"op": "insert_after", "hash": "jK5e", "lines": ["added"]}
-//    ]}
+// Writes JSON to stdout on success:
+//   {"content": "Successfully replaced N block(s) in path.",
+//    "details": {"diff": "...", "patch": "...", "firstChangedLine": 1}}
 //
-// 2. Legacy (pi-compatible): uses oldText/newText matching.
-//    {"path": "...", "edits": [{"oldText": "...", "newText": "..."}]}
+// Writes to stderr + exit 1 on error.
 //
-// The hashline approach eliminates the main LLM edit failure modes:
-//   - No ambiguity: content hashes are unique per line
-//   - Stale detection: file_hash mismatch → immediate rejection
-//   - No text matching: the LLM doesn't need to reproduce old text exactly
+// Design (inspired by Claude Code's Edit tool):
+//   • Position-independent: locates by content, not line numbers
+//   • Uniqueness constraint: oldText must match exactly once
+//   • Fuzzy fallback: normalizes Unicode quotes/dashes/spaces
+//   • CRLF/BOM preservation: restores original file format
 
-use serde::Deserialize;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::fmt::Write;
 use std::fs;
 use std::io::Read;
-use xxhash_rust::xxh32::xxh32;
+
+// ── Input ────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 struct EditInput {
-    path: String,
-    #[serde(rename = "file_hash")]
-    file_hash: Option<String>,
     edits: Vec<EditOp>,
 }
 
 #[derive(Deserialize)]
-#[serde(untagged)]
-enum EditOp {
-    Hashline {
-        op: String,
-        #[serde(rename = "start_hash")]
-        start_hash: Option<String>,
-        #[serde(rename = "end_hash")]
-        end_hash: Option<String>,
-        hash: Option<String>,
-        lines: Option<Vec<String>>,
-    },
-    Legacy {
-        #[serde(rename = "oldText")]
-        old_text: String,
-        #[serde(rename = "newText")]
-        new_text: String,
-    },
+struct EditOp {
+    #[serde(rename = "oldText")]
+    old_text: String,
+    #[serde(rename = "newText")]
+    new_text: String,
 }
 
-const BASE64URL: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+// ── Output ───────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct EditResult {
+    content: String,
+    details: EditDetails,
+}
+
+#[derive(Serialize)]
+struct EditDetails {
+    diff: String,
+    patch: String,
+    #[serde(rename = "firstChangedLine")]
+    first_changed_line: Option<usize>,
+}
+
+// ── Fuzzy matching helpers ───────────────────────────────────────────────
+// Ported from pi's edit-diff.js normalizeForFuzzyMatch()
+// The LLM often uses smart quotes, em-dashes, or non-breaking spaces that
+// look like ASCII but aren't. We normalize both the file content and the
+// oldText before matching, then apply replacements against the original.
+
+/// Normalize text for fuzzy matching:
+/// 1. Strip trailing whitespace per line
+/// 2. Smart quotes → ASCII
+/// 3. Unicode dashes/hyphens → ASCII hyphen
+/// 4. Special Unicode spaces → regular space
+fn fuzzy_normalize(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+
+    for ch in text.chars() {
+        match ch {
+            // Smart single quotes → '
+            '\u{2018}' | '\u{2019}' | '\u{201A}' | '\u{201B}' => result.push('\''),
+            // Smart double quotes → "
+            '\u{201C}' | '\u{201D}' | '\u{201E}' | '\u{201F}' => result.push('"'),
+            // Various dashes/hyphens → -
+            '\u{2010}' | '\u{2011}' | '\u{2012}' | '\u{2013}'
+            | '\u{2014}' | '\u{2015}' | '\u{2212}' => result.push('-'),
+            // Special spaces → regular space
+            '\u{00A0}' | '\u{2002}'..='\u{200A}' | '\u{202F}' | '\u{205F}' | '\u{3000}' => {
+                result.push(' ')
+            }
+            // Keep everything else as-is
+            _ => result.push(ch),
+        }
+    }
+
+    // Strip trailing whitespace per line
+    let lines: Vec<&str> = result
+        .split('\n')
+        .map(|line| line.trim_end())
+        .collect();
+    lines.join("\n")
+}
+
+// ── Line ending / BOM ────────────────────────────────────────────────────
+
+fn detect_line_ending(content: &str) -> &str {
+    if content.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    }
+}
+
+fn strip_bom(content: &str) -> &str {
+    content.strip_prefix('\u{FEFF}').unwrap_or(content)
+}
+
+fn normalize_line_endings(content: &str) -> String {
+    content.replace("\r\n", "\n")
+}
+
+fn restore_line_endings(content: &str, ending: &str) -> String {
+    if ending == "\r\n" {
+        content.replace('\n', "\r\n")
+    } else {
+        content.to_string()
+    }
+}
+
+// ── Match resolution ─────────────────────────────────────────────────────
+
+struct Match {
+    index: usize,
+    length: usize,
+}
+
+/// Find old_text in content. Exact match first, then fuzzy.
+fn find_match(content: &str, fuzzy_content: &str, old_text: &str) -> Option<Match> {
+    // 1. Exact match
+    if let Some(pos) = content.find(old_text) {
+        return Some(Match {
+            index: pos,
+            length: old_text.len(),
+        });
+    }
+
+    // 2. Fuzzy match — both sides normalized
+    let fuzzy_old = fuzzy_normalize(old_text);
+    if let Some(pos) = fuzzy_content.find(&fuzzy_old) {
+        return Some(Match {
+            index: pos,
+            length: fuzzy_old.len(),
+        });
+    }
+
+    None
+}
+
+/// Count occurrences (for uniqueness check)
+fn count_occurrences(content: &str, old_text: &str) -> usize {
+    let fuzzy_content = fuzzy_normalize(content);
+    let fuzzy_old = fuzzy_normalize(old_text);
+    fuzzy_content.split(&fuzzy_old).count().saturating_sub(1)
+}
+
+// ── Diff generation ──────────────────────────────────────────────────────
+
+/// Simple human-readable diff with context (like pi's generateDiffString)
+fn generate_diff(old: &str, new: &str) -> String {
+    let old_lines: Vec<&str> = old.split('\n').collect();
+    let new_lines: Vec<&str> = new.split('\n').collect();
+    let max_line = old_lines.len().max(new_lines.len());
+    let line_width = max_line.to_string().len();
+
+    let mut out = String::new();
+    let mut old_idx = 0usize;
+    let mut new_idx = 0usize;
+    let mut in_hunk = false;
+
+    while old_idx < old_lines.len() || new_idx < new_lines.len() {
+        let o = old_lines.get(old_idx).copied().unwrap_or("");
+        let n = new_lines.get(new_idx).copied().unwrap_or("");
+
+        if o != n {
+            if !in_hunk {
+                let ctx_start = old_idx.max(1).saturating_sub(2);
+                let ctx_end = (old_idx + 3).min(old_lines.len().max(new_lines.len()));
+                writeln!(out, "@@ -{},{} +{},{} @@", ctx_start + 1, ctx_end - ctx_start, ctx_start + 1, ctx_end - ctx_start).ok();
+                // Context lines before change
+                for j in ctx_start..old_idx {
+                    let line = old_lines.get(j).copied().unwrap_or("");
+                    let num = format!("{:width$}", j + 1, width = line_width);
+                    writeln!(out, " {} {}", num, line).ok();
+                }
+                in_hunk = true;
+            }
+            if old_idx < old_lines.len() {
+                let num = format!("{:width$}", old_idx + 1, width = line_width);
+                writeln!(out, "-{} {}", num, o).ok();
+                old_idx += 1;
+            }
+            if new_idx < new_lines.len() {
+                let num = format!("{:width$}", new_idx + 1, width = line_width);
+                writeln!(out, "+{} {}", num, n).ok();
+                new_idx += 1;
+            }
+        } else {
+            if in_hunk {
+                let num = format!("{:width$}", old_idx + 1, width = line_width);
+                writeln!(out, " {} {}", num, o).ok();
+                // Print up to 3 context lines, then close hunk
+                let end = (old_idx + 1 + 3).min(old_lines.len());
+                let mut _ctx_count = 0usize;
+                for j in old_idx + 1..end {
+                    let o2 = old_lines.get(j).copied().unwrap_or("");
+                    let n2 = new_lines.get(j).copied().unwrap_or("");
+                    if o2 == n2 {
+                        let num2 = format!("{:width$}", j + 1, width = line_width);
+                        writeln!(out, " {} {}", num2, o2).ok();
+                        old_idx = j;
+                        new_idx = j;
+                        _ctx_count += 1;
+                    } else {
+                        break;
+                    }
+                }
+                old_idx += 1;
+                new_idx += 1;
+                in_hunk = false;
+            } else {
+                old_idx += 1;
+                new_idx += 1;
+            }
+        }
+    }
+
+    out.trim_end().to_string()
+}
+
+/// Standard unified patch (like pi's generateUnifiedPatch)
+fn generate_patch(path: &str, old: &str, new: &str) -> String {
+    let old_lines: Vec<&str> = old.split('\n').collect();
+    let new_lines: Vec<&str> = new.split('\n').collect();
+    let mut out = format!("--- {}\n+++ {}\n", path, path);
+
+    // Build hunks
+    let mut hunks: Vec<(usize, usize, Vec<String>)> = Vec::new();
+    let mut hunk_lines: Vec<String> = Vec::new();
+    let mut hunk_start_old = 0usize;
+    let mut hunk_start_new = 0usize;
+    let mut ctx_count = 0usize;
+    let mut old_i = 0usize;
+    let mut new_i = 0usize;
+    let _max = old_lines.len().max(new_lines.len());
+
+    while old_i < old_lines.len() || new_i < new_lines.len() {
+        let o = old_lines.get(old_i).copied().unwrap_or("");
+        let n = new_lines.get(new_i).copied().unwrap_or("");
+
+        if o != n {
+            if hunk_lines.is_empty() {
+                hunk_start_old = old_i.saturating_sub(3);
+                hunk_start_new = new_i.saturating_sub(3);
+                // Print context lines before
+                for j in hunk_start_old..old_i {
+                    hunk_lines.push(format!(" {}", old_lines[j]));
+                }
+            }
+            if old_i < old_lines.len() {
+                hunk_lines.push(format!("-{}", o));
+                old_i += 1;
+            }
+            if new_i < new_lines.len() {
+                hunk_lines.push(format!("+{}", n));
+                new_i += 1;
+            }
+        } else {
+            if !hunk_lines.is_empty() {
+                if ctx_count < 3 {
+                    hunk_lines.push(format!(" {}", o));
+                    ctx_count += 1;
+                } else {
+                    // Close hunk
+                    let hunk_old_len = old_i - hunk_start_old;
+                    let hunk_new_len = new_i - hunk_start_new;
+                    writeln!(out, "@@ -{},{} +{},{} @@",
+                        hunk_start_old + 1, hunk_old_len + 1,
+                        hunk_start_new + 1, hunk_new_len + 1).ok();
+                    for line in &hunk_lines {
+                        writeln!(out, "{}", line).ok();
+                    }
+                    hunks.push((hunk_start_old, hunk_start_new, std::mem::take(&mut hunk_lines)));
+                }
+            }
+            old_i += 1;
+            new_i += 1;
+        }
+    }
+
+    // Close final hunk if open
+    if !hunk_lines.is_empty() {
+        let hunk_old_len = old_i - hunk_start_old;
+        let hunk_new_len = new_i - hunk_start_new;
+        writeln!(out, "@@ -{},{} +{},{} @@",
+            hunk_start_old + 1, hunk_old_len + 1,
+            hunk_start_new + 1, hunk_new_len + 1).ok();
+        for line in &hunk_lines {
+            writeln!(out, "{}", line).ok();
+        }
+    }
+
+    out.trim_end().to_string()
+}
+
+// ── Main entry point ─────────────────────────────────────────────────────
 
 pub fn execute(path: &str) -> Result<(), String> {
-    // Read JSON from stdin
+    // Read stdin
     let mut input = String::new();
     std::io::stdin()
         .read_to_string(&mut input)
@@ -63,379 +314,144 @@ pub fn execute(path: &str) -> Result<(), String> {
     let parsed: EditInput =
         serde_json::from_str(&input).map_err(|e| format!("invalid JSON: {e}"))?;
 
-    let file_path = if parsed.path.is_empty() {
-        path
-    } else {
-        &parsed.path
-    };
-    let file_path = if file_path.is_empty() {
-        path
-    } else {
-        file_path
-    };
+    let file_path = if path.is_empty() { path } else { path };
 
-    // Detect format: reject mixed batches (silent data loss otherwise)
-    let has_legacy = parsed
-        .edits
-        .iter()
-        .any(|e| matches!(e, EditOp::Legacy { .. }));
-    let has_hashline = parsed
-        .edits
-        .iter()
-        .any(|e| matches!(e, EditOp::Hashline { .. }));
+    // 1. Read file
+    let raw = fs::read_to_string(file_path).map_err(|e| format!("cannot read {file_path}: {e}"))?;
 
-    if has_legacy && has_hashline {
-        return Err(
-            "No mezcles ediciones legacy (oldText/newText) y hashline en la misma petición.".into(),
-        );
-    }
+    // 2. Preserve BOM
+    let has_bom = raw.starts_with('\u{FEFF}');
+    let content = strip_bom(&raw);
 
-    if has_legacy {
-        return execute_legacy(file_path, &parsed.edits);
-    }
+    // 3. Preserve line ending style
+    let line_ending = detect_line_ending(content);
 
-    execute_hashline(file_path, &parsed.file_hash, &parsed.edits)
-}
+    // 4. Normalize for matching
+    let normalized = normalize_line_endings(content);
 
-// ── Hashline editing ───────────────────────────────────────────────────────
+    // 5. Fuzzy-match content for lookups
+    let fuzzy_normalized = fuzzy_normalize(&normalized);
 
-fn execute_hashline(
-    path: &str,
-    file_hash: &Option<String>,
-    edits: &[EditOp],
-) -> Result<(), String> {
-    let content = fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
-    // Detect line ending style — preserve CRLF on Windows
-    let line_ending = if content.contains("\r\n") {
-        "\r\n"
-    } else {
-        "\n"
-    };
-    let lines: Vec<String> = content.lines().map(|l| l.to_string()).collect();
-
-    // Verify file hash
-    if let Some(expected_hash) = file_hash {
-        let actual_hash = compute_file_hash(&lines.iter().map(|s| s.as_str()).collect::<Vec<_>>());
-        if actual_hash != *expected_hash {
+    // 6. Preflight: validate all edits
+    for (i, edit) in parsed.edits.iter().enumerate() {
+        if edit.old_text.is_empty() {
             return Err(format!(
-                "⚠️  STALE EDIT — el archivo cambió desde que lo leíste.\n\
-                 file_hash esperado: {expected_hash}\n\
-                 file_hash actual:   {actual_hash}\n\
-                 Vuelve a leer el archivo con read --hashline y usa el nuevo file_hash."
+                "edits[{i}]: oldText must not be empty in {file_path}."
             ));
         }
-    }
 
-    // Build line_hash → line_number map
-    let mut hash_to_line: HashMap<String, usize> = HashMap::new();
-    for (i, line) in lines.iter().enumerate() {
-        let h = compute_line_hash(line, i);
-        if hash_to_line.contains_key(&h) {
-            return Err(format!(
-                "edits: colisión de hash en línea {} — el hash '{}' ya existe.                  Archivo demasiado corto o líneas idénticas.",
-                i + 1, h
-            ));
-        }
-        hash_to_line.insert(h, i);
-    }
-
-    // Parse and validate edits
-    struct ResolvedEdit {
-        op: String,
-        start_line: usize, // 0-indexed
-        end_line: usize,   // 0-indexed, inclusive
-        insert_after: bool,
-        new_lines: Vec<String>,
-    }
-
-    let mut resolved: Vec<ResolvedEdit> = Vec::new();
-    for (idx, edit) in edits.iter().enumerate() {
-        match edit {
-            EditOp::Hashline {
-                op,
-                start_hash,
-                end_hash,
-                hash,
-                lines: new_lines,
-            } => {
-                let new_lines = new_lines.clone().unwrap_or_default();
-                match op.as_str() {
-                    "replace" => {
-                        let start = start_hash
-                            .as_ref()
-                            .and_then(|h| hash_to_line.get(h))
-                            .copied()
-                            .ok_or_else(|| {
-                                format!(
-                                    "edits[{idx}]: start_hash '{}' no encontrado en el archivo. \
-                                     ¿Usaste el file_hash correcto?",
-                                    start_hash.as_deref().unwrap_or("?")
-                                )
-                            })?;
-                        let end = match end_hash.as_ref().and_then(|h| hash_to_line.get(h)).copied()
-                        {
-                            Some(e) => e,
-                            None => {
-                                if end_hash.is_some() {
-                                    return Err(format!(
-                                        "edits[{idx}]: end_hash '{}' no encontrado en el archivo.                                          Vuelve a leer el archivo con read --hashline.",
-                                        end_hash.as_deref().unwrap_or("?")
-                                    ));
-                                }
-                                start
-                            }
-                        };
-                        resolved.push(ResolvedEdit {
-                            op: "replace".into(),
-                            start_line: start,
-                            end_line: end,
-                            insert_after: false,
-                            new_lines,
-                        });
-                    }
-                    "delete" => {
-                        let start = start_hash
-                            .as_ref()
-                            .and_then(|h| hash_to_line.get(h))
-                            .copied()
-                            .ok_or_else(|| {
-                                format!(
-                                    "edits[{idx}]: start_hash '{}' no encontrado",
-                                    start_hash.as_deref().unwrap_or("?")
-                                )
-                            })?;
-                        let end = match end_hash.as_ref().and_then(|h| hash_to_line.get(h)).copied()
-                        {
-                            Some(e) => e,
-                            None => {
-                                if end_hash.is_some() {
-                                    return Err(format!(
-                                        "edits[{idx}]: end_hash '{}' no encontrado en el archivo.                                          Vuelve a leer el archivo con read --hashline.",
-                                        end_hash.as_deref().unwrap_or("?")
-                                    ));
-                                }
-                                start
-                            }
-                        };
-                        resolved.push(ResolvedEdit {
-                            op: "delete".into(),
-                            start_line: start,
-                            end_line: end,
-                            insert_after: false,
-                            new_lines: vec![],
-                        });
-                    }
-                    "insert_after" | "insert_before" => {
-                        let target_hash = hash.as_ref().ok_or_else(|| {
-                            format!("edits[{idx}]: falta 'hash' para insert_after/insert_before")
-                        })?;
-                        let target = hash_to_line.get(target_hash).copied().ok_or_else(|| {
-                            format!("edits[{idx}]: hash '{target_hash}' no encontrado")
-                        })?;
-                        resolved.push(ResolvedEdit {
-                            op: "insert".into(),
-                            start_line: target,
-                            end_line: target,
-                            insert_after: op == "insert_after",
-                            new_lines,
-                        });
-                    }
-                    other => {
-                        return Err(format!("edits[{idx}]: operación '{other}' no soportada. Usa: replace, delete, insert_after, insert_before"));
-                    }
-                }
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    // Sort edits by position (reverse for safe application)
-    resolved.sort_by(|a, b| b.start_line.cmp(&a.start_line));
-
-    // Apply edits (reverse order) and track changes
-    let mut result = lines;
-    let mut changes: Vec<(String, Vec<(usize, String)>, Vec<(usize, String)>)> = Vec::new();
-    for edit in &resolved {
-        match edit.op.as_str() {
-            "replace" => {
-                let old_lines: Vec<(usize, String)> = result[edit.start_line..=edit.end_line]
-                    .iter()
-                    .enumerate()
-                    .map(|(i, s)| (edit.start_line + i, s.clone()))
-                    .collect();
-                let new_data: Vec<String> = edit.new_lines.clone();
-                result.splice(edit.start_line..=edit.end_line, new_data.clone());
-                let new_lines: Vec<(usize, String)> = new_data.iter()
-                    .enumerate()
-                    .map(|(i, s)| (edit.start_line + i, s.clone()))
-                    .collect();
-                changes.push(("replace".into(), old_lines, new_lines));
-            }
-            "delete" => {
-                let old_lines: Vec<(usize, String)> = result[edit.start_line..=edit.end_line]
-                    .iter()
-                    .enumerate()
-                    .map(|(i, s)| (edit.start_line + i, s.clone()))
-                    .collect();
-                result.splice(edit.start_line..=edit.end_line, std::iter::empty());
-                changes.push(("delete".into(), old_lines, vec![]));
-            }
-            "insert" => {
-                let pos = if edit.insert_after {
-                    edit.start_line + 1
+        let m = find_match(&normalized, &fuzzy_normalized, &edit.old_text);
+        match m {
+            None => {
+                let preview = if edit.old_text.len() > 200 {
+                    format!("{}...", &edit.old_text[..200])
                 } else {
-                    edit.start_line
+                    edit.old_text.clone()
                 };
-                let new_data: Vec<String> = edit.new_lines.clone();
-                for (i, line) in new_data.iter().enumerate() {
-                    result.insert(pos + i, line.clone());
-                }
-                let new_lines: Vec<(usize, String)> = new_data.iter()
-                    .enumerate()
-                    .map(|(i, s)| (pos + i, s.clone()))
-                    .collect();
-                changes.push(("insert".into(), vec![], new_lines));
+                return Err(format!(
+                    "edits[{i}]: oldText not found in {file_path}.\n\
+                     Provide the exact text to replace, including surrounding context.\n\
+                     ```\n{preview}\n```"
+                ));
             }
-            _ => {}
+            Some(_) => {
+                let count = count_occurrences(&normalized, &edit.old_text);
+                if count > 1 {
+                    return Err(format!(
+                        "edits[{i}]: oldText appears {count} times in {file_path}. \
+                         The text must be unique — add more surrounding context.",
+                    ));
+                }
+            }
         }
     }
 
-    // Write result (preserve line endings and trailing newline)
-    let mut output = result.join(line_ending);
-    if content.ends_with(line_ending) {
-        output.push_str(line_ending);
-    }
-    if output == content {
-        return Err("No changes made — el resultado es idéntico al original.".into());
-    }
-    fs::write(path, &output).map_err(|e| format!("cannot write {path}: {e}"))?;
-
-    // Show detailed change log
-    let new_file_hash = compute_file_hash(&result.iter().map(|s| s.as_str()).collect::<Vec<_>>());
-    println!("✅ Applied {} edit(s) to {path}", resolved.len());
-    println!("--- new file_hash: {new_file_hash}");
-
-    // Print change details
-    for (op_name, old_lines, new_lines) in &changes {
-        match op_name.as_str() {
-            "delete" => {
-                eprintln!("⚠️  Deleted {} line(s):", old_lines.len());
-                for (line_num, line) in old_lines {
-                    let h = compute_line_hash(line, *line_num);
-                    eprintln!("     {line_num:4}:{h}|{line}");
-                }
-            }
-            "replace" => {
-                eprintln!("🔄 Replaced {} line(s) with {} line(s):", old_lines.len(), new_lines.len());
-                eprintln!("   --- removed ---");
-                for (line_num, line) in old_lines {
-                    let h = compute_line_hash(line, *line_num);
-                    eprintln!("     {line_num:4}:{h}|{line}");
-                }
-                eprintln!("   --- added ---");
-                for (line_num, line) in new_lines {
-                    let h = compute_line_hash(line, *line_num);
-                    eprintln!("     {line_num:4}:{h}|{line}");
-                }
-            }
-            "insert" => {
-                eprintln!("➕ Inserted {} line(s):", new_lines.len());
-                for (line_num, line) in new_lines {
-                    let h = compute_line_hash(line, *line_num);
-                    eprintln!("     {line_num:4}:{h}|{line}");
-                }
-            }
-            _ => {}
-        }
+    // 7. Resolve match positions in normalized space
+    struct Resolved {
+        index: usize,
+        length: usize,
+        new_text: String,
+        _used_fuzzy: bool,
     }
 
-    Ok(())
-}
+    let mut resolved: Vec<Resolved> = Vec::new();
+    for edit in &parsed.edits {
+        let m = find_match(&normalized, &fuzzy_normalized, &edit.old_text)
+            .expect("preflight passed");
+        resolved.push(Resolved {
+            index: m.index,
+            length: m.length,
+            new_text: normalize_line_endings(&edit.new_text),
+            _used_fuzzy: normalized[m.index..m.index + m.length] != *edit.old_text,
+        });
+    }
 
-// ── Legacy editing (pi-compatible) ─────────────────────────────────────────
-
-fn execute_legacy(path: &str, edits: &[EditOp]) -> Result<(), String> {
-    let mut content = fs::read_to_string(path).map_err(|e| format!("cannot read {path}: {e}"))?;
-
-    // Extract legacy edits
-    let legacy_edits: Vec<(&str, &str)> = edits
-        .iter()
-        .filter_map(|e| match e {
-            EditOp::Legacy { old_text, new_text } => Some((old_text.as_str(), new_text.as_str())),
-            _ => None,
-        })
-        .collect();
-
-    // Preflight: all oldText must exist and be unique
-    for (i, (old, _)) in legacy_edits.iter().enumerate() {
-        if old.is_empty() {
-            return Err(format!("edits[{i}]: oldText no puede estar vacío"));
-        }
-        if !content.contains(*old) {
-            let preview = if old.len() > 200 {
-                format!("{}…", &old[..200])
-            } else {
-                old.to_string()
-            };
+    // 8. Sort by position, check overlap
+    resolved.sort_by_key(|r| r.index);
+    for i in 1..resolved.len() {
+        let prev_end = resolved[i - 1].index + resolved[i - 1].length;
+        if prev_end > resolved[i].index {
             return Err(format!(
-                "edits[{i}]: oldText no encontrado en {path}.\n```\n{preview}\n```\n\
-                 Sugerencia: usa read --hashline para obtener hashes y el nuevo formato de edit."
-            ));
-        }
-        let count = content.matches(*old).count();
-        if count > 1 {
-            return Err(format!(
-                "edits[{i}]: oldText aparece {count} veces en {path}. Debe ser único.\n\
-                 Agrega más contexto o usa read --hashline + formato hashline."
+                "edits[{}] overlaps with edits[{}] in {file_path}. \
+                 Merge them into one edit or target disjoint regions.",
+                i - 1, i
             ));
         }
     }
 
-    // Apply replacements (reverse order to preserve offsets)
-    let mut applied = 0;
-    for (old, new) in &legacy_edits {
-        if let Some(pos) = content.find(*old) {
-            let end = pos + old.len();
-            content.replace_range(pos..end, new);
-            applied += 1;
-        }
+    // 9. Apply in reverse order to maintain offsets
+    let mut result = normalized.clone();
+    // Track line number for first_changed_line
+    let first_line = resolved.first().map(|r| {
+        normalized[..r.index].chars().filter(|&c| c == '\n').count() + 1
+    });
+
+    for r in resolved.iter().rev() {
+        result.replace_range(r.index..r.index + r.length, &r.new_text);
     }
 
-    fs::write(path, &content).map_err(|e| format!("cannot write {path}: {e}"))?;
-    println!("✅ Applied {applied} edit(s) to {path}");
+    // 10. Check nothing changed
+    if result == normalized {
+        return Err(format!(
+            "No changes made to {file_path}. The replacement produced identical content."
+        ));
+    }
 
-    // Offer hashline migration hint
-    let lines: Vec<&str> = content.lines().collect();
-    let fh = compute_file_hash(&lines);
-    println!("--- hint: usa read --hashline para edición más confiable (file_hash: {fh})");
+    // 11. Restore line endings and BOM, write file
+    let final_content = restore_line_endings(&result, line_ending);
+    let final_content = if has_bom {
+        format!("\u{FEFF}{}", final_content)
+    } else {
+        final_content
+    };
+
+    fs::write(file_path, &final_content)
+        .map_err(|e| format!("cannot write {file_path}: {e}"))?;
+
+    // 12. Generate diff and patch
+    let diff = generate_diff(&normalized, &result);
+    let patch = generate_patch(file_path, &normalized, &result);
+
+    // 13. Output JSON result
+    let plural = if parsed.edits.len() == 1 { "" } else { "s" };
+    let output = EditResult {
+        content: format!(
+            "Successfully replaced {} block{} in {}.",
+            parsed.edits.len(),
+            plural,
+            file_path
+        ),
+        details: EditDetails {
+            diff,
+            patch,
+            first_changed_line: first_line,
+        },
+    };
+
+    println!(
+        "{}",
+        serde_json::to_string(&output).map_err(|e| format!("JSON: {e}"))?
+    );
 
     Ok(())
-}
-
-fn compute_line_hash(line: &str, line_number: usize) -> String {
-    // Normalize: trim trailing whitespace, keep everything else.
-    let trimmed = line.trim_end();
-    let input = format!("{}:{}", line_number, trimmed);
-    let hash = xxh32(input.as_bytes(), 0xED17);
-    encode_hash(hash)
-}
-
-fn compute_file_hash(lines: &[&str]) -> String {
-    let mut hasher = xxhash_rust::xxh32::Xxh32::new(0xED18);
-    for line in lines {
-        hasher.update(line.as_bytes());
-        hasher.update(b"\n");
-    }
-    encode_hash(hasher.digest())
-}
-
-fn encode_hash(hash: u32) -> String {
-    let b1 = ((hash >> 18) & 0x3F) as usize;
-    let b2 = ((hash >> 12) & 0x3F) as usize;
-    let b3 = ((hash >> 6) & 0x3F) as usize;
-    let b4 = (hash & 0x3F) as usize;
-    format!(
-        "{}{}{}{}",
-        BASE64URL[b1] as char, BASE64URL[b2] as char, BASE64URL[b3] as char, BASE64URL[b4] as char,
-    )
 }
