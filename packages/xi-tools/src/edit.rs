@@ -129,7 +129,7 @@ fn execute_hashline(
     // Build line_hash → line_number map
     let mut hash_to_line: HashMap<String, usize> = HashMap::new();
     for (i, line) in lines.iter().enumerate() {
-        let h = compute_line_hash(line);
+        let h = compute_line_hash(line, i);
         if hash_to_line.contains_key(&h) {
             return Err(format!(
                 "edits: colisión de hash en línea {} — el hash '{}' ya existe.                  Archivo demasiado corto o líneas idénticas.",
@@ -354,10 +354,11 @@ fn execute_legacy(path: &str, edits: &[EditOp]) -> Result<(), String> {
     Ok(())
 }
 
-fn compute_line_hash(line: &str) -> String {
+fn compute_line_hash(line: &str, line_number: usize) -> String {
     // Normalize: trim trailing whitespace, keep everything else.
     let trimmed = line.trim_end();
-    let hash = xxh32(trimmed.as_bytes(), 0xED17);
+    let input = format!("{}:{}", line_number, trimmed);
+    let hash = xxh32(input.as_bytes(), 0xED17);
     encode_hash(hash)
 }
 

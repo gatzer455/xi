@@ -73,8 +73,9 @@ pub fn execute(
     }
 
     if hashline {
-        for &line in &selected {
-            let h = compute_line_hash(&line);
+        for (i, &line) in selected.iter().enumerate() {
+            let abs_line = start + i;
+            let h = compute_line_hash(&line, abs_line);
             println!("{h}|{line}");
         }
     } else {
@@ -90,10 +91,11 @@ pub fn execute(
     Ok(())
 }
 
-fn compute_line_hash(line: &str) -> String {
+fn compute_line_hash(line: &str, line_number: usize) -> String {
     // Normalize: trim trailing whitespace, keep everything else.
     let trimmed = line.trim_end();
-    let hash = xxh32(trimmed.as_bytes(), 0xED17);
+    let input = format!("{}:{}", line_number, trimmed);
+    let hash = xxh32(input.as_bytes(), 0xED17);
     encode_hash(hash)
 }
 
