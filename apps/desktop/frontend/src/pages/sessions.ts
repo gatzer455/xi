@@ -557,8 +557,12 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
         minute: "2-digit",
       });
       if (!piSession.file) return;
-      await renameSession(piSession.file, dateName);
-      piSession.name = dateName;
+      try {
+        await renameSession(piSession.file, dateName);
+        piSession.name = dateName;
+      } catch {
+        // Best-effort: si rename falla, seguimos sin nombre
+      }
     }
     // Aplicar metadatos de pi a la tab correspondiente.
     appState.openTabs.value = appState.openTabs.value.map((t) =>

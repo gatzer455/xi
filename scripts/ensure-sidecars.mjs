@@ -24,7 +24,7 @@ let TARGET = targetIdx !== -1 ? process.argv[targetIdx + 1] : null;
 if (!TARGET) {
   const os = process.platform;
   if (os === "linux") TARGET = "linux";
-  else if (os === "darwin") TARGET = "macos";
+  else if (os === "darwin") TARGET = process.arch === "arm64" ? "macos" : "macos-intel";
   else if (os === "win32") TARGET = "windows";
   else {
     console.error(`Unknown platform: ${os}`);

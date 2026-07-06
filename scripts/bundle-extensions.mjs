@@ -49,11 +49,19 @@ const releaseDir = TARGET_TRIPLE
 
 const srcBin = resolve(releaseDir, "xi-tools");
 const dstBin = resolve(xiToolsDir, "xi-tools");
-if (existsSync(srcBin)) copyFileSync(srcBin, dstBin);
-// En Windows puede tener .exe
 const srcBinExe = srcBin + ".exe";
 const dstBinExe = dstBin + ".exe";
-if (existsSync(srcBinExe)) copyFileSync(srcBinExe, dstBinExe);
+
+// Copiar binario (Unix .exe-less o Windows .exe)
+if (existsSync(srcBin)) {
+  copyFileSync(srcBin, dstBin);
+} else if (existsSync(srcBinExe)) {
+  copyFileSync(srcBinExe, dstBinExe);
+} else {
+  console.error("❌ xi-tools binary not found after build");
+  console.error(`   buscó en: ${srcBin} o ${srcBinExe}`);
+  process.exit(1);
+}
 
 // Copiar wrapper TS
 copyFileSync(

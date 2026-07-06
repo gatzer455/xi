@@ -7,7 +7,7 @@
  * Uso: node scripts/build-pi-sessions.mjs [--target linux|windows|macos|macos-intel]
  */
 import { execaSync } from "execa";
-import { mkdirSync } from "fs";
+import { chmodSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -63,9 +63,9 @@ execaSync("bun", [
 ], { stdio: "inherit" });
 
 // Hacer ejecutable (no-op en Windows)
-try {
-  execaSync("chmod", ["+x", OUT]);
-} catch { /* ignorar */ }
+if (process.platform !== "win32") {
+  chmodSync(OUT, 0o755);
+}
 
 console.log("");
 console.log("✅ pi-sessions compilado:");

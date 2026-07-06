@@ -77,15 +77,17 @@ function shortId(): string {
  *    contra el cwd para que `SessionManager.list` reciba un path absoluto.
  */
 function resolveSessionDir(cwd: string): string {
-  // Auto-crear .pi/settings.json si no existe, para que las sesiones
-  // queden dentro del proyecto (<cwd>/.pi/sessions/) en vez de usar
-  // el default global (~/.pi/agent/sessions/<hash>/). Así el directorio
-  // de sesiones es determinista y portable entre máquinas.
+  // Auto-crear .pi/settings.json si no existe (best-effort).
+  // Si el directorio no es escribible, usamos el default global.
   const piDir = join(cwd, ".pi");
   const settingsPath = join(piDir, "settings.json");
   if (!existsSync(settingsPath)) {
-    mkdirSync(piDir, { recursive: true });
-    writeFileSync(settingsPath, JSON.stringify({ sessionsDir: ".pi/sessions" }, null, 2) + "\n");
+    try {
+      mkdirSync(piDir, { recursive: true });
+      writeFileSync(settingsPath, JSON.stringify({ sessionsDir: ".pi/sessions" }, null, 2) + "\n");
+    } catch {
+      // Directorio no escribible, usar default global
+    }
   }
 
   const sm = SettingsManager.create(cwd);

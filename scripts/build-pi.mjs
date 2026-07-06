@@ -7,8 +7,9 @@
  * Uso: node scripts/build-pi.mjs [--target linux|windows|macos|macos-intel]
  */
 import { execaSync } from "execa";
-import { copyFileSync, cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "fs";
+import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
+import { tmpdir } from "os";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -63,7 +64,7 @@ const PI_VERSION = piPkgJson.version;
 console.log(`Versión de pi pineada: ${PI_VERSION}`);
 
 // ─── Build en temp dir ─────────────────────────────────────────────
-const BUILD_DIR = resolve("/tmp", `pi-build-${process.pid}`);
+const BUILD_DIR = resolve(tmpdir(), `pi-build-${process.pid}`);
 mkdirSync(BUILD_DIR, { recursive: true });
 
 try {
@@ -109,9 +110,9 @@ try {
   }
 
   // Hacer ejecutable (no-op en Windows)
-  try {
-    execaSync("chmod", ["+x", resolve(BINARIES_DIR, binName)]);
-  } catch { /* ignorar en Windows */ }
+  if (process.platform !== "win32") {
+    chmodSync(resolve(BINARIES_DIR, binName), 0o755);
+  }
 
   console.log("");
   console.log("✅ pi compilado y copiado a:");
