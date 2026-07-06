@@ -19,7 +19,7 @@ import { spawn, type ChildProcess } from "child_process";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Container, Text, Spacer } from "@earendil-works/pi-tui";
+import { Box, Container, Text, Spacer } from "@earendil-works/pi-tui";
 
 // ── xi-tools binary ────────────────────────────────────────────────────────
 
@@ -263,6 +263,12 @@ interface LegacyEdit {
 type AnyEdit = HashlineEdit | LegacyEdit;
 
 async function execEdit(params: { path: string; file_hash?: string; edits: AnyEdit[] }, signal?: AbortSignal) {
+  // Leer el contenido ANTES del edit para generar diff después
+  let oldContent = "";
+  try {
+    oldContent = readFileSync(params.path, "utf-8");
+  } catch {}
+
   // Mandamos edits[] + file_hash como JSON por stdin
   const input = JSON.stringify({
     path: params.path,
@@ -383,14 +389,26 @@ export default function (pi: ExtensionAPI) {
       return execEdit(params as Parameters<typeof execEdit>[0], signal);
     },
 
-    // TUI: mostrar resultado del edit con los colores del tema
+    // TUI: cambiar fondo del box a verde/rojo + mostrar resultado
     renderResult(result, _options, theme, context) {
-      const text = result.content?.[0]?.text || "Done";
-      const color = context.isError ? "error" : "success";
+      // Actualizar el fondo del call component (creado por el built-in renderCall)
+      const callComponent = context.state?.callComponent;
+      if (callComponent && typeof callComponent.setBgFn === "function") {
+        callComponent.settledError = context.isError;
+        const bgKey = context.isError ? "toolErrorBg" : "toolSuccessBg";
+        callComponent.setBgFn((text) => theme.bg(bgKey, text));
+        callComponent.clear();
+        const path = context.args?.path || "";
+        callComponent.addChild(new Text(theme.fg("toolTitle", theme.bold("edit")) + " " + path, 0, 0));
+      }
+
+      // Mostrar texto del resultado
+      const text = result.content?.[0]?.text || "";
       const component = context.lastComponent ?? new Container();
       component.clear();
-      component.addChild(new Spacer(1));
-      component.addChild(new Text(theme.fg(color, text), 1, 0));
+      if (text) {
+        component.addChild(new Text(text, 1, 0));
+      }
       return component;
     },
   });
