@@ -264,9 +264,13 @@ async function execEdit(params: { path: string; file_hash?: string; edits: AnyEd
 
   // Si el binario falló (exit code != 0), reportar error
   if (code !== 0 && code !== null) {
-    const msg = stderr || stdout || "edit failed";
+    const msg = stderr?.trim() || stdout?.trim() || "edit failed";
+    // Si el mensaje ya empieza con ⛔/⚠️/✅/💡, usarlo directo (el binario ya lo formateó)
+    const fullMsg = ["⛔", "⚠️", "✅", "💡"].some(p => msg.startsWith(p))
+      ? msg
+      : `⛔ edit error: ${msg.slice(0, 2000)}`;
     return {
-      content: [{ type: "text" as const, text: `⛔ edit error: ${msg.slice(0, 2000)}` }],
+      content: [{ type: "text" as const, text: fullMsg }],
       details: {},
     };
   }
@@ -368,6 +372,15 @@ export default function (pi: ExtensionAPI) {
     }),
     async execute(_id, params, signal) {
       return execEdit(params as Parameters<typeof execEdit>[0], signal);
+    },
+
+    // TUI: mostrar resultado en color verde/rojo según éxito
+    async renderResult(result, _options, theme, context) {
+      const { Text } = await import("@earendil-works/pi-tui");
+      const text = result.content?.[0]?.text || "✅ Done";
+      const color = context.isError ? "error" : "success";
+      const styled = theme.fg(color, text);
+      return new Text(styled, 0, 0);
     },
   });
 
