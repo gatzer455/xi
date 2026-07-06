@@ -381,15 +381,6 @@ export default function (pi: ExtensionAPI) {
     async execute(_id, params, signal) {
       return execEdit(params as Parameters<typeof execEdit>[0], signal);
     },
-
-    // TUI: mostrar resultado en color verde/rojo según éxito
-    async renderResult(result, _options, theme, context) {
-      const { Text } = await import("@earendil-works/pi-tui");
-      const text = result.content?.[0]?.text || "✅ Done";
-      const color = context.isError ? "error" : "success";
-      const styled = theme.fg(color, text);
-      return new Text(styled, 0, 0);
-    },
   });
 
   // ═══════════════════════════════════════════════════════════════════════
