@@ -76,7 +76,7 @@ pub fn execute(
         for (i, &line) in selected.iter().enumerate() {
             let abs_line = start + i;
             let h = compute_line_hash(&line, abs_line);
-            println!("{h}|{line}");
+            println!("{abs_line:4}:{h}|{line}");
         }
     } else {
         for &line in &selected {

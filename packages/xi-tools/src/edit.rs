@@ -252,15 +252,33 @@ fn execute_hashline(
     // Sort edits by position (reverse for safe application)
     resolved.sort_by(|a, b| b.start_line.cmp(&a.start_line));
 
-    // Apply edits
+    // Apply edits (reverse order) and track changes
     let mut result = lines;
+    let mut changes: Vec<(String, Vec<(usize, String)>, Vec<(usize, String)>)> = Vec::new();
     for edit in &resolved {
         match edit.op.as_str() {
             "replace" => {
-                result.splice(edit.start_line..=edit.end_line, edit.new_lines.clone());
+                let old_lines: Vec<(usize, String)> = result[edit.start_line..=edit.end_line]
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| (edit.start_line + i, s.clone()))
+                    .collect();
+                let new_data: Vec<String> = edit.new_lines.clone();
+                result.splice(edit.start_line..=edit.end_line, new_data.clone());
+                let new_lines: Vec<(usize, String)> = new_data.iter()
+                    .enumerate()
+                    .map(|(i, s)| (edit.start_line + i, s.clone()))
+                    .collect();
+                changes.push(("replace".into(), old_lines, new_lines));
             }
             "delete" => {
+                let old_lines: Vec<(usize, String)> = result[edit.start_line..=edit.end_line]
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| (edit.start_line + i, s.clone()))
+                    .collect();
                 result.splice(edit.start_line..=edit.end_line, std::iter::empty());
+                changes.push(("delete".into(), old_lines, vec![]));
             }
             "insert" => {
                 let pos = if edit.insert_after {
@@ -268,9 +286,15 @@ fn execute_hashline(
                 } else {
                     edit.start_line
                 };
-                for (i, line) in edit.new_lines.iter().enumerate() {
+                let new_data: Vec<String> = edit.new_lines.clone();
+                for (i, line) in new_data.iter().enumerate() {
                     result.insert(pos + i, line.clone());
                 }
+                let new_lines: Vec<(usize, String)> = new_data.iter()
+                    .enumerate()
+                    .map(|(i, s)| (pos + i, s.clone()))
+                    .collect();
+                changes.push(("insert".into(), vec![], new_lines));
             }
             _ => {}
         }
@@ -286,10 +310,44 @@ fn execute_hashline(
     }
     fs::write(path, &output).map_err(|e| format!("cannot write {path}: {e}"))?;
 
-    // Show new hashes for changed region
+    // Show detailed change log
     let new_file_hash = compute_file_hash(&result.iter().map(|s| s.as_str()).collect::<Vec<_>>());
     println!("Applied {} edit(s) to {path}", resolved.len());
     println!("--- new file_hash: {new_file_hash}");
+
+    // Print change details
+    for (op_name, old_lines, new_lines) in &changes {
+        match op_name.as_str() {
+            "delete" => {
+                eprintln!("⚠️  Deleted {} line(s):", old_lines.len());
+                for (line_num, line) in old_lines {
+                    let h = compute_line_hash(line, *line_num);
+                    eprintln!("     {line_num:4}:{h}|{line}");
+                }
+            }
+            "replace" => {
+                eprintln!("🔄 Replaced {} line(s) with {} line(s):", old_lines.len(), new_lines.len());
+                eprintln!("   --- removed ---");
+                for (line_num, line) in old_lines {
+                    let h = compute_line_hash(line, *line_num);
+                    eprintln!("     {line_num:4}:{h}|{line}");
+                }
+                eprintln!("   --- added ---");
+                for (line_num, line) in new_lines {
+                    let h = compute_line_hash(line, *line_num);
+                    eprintln!("     {line_num:4}:{h}|{line}");
+                }
+            }
+            "insert" => {
+                eprintln!("➕ Inserted {} line(s):", new_lines.len());
+                for (line_num, line) in new_lines {
+                    let h = compute_line_hash(line, *line_num);
+                    eprintln!("     {line_num:4}:{h}|{line}");
+                }
+            }
+            _ => {}
+        }
+    }
 
     Ok(())
 }
