@@ -11,6 +11,7 @@ import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, rmSync, writeFi
 import { resolve, dirname } from "path";
 import { tmpdir } from "os";
 import { fileURLToPath } from "url";
+import { resolveTarget } from "./lib/build-target.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_DIR = resolve(__dirname, "..");
@@ -25,38 +26,11 @@ if (!existsSync(resolve(PI_PKG, "package.json"))) {
   process.exit(1);
 }
 
-// ── Parse target ───────────────────────────────────────────────────
-const targetIdx = process.argv.indexOf("--target");
-let TARGET = targetIdx !== -1 ? process.argv[targetIdx + 1] : null;
-
-if (!TARGET) {
-  const os = process.platform;
-  if (os === "linux") TARGET = "linux";
-  else if (os === "darwin") TARGET = process.arch === "arm64" ? "macos" : "macos-intel";
-  else if (os === "win32") TARGET = "windows";
-  else {
-    console.error(`❌ OS no soportado: ${os}`);
-    process.exit(1);
-  }
-}
-
-// ─── Mapear target → bun target / rust triple / suffix ─────────────
-const TARGET_MAP = {
-  linux:       { bun: "bun-linux-x64",      rust: "x86_64-unknown-linux-gnu",   ext: "" },
-  windows:     { bun: "bun-windows-x64",    rust: "x86_64-pc-windows-msvc",     ext: ".exe" },
-  macos:       { bun: "bun-darwin-arm64",   rust: "aarch64-apple-darwin",       ext: "" },
-  "macos-intel": { bun: "bun-darwin-x64",   rust: "x86_64-apple-darwin",        ext: "" },
-};
-
-const cfg = TARGET_MAP[TARGET];
-if (!cfg) {
-  console.error(`❌ Target no soportado: ${TARGET} (usa: linux, windows, macos, macos-intel)`);
-  process.exit(1);
-}
-
+// ── Target ──────────────────────────────────────────────────────────
+const { target: TARGET, bun, rust, ext } = resolveTarget(process.argv);
 console.log(`Target: ${TARGET}`);
-console.log(`Bun target: ${cfg.bun}`);
-console.log(`Rust triple: ${cfg.rust}`);
+console.log(`Bun target: ${bun}`);
+console.log(`Rust triple: ${rust}`);
 
 // ─── Extraer versión de pi ─────────────────────────────────────────
 const piPkgJson = JSON.parse(readFileSync(resolve(PI_PKG, "package.json"), "utf-8"));
@@ -83,19 +57,19 @@ try {
   cpSync(PI_PKG, resolve(nmDir, "pi-coding-agent"), { recursive: true });
 
   // Compilar
-  console.log(`Compilando pi con bun (target: ${cfg.bun})...`);
+  console.log(`Compilando pi con bun (target: ${bun})...`);
   execaSync("bun", [
     "build", "pi-entry.js",
     "--compile",
-    `--target=${cfg.bun}`,
+    `--target=${bun}`,
     "--compile-autoload-package-json",
     "--outfile", "pi",
   ], { cwd: BUILD_DIR, stdio: "inherit" });
 
   // Copiar a binaries/
   mkdirSync(BINARIES_DIR, { recursive: true });
-  const binName = `pi-${cfg.rust}${cfg.ext}`;
-  copyFileSync(resolve(BUILD_DIR, `pi${cfg.ext}`), resolve(BINARIES_DIR, binName));
+  const binName = `pi-${rust}${ext}`;
+  copyFileSync(resolve(BUILD_DIR, `pi${ext}`), resolve(BINARIES_DIR, binName));
   copyFileSync(resolve(BUILD_DIR, "package.json"), resolve(BINARIES_DIR, "package.json"));
 
   // Copiar temas
