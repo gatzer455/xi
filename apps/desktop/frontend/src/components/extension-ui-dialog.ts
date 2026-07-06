@@ -48,7 +48,7 @@ export function renderSelectDialog(
   title.textContent = request.title;
   container.appendChild(title);
 
-  // Options — pi-ask ya agrega 'Other (type your own)' a las opciones
+  // Options — xi-ask ya agrega 'Other (type your own)' a las opciones
   const options = [...request.options];
   let cursorIndex = 0;
   let isEditingOther = false;

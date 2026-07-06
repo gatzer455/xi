@@ -21,7 +21,7 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: ./backend -> target
+          workspaces: ./apps/desktop/backend -> target
 
       - name: Install bun
         uses: oven-sh/setup-bun@v2
@@ -30,11 +30,11 @@ jobs:
         run: npm ci
 
       - name: Install frontend deps
-        working-directory: frontend
+        working-directory: apps/desktop/frontend
         run: npm ci
 
       - name: Build frontend
-        working-directory: frontend
+        working-directory: apps/desktop/frontend
         run: npm run build
 
       - name: Build pi sidecar
@@ -47,7 +47,7 @@ jobs:
 
       - name: Build release (NSIS)
         env:
-          TAURI_DIR: backend
+          TAURI_DIR: apps/desktop/backend
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npx tauri build --bundles nsis --target x86_64-pc-windows-msvc
@@ -56,5 +56,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: xi-windows-installer
-          path: backend/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+          path: apps/desktop/backend/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           if-no-files-found: error

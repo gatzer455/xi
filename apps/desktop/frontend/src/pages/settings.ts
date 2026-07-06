@@ -1111,10 +1111,10 @@ function renderExtensionsSection(scope: Scope): HTMLElement {
   const controls = document.createElement('div');
   controls.className = 'settings-extensions-controls';
 
-  // ── pi-exa ──
+  // ── xi-exa ──
   controls.append(renderExaConfig());
 
-  // ── pi-approve ──
+  // ── xi-approve ──
   controls.append(renderApproveConfig());
 
   return createSection({
@@ -1124,7 +1124,7 @@ function renderExtensionsSection(scope: Scope): HTMLElement {
   });
 }
 
-// ────────────── pi-exa ────────────────────────────────────
+// ────────────── xi-exa ────────────────────────────────────
 
 function renderExaConfig(): HTMLElement {
   const block = document.createElement('div');
@@ -1132,7 +1132,7 @@ function renderExaConfig(): HTMLElement {
 
   const title = document.createElement('h3');
   title.className = 'settings-subsection-title';
-  title.textContent = 'pi-exa — Búsqueda web';
+  title.textContent = 'xi-exa — Búsqueda web';
   block.append(title);
 
   const desc = document.createElement('p');
@@ -1356,7 +1356,7 @@ async function loadExaStatus(
   }
 }
 
-// ────────────── pi-approve ────────────────────────────────
+// ────────────── xi-approve ────────────────────────────────
 
 const APPROVE_TOOLS = [
   { key: 'bash', label: 'Bash', desc: 'Comandos que requieren confirmación' },
@@ -1370,7 +1370,7 @@ function renderApproveConfig(): HTMLElement {
 
   const title = document.createElement('h3');
   title.className = 'settings-subsection-title';
-  title.textContent = 'pi-approve — Aprobación de comandos';
+  title.textContent = 'xi-approve — Aprobación de comandos';
   block.append(title);
 
   const desc = document.createElement('p');

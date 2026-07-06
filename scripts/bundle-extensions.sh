@@ -17,7 +17,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-EXT_DIR="$PROJECT_DIR/extensions"
+PKG_DIR="$PROJECT_DIR/packages"
 RESOURCES_DIR="$PROJECT_DIR/resources/extensions"
 
 echo "━━━ Bundleando extensiones ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -45,7 +45,7 @@ mkdir -p "$RESOURCES_DIR"
 echo ""
 echo "  ⚙️  Compilando xi-tools (Rust)..."
 
-cd "$EXT_DIR/xi-tools"
+cd "$PKG_DIR/xi-tools"
 
 CARGO_ARGS=(build --release)
 if [ -n "$TARGET_TRIPLE" ]; then
@@ -64,27 +64,27 @@ else
 fi
 
 # Copiar el wrapper TS (no el target/ de Rust)
-cp "$EXT_DIR/xi-tools/index.ts" "$RESOURCES_DIR/xi-tools/"
+cp "$PKG_DIR/xi-tools/index.ts" "$RESOURCES_DIR/xi-tools/"
 
 echo "  📦 xi-tools listo"
 
-# ── pi-approve ────────────────────────────────────────────────────
-echo "  📋 Copiando pi-approve..."
-mkdir -p "$RESOURCES_DIR/pi-approve"
-cp "$EXT_DIR/pi-approve/index.ts" "$RESOURCES_DIR/pi-approve/"
+# ── xi-approve ────────────────────────────────────────────────────
+echo "  📋 Copiando xi-approve..."
+mkdir -p "$RESOURCES_DIR/xi-approve"
+cp "$PKG_DIR/xi-approve/index.ts" "$RESOURCES_DIR/xi-approve/"
 
-# ── pi-ask ────────────────────────────────────────────────────────
-echo "  📋 Copiando pi-ask..."
-mkdir -p "$RESOURCES_DIR/pi-ask"
-cp "$EXT_DIR/pi-ask/index.ts" "$RESOURCES_DIR/pi-ask/"
-cp "$EXT_DIR/pi-ask/ask-logic.ts" "$RESOURCES_DIR/pi-ask/"
+# ── xi-ask ────────────────────────────────────────────────────────
+echo "  📋 Copiando xi-ask..."
+mkdir -p "$RESOURCES_DIR/xi-ask"
+cp "$PKG_DIR/xi-ask/index.ts" "$RESOURCES_DIR/xi-ask/"
+cp "$PKG_DIR/xi-ask/ask-logic.ts" "$RESOURCES_DIR/xi-ask/"
 
-# ── pi-exa ────────────────────────────────────────────────────────
-echo "  📋 Copiando pi-exa..."
-mkdir -p "$RESOURCES_DIR/pi-exa"
-cp "$EXT_DIR/pi-exa/index.ts" "$RESOURCES_DIR/pi-exa/"
+# ── xi-exa ────────────────────────────────────────────────────────
+echo "  📋 Copiando xi-exa..."
+mkdir -p "$RESOURCES_DIR/xi-exa"
+cp "$PKG_DIR/xi-exa/index.ts" "$RESOURCES_DIR/xi-exa/"
 # Template sin API key (el usuario la pondrá desde settings)
-cp "$EXT_DIR/pi-exa/exa-config.json" "$RESOURCES_DIR/pi-exa/"
+cp "$PKG_DIR/xi-exa/exa-config.json" "$RESOURCES_DIR/xi-exa/"
 
 # ── Reporte ───────────────────────────────────────────────────────
 echo ""

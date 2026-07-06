@@ -24,7 +24,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-BACKEND_DIR="$PROJECT_ROOT/backend"
+BACKEND_DIR="$PROJECT_ROOT/apps/desktop/backend"
 BINARIES_DIR="$BACKEND_DIR/binaries"
 PI_PKG="$PROJECT_ROOT/node_modules/@earendil-works/pi-coding-agent"
 

@@ -311,7 +311,7 @@ export async function writeFile(path: string, content: string): Promise<void> {
 }
 
 // ═══════════════════════════════════════════════════════
-// Extensiones: pi-exa
+// Extensiones: xi-exa
 // ═══════════════════════════════════════════════════════
 
 export interface ExaConfigStatus {
@@ -350,7 +350,7 @@ export async function testExaApiKey(apiKey: string): Promise<string> {
 }
 
 // ═══════════════════════════════════════════════════════
-// Extensiones: pi-approve
+// Extensiones: xi-approve
 // ═══════════════════════════════════════════════════════
 
 export interface ApproveRules {
@@ -358,12 +358,12 @@ export interface ApproveRules {
   messages: Record<string, string>;
 }
 
-/** Lee las reglas actuales de pi-approve. */
+/** Lee las reglas actuales de xi-approve. */
 export async function getApproveRules(): Promise<ApproveRules> {
   return loggedInvoke('getApproveRules', () => invoke('get_approve_rules'));
 }
 
-/** Guarda las reglas de pi-approve. */
+/** Guarda las reglas de xi-approve. */
 export async function setApproveRules(config: ApproveRules): Promise<void> {
   await loggedInvoke('setApproveRules', () => invoke('set_approve_rules', { config }));
 }

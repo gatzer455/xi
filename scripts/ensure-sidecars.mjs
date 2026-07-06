@@ -16,7 +16,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_DIR = resolve(__dirname, "..");
-const BINARIES_DIR = resolve(PROJECT_DIR, "backend", "binaries");
+const BINARIES_DIR = resolve(PROJECT_DIR, "apps", "desktop", "backend", "binaries");
 
 // Detectar target
 const targetIdx = process.argv.indexOf("--target");
