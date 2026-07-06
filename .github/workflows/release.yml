@@ -89,15 +89,15 @@ jobs:
 
       - name: Build pi sidecar
         shell: bash
-        run: ./scripts/build-pi.sh --target ${{ matrix.pi-target }}
+        run: node ./scripts/build-pi.mjs --target ${{ matrix.pi-target }}
 
       - name: Build pi-sessions
         shell: bash
-        run: ./scripts/build-pi-sessions.sh --target ${{ matrix.pi-target }}
+        run: node ./scripts/build-pi-sessions.mjs --target ${{ matrix.pi-target }}
 
       - name: Build xi-tools sidecar
         shell: bash
-        run: bash scripts/bundle-extensions.sh --target ${{ matrix.rust-target }}
+        run: node ./scripts/bundle-extensions.mjs --target ${{ matrix.rust-target }}
 
       - name: Tauri build + release
         uses: tauri-apps/tauri-action@v0

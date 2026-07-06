@@ -7,7 +7,7 @@
     "dev": "node ./scripts/ensure-sidecars.mjs && npx tauri dev",
     "build": "npx tauri build",
     "tauri": "npx tauri",
-    "build-pi": "./scripts/build-pi.sh",
+    "build-pi": "node ./scripts/build-pi.mjs",
     "dev:frontend": "cd apps/desktop/frontend && npm run dev",
     "dev:backend": "cd apps/desktop/backend && cargo run",
     "test:e2e": "cd e2e && npm test",
@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "0.80.2",
-    "@tauri-apps/cli": "^2.11.2"
+    "@tauri-apps/cli": "^2.11.2",
+    "execa": "^9.6.1"
   }
 }
