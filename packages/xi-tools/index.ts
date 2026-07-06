@@ -19,6 +19,7 @@ import { spawn, type ChildProcess } from "child_process";
 import { existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Container, Text, Spacer } from "@earendil-works/pi-tui";
 
 // ── xi-tools binary ────────────────────────────────────────────────────────
 
@@ -386,7 +387,6 @@ export default function (pi: ExtensionAPI) {
     renderResult(result, _options, theme, context) {
       const text = result.content?.[0]?.text || "Done";
       const color = context.isError ? "error" : "success";
-      const { Container, Text, Spacer } = await import("@earendil-works/pi-tui");
       const component = context.lastComponent ?? new Container();
       component.clear();
       component.addChild(new Spacer(1));
