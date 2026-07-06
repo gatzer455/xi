@@ -532,6 +532,7 @@ async function createNewTab(): Promise<void> {
  */
 async function syncPiSessionInBackground(tabId: string): Promise<void> {
   try {
+    const now = new Date();
     const cwd = appState.workingDir.value;
     if (!cwd) {
       throw new Error("No hay carpeta de trabajo seleccionada");
@@ -544,9 +545,26 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
     await ensurePiRunning();
     await newPiSession();
     await getPiState();
-    // Aplicar metadatos de pi a la tab correspondiente.
+    // Si pi no asignó nombre, ponemos la fecha de creación.
     const piSession = appState.session.value;
     if (!piSession) return;
+    if (!piSession.name) {
+      const dateName = now.toLocaleDateString("es-CL", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      if (!piSession.file) return;
+      try {
+        await renameSession(piSession.file, dateName);
+        piSession.name = dateName;
+      } catch {
+        // Best-effort: si rename falla, seguimos sin nombre
+      }
+    }
+    // Aplicar metadatos de pi a la tab correspondiente.
     appState.openTabs.value = appState.openTabs.value.map((t) =>
       t.id === tabId
         ? {

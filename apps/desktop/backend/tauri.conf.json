@@ -1,6 +1,6 @@
 {
   "productName": "xi",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "identifier": "com.xi.app",
   "build": {
     "beforeDevCommand": "cd apps/desktop/frontend && npm run dev",

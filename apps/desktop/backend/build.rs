@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 /// El sidecar principal (`pi`) es **obligatorio**: sin él la app no
 /// puede spawnear el motor. Si falta, tauri_build falla primero con
 /// el error "resource path X doesn't exist". El mensaje accionable
-/// está en `SETUP.md` ("Primer build" → `./scripts/build-pi.sh`).
+/// está en `SETUP.md` ("Primer build" → `./scripts/build-pi.mjs`).
 ///
 /// El sidecar secundario (`pi-sessions`) es **opcional**: solo se usa
 /// para la feature de gestión de sesiones (Etapa 4). Si falta, se
@@ -65,7 +65,7 @@ fn copy_sidecar(paths: &BuildPaths) {
 
     if !source.exists() {
         println!(
-            "cargo:warning=Sidecar source not found at {} (with or without .exe). If this is a fresh clone, run ./scripts/build-pi.sh first (see SETUP.md).",
+            "cargo:warning=Sidecar source not found at {} (with or without .exe). If this is a fresh clone, run ./scripts/build-pi.mjs first (see SETUP.md).",
             paths.manifest_dir.join("binaries").join(&paths.sidecar_name).display()
         );
         return;
@@ -109,7 +109,7 @@ fn find_sidecar(manifest_dir: &Path, name: &str, _is_sessions: bool) -> PathBuf 
 /// que estar adyacente al binario de pi en el mismo directorio.
 ///
 /// El source de TypeScript vive en `backend/scripts/pi-sessions.ts` y
-/// se compila con `./scripts/build-pi-sessions.sh`. Si el binario
+/// se compila con `./scripts/build-pi-sessions.mjs`. Si el binario
 /// compilado no existe, se loguea un warning (igual que con `pi`) y el
 /// fallo se verá en runtime.
 fn copy_pi_sessions(paths: &BuildPaths) {
@@ -133,7 +133,7 @@ fn copy_pi_sessions(paths: &BuildPaths) {
 
     if !source.exists() {
         println!(
-            "cargo:warning=pi-sessions binary not found at {}. Run ./scripts/build-pi-sessions.sh first.",
+            "cargo:warning=pi-sessions binary not found at {}. Run ./scripts/build-pi-sessions.mjs first.",
             source.display()
         );
         return;
@@ -199,7 +199,7 @@ fn copy_theme_dir(paths: &BuildPaths) {
 /// del package name fallan.
 ///
 /// El source vive en `backend/binaries/package.json` (generado por
-/// `scripts/build-pi.sh` con la versión real del package de npm).
+/// `scripts/build-pi.mjs` con la versión real del package de npm).
 fn copy_pi_package_json(paths: &BuildPaths) {
     let source = paths.manifest_dir.join("binaries").join("package.json");
     let dest = paths.target_profile_dir.join("package.json");
@@ -211,7 +211,7 @@ fn copy_pi_package_json(paths: &BuildPaths) {
         // apuntando a otro lado, o `--version` retorna "0.0.0" sin
         // romperse. Pero la versión de pi en settings será "desconocida".
         println!(
-            "cargo:warning=pi package.json not found at {}. Run ./scripts/build-pi.sh to regenerate it.",
+            "cargo:warning=pi package.json not found at {}. Run ./scripts/build-pi.mjs to regenerate it.",
             source.display()
         );
         return;

@@ -1,6 +1,6 @@
 [package]
 name = "xi-tools"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 description = "Cross-platform native tools for pi coding agent (bash, grep, find, ls, read, write, edit)"
 
@@ -23,3 +23,10 @@ brush-core = { git = "https://github.com/reubeno/brush" }
 brush-builtins = { git = "https://github.com/reubeno/brush" }
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "process", "sync", "time"] }
 futures = "0.3"
+
+# Process containment: kill-on-drop for whole process trees
+# - Windows: Job Object
+# - Linux: cgroup v2 (fallback POSIX process group)
+# - macOS/BSD: POSIX process group
+# Disabled default features (stats) to keep binary size lean
+processkit = { version = "1", default-features = false, features = ["process-control"] }

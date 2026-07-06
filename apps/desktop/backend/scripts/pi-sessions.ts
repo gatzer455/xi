@@ -28,7 +28,7 @@
 
 import { SettingsManager, SessionManager } from "@earendil-works/pi-coding-agent";
 import { randomUUID } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { readLeafId, getDefaultSessionDir } from "./sessions-helpers.ts";
 
@@ -77,6 +77,19 @@ function shortId(): string {
  *    contra el cwd para que `SessionManager.list` reciba un path absoluto.
  */
 function resolveSessionDir(cwd: string): string {
+  // Auto-crear .pi/settings.json si no existe (best-effort).
+  // Si el directorio no es escribible, usamos el default global.
+  const piDir = join(cwd, ".pi");
+  const settingsPath = join(piDir, "settings.json");
+  if (!existsSync(settingsPath)) {
+    try {
+      mkdirSync(piDir, { recursive: true });
+      writeFileSync(settingsPath, JSON.stringify({ sessionsDir: ".pi/sessions" }, null, 2) + "\n");
+    } catch {
+      // Directorio no escribible, usar default global
+    }
+  }
+
   const sm = SettingsManager.create(cwd);
   const raw = sm.getSessionDir();
   if (!raw) return getDefaultSessionDir(cwd);

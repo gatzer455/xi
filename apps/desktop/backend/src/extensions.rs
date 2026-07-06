@@ -38,7 +38,7 @@ pub fn ensure_extensions(app: &AppHandle) -> Result<(), Box<dyn std::error::Erro
     if !source_dir.exists() {
         // Modo dev: no se ha ejecutado bundle-extensions.sh. Saltar.
         log::warn!(
-            "[extensions] No encontradas en {}. Ejecuta scripts/bundle-extensions.sh primero",
+            "[extensions] No encontradas en {}. Ejecuta scripts/bundle-extensions.mjs primero",
             source_dir.display()
         );
         return Ok(());

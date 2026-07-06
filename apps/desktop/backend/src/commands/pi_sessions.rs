@@ -5,6 +5,9 @@ use std::time::Duration;
 use tauri::AppHandle;
 use tokio::time::timeout;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 /// Nombre del sidecar que invoca este módulo. Debe matchear
 /// `externalBin` en `tauri.conf.json` y el allowlist en
 /// `capabilities/default.json`.
@@ -140,8 +143,13 @@ async fn run_pi_sessions(args: Vec<String>, app: &AppHandle) -> Result<String, S
     // `Command::output()` es bloqueante (espera a que el proceso
     // termine). Lo ejecutamos en un thread dedicado vía
     // `tokio::task::spawn_blocking` para no congelar el async runtime.
-    let output_fut =
-        tokio::task::spawn_blocking(move || Command::new(&bin_path).args(&args).output());
+    let output_fut = tokio::task::spawn_blocking(move || {
+        let mut cmd = Command::new(&bin_path);
+        cmd.args(&args);
+        #[cfg(windows)]
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        cmd.output()
+    });
 
     let output = match timeout(SUBPROCESS_TIMEOUT, output_fut).await {
         // timeout → Elapsed

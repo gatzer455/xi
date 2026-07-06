@@ -39,11 +39,11 @@ jobs:
 
       - name: Build pi sidecar
         shell: bash
-        run: ./scripts/build-pi.sh --target windows
+        run: node ./scripts/build-pi.mjs --target windows
 
       - name: Build pi-sessions sidecar
         shell: bash
-        run: ./scripts/build-pi-sessions.sh --target windows
+        run: node ./scripts/build-pi-sessions.mjs --target windows
 
       - name: Build release (NSIS)
         env:

@@ -76,11 +76,11 @@ jobs:
 
       - name: Build pi sidecar
         if: steps.cache-pi.outputs.cache-hit != 'true'
-        run: ./scripts/build-pi.sh --target linux
+        run: node ./scripts/build-pi.mjs --target linux
 
       - name: Build pi-sessions
         if: steps.cache-pi.outputs.cache-hit != 'true'
-        run: ./scripts/build-pi-sessions.sh --target linux
+        run: node ./scripts/build-pi-sessions.mjs --target linux
 
       - name: Check xi-tools (compile check)
         run: cargo check --manifest-path packages/xi-tools/Cargo.toml
@@ -203,11 +203,11 @@ jobs:
 
       - name: Build pi sidecar
         if: steps.cache-pi.outputs.cache-hit != 'true'
-        run: ./scripts/build-pi.sh --target linux
+        run: node ./scripts/build-pi.mjs --target linux
 
       - name: Build pi-sessions
         if: steps.cache-pi.outputs.cache-hit != 'true'
-        run: ./scripts/build-pi-sessions.sh --target linux
+        run: node ./scripts/build-pi-sessions.mjs --target linux
 
       - name: Build frontend (needed for Tauri dev mode)
         run: cd apps/desktop/frontend && npm run build

@@ -1,19 +1,23 @@
 // bash.rs — Execute shell commands cross-platform.
 //
-// Uses brush-core: a POSIX/bash-compatible shell embedded directly in xi-tools.
-// Runs bash scripts natively on Linux, macOS, and Windows without requiring
-// any external shell or Git Bash.
+// Instead of running brush-core in-process (which makes it impossible to
+// kill orphaned child processes), this spawns `xi-tools exec` as a
+// subprocess inside a processkit ProcessGroup. The group ensures that
+// on timeout or drop, the ENTIRE process tree is killed — no orphans.
+//
+// processkit uses the OS native containment primitive on each platform:
+//   - Windows → Job Object (KILL_ON_JOB_CLOSE)
+//   - Linux   → cgroup v2 (falls back to POSIX process group)
+//   - macOS/BSD → POSIX process group
 
 use std::io::Read;
 use std::time::Duration;
 
-use brush_builtins::{BuiltinSet, ShellBuilderExt};
-use brush_core::{
-    ExecutionParameters, ProfileLoadBehavior, RcLoadBehavior, Shell, SourceInfo,
-    extensions::DefaultShellExtensions,
-};
+use processkit::{Command as PkCommand, Stdin};
 
-pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), String> {
+/// Returns `Ok(exit_code)` where 0 = success, non-zero = command error.
+/// Returns `Err(msg)` for internal errors (timeout, spawn failure, etc.).
+pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<i32, String> {
     // Read the command from stdin
     let mut command = String::new();
     std::io::stdin()
@@ -25,68 +29,53 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
         return Err("empty command".into());
     }
 
-    // Create a single-threaded tokio runtime for brush's async API.
-    // This wraps brush's async calls in a sync function.
+    // Find our own path to spawn `xi-tools exec`
+    let self_path = std::env::current_exe()
+        .map_err(|e| format!("failed to get current executable path: {e}"))?;
+
+    // Build a one-shot processkit Command.
+    //
+    // Every processkit::Command run gets automatic containment:
+    // a private ProcessGroup that kills the whole tree on drop/timeout.
+    // This replaces the old tokio::time::timeout which cancelled the
+    // Rust future but left OS child processes running.
+    let mut cmd = PkCommand::new(self_path)
+        .arg("exec")
+        .stdin(Stdin::from_string(&command));
+
+    if let Some(dir) = cwd {
+        cmd = cmd.current_dir(dir);
+    }
+
+    if let Some(secs) = timeout_secs {
+        cmd = cmd.timeout(Duration::from_secs(secs as u64));
+    }
+
+    // processkit is async (tokio-based). We wrap it in a single-threaded
+    // runtime, same as brush-core before.
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .map_err(|e| format!("failed to create runtime: {e}"))?;
 
-    rt.block_on(async {
-        // Build a minimal non-interactive shell
-        // - Skip profile and rc files (no .bashrc loading)
-        // - Exit after one command
-        // - No editing, no interactive features
-        let mut shell = Shell::builder_with_extensions::<DefaultShellExtensions>()
-            .profile(ProfileLoadBehavior::Skip)
-            .rc(RcLoadBehavior::Skip)
-            .exit_after_one_command(true)
-            .no_editing(true)
-            .default_builtins(BuiltinSet::BashMode)
-            .build()
-            .await
-            .map_err(|e| format!("failed to initialize shell: {e}"))?;
+    let result = rt
+        .block_on(cmd.output_string())
+        .map_err(|e| format!("process error: {e}"))?;
 
-        // Set working directory via brush's shell API (not std::env,
-        // which would mutate the global process state).
-        if let Some(dir) = cwd {
-            shell
-                .set_working_dir(dir)
-                .map_err(|e| format!("failed to set working directory: {e}"))?;
-        }
+    // Print captured stdout (processkit already captured it)
+    if !result.stdout().is_empty() {
+        print!("{}", result.stdout());
+    }
+    if !result.stderr().is_empty() {
+        eprint!("{}", result.stderr());
+    }
 
-        // Setup execution parameters
-        let params = ExecutionParameters::default();
-
-        // Handle timeout
-        let result = if let Some(secs) = timeout_secs {
-            let dur = Duration::from_secs(secs as u64);
-            let timeout_fut = tokio::time::timeout(dur, async {
-                shell
-                    .run_string(command, &SourceInfo::from("[stdin]"), &params)
-                    .await
-            });
-            match timeout_fut.await {
-                Ok(Ok(result)) => result,
-                Ok(Err(e)) => return Err(format!("execution error: {e}")),
-                Err(_) => {
-                    eprintln!("[timeout: {secs}s]");
-                    return Err("command timed out".into());
-                }
-            }
-        } else {
-            shell
-                .run_string(command, &SourceInfo::from("[stdin]"), &params)
-                .await
-                .map_err(|e| format!("execution error: {e}"))?
-        };
-
-        let exit_code = u8::from(result.exit_code);
-        if exit_code != 0 {
-            eprintln!("[exit code: {exit_code}]");
-            return Err(format!("command exited with code {exit_code}"));
-        }
-
-        Ok(())
-    })
+    // Propagate the real exit code.
+    // exec.rs exits with the command's actual code, and processkit captures
+    // it via output_string(). We forward it so main.rs can exit with the
+    // same code, and the TypeScript side sees the real exit code.
+    match result.code() {
+        Some(code) => Ok(code),
+        None => Err("command timed out or was killed".into()),
+    }
 }
