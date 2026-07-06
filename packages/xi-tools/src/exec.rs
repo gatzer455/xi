@@ -62,7 +62,8 @@ pub fn execute() -> Result<(), String> {
         let exit_code = u8::from(result.exit_code);
         if exit_code != 0 {
             eprintln!("[exit code: {exit_code}]");
-            return Err(format!("command exited with code {exit_code}"));
+            // Exit with the real code so processkit in bash.rs captures it
+            std::process::exit(exit_code as i32);
         }
 
         Ok(())

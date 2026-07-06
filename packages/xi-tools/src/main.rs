@@ -111,8 +111,18 @@ enum Command {
 fn main() {
     let cli = Cli::parse();
 
+    // bash returns Ok(exit_code) to propagate the real exit code.
+    // Other commands follow the standard Ok(()) / Err(msg) pattern.
     let result = match cli.command {
-        Command::Bash { timeout, cwd } => bash::execute(timeout, cwd.as_deref()),
+        Command::Bash { timeout, cwd } => {
+            match bash::execute(timeout, cwd.as_deref()) {
+                Ok(code) => std::process::exit(code),
+                Err(e) => {
+                    eprintln!("xi-tools error: {e}");
+                    std::process::exit(124); // timeout exit code
+                }
+            }
+        }
         Command::Exec { .. } => exec::execute(),
         Command::Grep {
             pattern,

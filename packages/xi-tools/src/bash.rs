@@ -15,7 +15,9 @@ use std::time::Duration;
 
 use processkit::{Command as PkCommand, Stdin};
 
-pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), String> {
+/// Returns `Ok(exit_code)` where 0 = success, non-zero = command error.
+/// Returns `Err(msg)` for internal errors (timeout, spawn failure, etc.).
+pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<i32, String> {
     // Read the command from stdin
     let mut command = String::new();
     std::io::stdin()
@@ -68,19 +70,12 @@ pub fn execute(timeout_secs: Option<u32>, cwd: Option<&str>) -> Result<(), Strin
         eprint!("{}", result.stderr());
     }
 
-    // Handle non-zero exit codes
+    // Propagate the real exit code.
+    // exec.rs exits with the command's actual code, and processkit captures
+    // it via output_string(). We forward it so main.rs can exit with the
+    // same code, and the TypeScript side sees the real exit code.
     match result.code() {
-        Some(0) => Ok(()),
-        Some(code) => {
-            eprintln!("[exit code: {code}]");
-            Err(format!("command exited with code {code}"))
-        }
-        None => {
-            // code is None when the process was killed by timeout/signal
-            // The parent (xiSpawn in index.ts) uses AbortSignal to kill
-            // the whole group, so this is a double-reporting safety net
-            // for direct CLI usage.
-            Err("command timed out or was killed".into())
-        }
+        Some(code) => Ok(code),
+        None => Err("command timed out or was killed".into()),
     }
 }
