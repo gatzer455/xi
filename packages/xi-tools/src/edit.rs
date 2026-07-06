@@ -312,7 +312,7 @@ fn execute_hashline(
 
     // Show detailed change log
     let new_file_hash = compute_file_hash(&result.iter().map(|s| s.as_str()).collect::<Vec<_>>());
-    println!("Applied {} edit(s) to {path}", resolved.len());
+    println!("✅ Applied {} edit(s) to {path}", resolved.len());
     println!("--- new file_hash: {new_file_hash}");
 
     // Print change details
@@ -402,7 +402,7 @@ fn execute_legacy(path: &str, edits: &[EditOp]) -> Result<(), String> {
     }
 
     fs::write(path, &content).map_err(|e| format!("cannot write {path}: {e}"))?;
-    println!("Applied {applied} edit(s) to {path}");
+    println!("✅ Applied {applied} edit(s) to {path}");
 
     // Offer hashline migration hint
     let lines: Vec<&str> = content.lines().collect();
