@@ -1,20 +1,22 @@
 /**
- * Tests del SmoothStreamer: frame-level markdown rendering.
+ * Tests del SmoothStreamer: sentence-level markdown rendering.
  *
  * @vitest-environment jsdom
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SmoothStreamer } from '../src/lib/smooth-streamer.ts';
+import { SmoothStreamer, splitSentences } from '../src/lib/smooth-streamer.ts';
 
 describe('SmoothStreamer', () => {
-  let onHtml: ReturnType<typeof vi.fn>;
+  let onSentence: ReturnType<typeof vi.fn>;
+  let onPending: ReturnType<typeof vi.fn>;
   let streamer: SmoothStreamer;
-  let rafCallbacks: Map<number, FrameRequestCallback> = new Map();
-  let nextRafId = 1;
+  let rafCallbacks: Map<number, FrameRequestCallback>;
+  let nextRafId: number;
 
   beforeEach(() => {
-    onHtml = vi.fn();
-    streamer = new SmoothStreamer(onHtml);
+    onSentence = vi.fn();
+    onPending = vi.fn();
+    streamer = new SmoothStreamer(onSentence, onPending);
     rafCallbacks = new Map();
     nextRafId = 1;
 
@@ -39,104 +41,135 @@ describe('SmoothStreamer', () => {
     for (const cb of cbs) cb(performance.now());
   }
 
-  test('push acumula texto y llama onHtml en el siguiente frame', () => {
-    streamer.push('Hello');
-    expect(onHtml).not.toHaveBeenCalled();
+  test('push sin sentence boundary solo llama onPending', () => {
+    streamer.push('Hola ');
     advanceFrame();
-    expect(onHtml).toHaveBeenCalledTimes(1);
-    expect(onHtml).toHaveBeenCalledWith(expect.stringContaining('Hello'));
+    expect(onSentence).not.toHaveBeenCalled();
+    expect(onPending).toHaveBeenCalledTimes(1);
+    const html = onPending.mock.calls[0][0];
+    expect(html).toContain('Hola');
   });
 
-  test('múltiples pushes coalescen en un solo onHtml por frame', () => {
-    streamer.push('Hello ');
-    streamer.push('**mundo**');
-    expect(onHtml).not.toHaveBeenCalled();
+  test('oración completa genera onSentence sin pending', () => {
+    streamer.push('Hola mundo.');
     advanceFrame();
-    expect(onHtml).toHaveBeenCalledTimes(1);
-    const html = onHtml.mock.calls[0][0];
-    expect(html).toContain('Hello');
-    expect(html).toMatch(/<strong[^>]*>mundo<\/strong>/);
+    expect(onSentence).toHaveBeenCalledTimes(1);
+    expect(onPending).not.toHaveBeenCalled();
   });
 
-  test('dos frames consecutivos generan dos llamadas a onHtml', () => {
-    streamer.push('Primero');
+  test('oración completa + pendiente genera ambos callbacks', () => {
+    streamer.push('Primera oración. Segunda');
     advanceFrame();
-    expect(onHtml).toHaveBeenCalledTimes(1);
-
-    streamer.push(' segundo');
-    advanceFrame();
-    expect(onHtml).toHaveBeenCalledTimes(2);
-    expect(onHtml.mock.calls[1][0]).toContain('Primero');
-    expect(onHtml.mock.calls[1][0]).toContain('segundo');
+    expect(onSentence).toHaveBeenCalledTimes(1); // "Primera oración."
+    expect(onPending).toHaveBeenCalledTimes(1);  // " Segunda"
   });
 
-  test('flush llama onHtml inmediatamente sin esperar frame', () => {
-    streamer.push('Inmediato');
-    expect(onHtml).not.toHaveBeenCalled();
+  test('múltiples pushes coalescen en un solo frame', () => {
+    streamer.push('Primera oración. Segunda ');
+    streamer.push('oración.');
+    advanceFrame();
+    expect(onSentence).toHaveBeenCalledTimes(2); // "Primera oración." + " Segunda oración."
+  });
+
+  test('flush renderiza el tail pendiente como oración final', () => {
+    streamer.push('Oración completa. Tail');
+    advanceFrame();
+    expect(onSentence).toHaveBeenCalledTimes(1);
+    expect(onPending).toHaveBeenCalledTimes(1);
+
     streamer.flush();
-    expect(onHtml).toHaveBeenCalledTimes(1); // no espera rAF
-    expect(onHtml).toHaveBeenCalledWith(expect.stringContaining('Inmediato'));
+    // flush llama onPending con el tail
+    expect(onPending).toHaveBeenCalledTimes(2);
   });
 
   test('flush cancela el rAF pendiente', () => {
     streamer.push('Texto');
     streamer.flush();
-    expect(onHtml).toHaveBeenCalledTimes(1);
-    // El rAF estaba pendiente. Avanzar frame no debería causar otro render.
+    expect(onPending).toHaveBeenCalledTimes(1);
+    // Avanzar frame no debería causar otro render
     advanceFrame();
-    expect(onHtml).toHaveBeenCalledTimes(1);
+    expect(onPending).toHaveBeenCalledTimes(1);
   });
 
   test('dispose previene renders futuros', () => {
     streamer.dispose();
     streamer.push('No debería verse');
     advanceFrame();
-    expect(onHtml).not.toHaveBeenCalled();
+    expect(onSentence).not.toHaveBeenCalled();
+    expect(onPending).not.toHaveBeenCalled();
   });
 
   test('reset limpia el buffer y permite reuso', () => {
-    streamer.push('Primera vida');
+    streamer.push('Primera vida.');
     advanceFrame();
-    expect(onHtml).toHaveBeenCalledTimes(1);
+    expect(onSentence).toHaveBeenCalledTimes(1);
 
     streamer.reset();
-    streamer.push('Segunda vida');
+    streamer.push('Segunda vida.');
     advanceFrame();
-    expect(onHtml).toHaveBeenCalledTimes(2);
-    expect(onHtml.mock.calls[1][0]).toContain('Segunda vida');
-    expect(onHtml.mock.calls[1][0]).not.toContain('Primera vida');
+    expect(onSentence).toHaveBeenCalledTimes(2);
   });
 
-  test('cierra bold incompleto con closeInlineSyntax', () => {
-    streamer.push('Hola **negrita');
+  test('closeInlineSyntax en oración completa', () => {
+    streamer.push('Hola **negrita** final.');
     advanceFrame();
-    const html = onHtml.mock.calls[0][0];
+    const html = onSentence.mock.calls[0][0];
     expect(html).toMatch(/<strong[^>]*>negrita<\/strong>/);
   });
 
-  test('cierra inline code incompleto', () => {
-    streamer.push('Usa `comando');
+  test('buffer vacío es no-op', () => {
     advanceFrame();
-    const html = onHtml.mock.calls[0][0];
-    expect(html).toMatch(/<code[^>]*>comando<\/code>/);
+    expect(onSentence).not.toHaveBeenCalled();
+    expect(onPending).not.toHaveBeenCalled();
   });
 
-  test('buffer vacío no dispara onHtml', () => {
-    // Sin push, solo avanzar el frame
+  test('push sin saltos mantiene solo pending', () => {
+    streamer.push('esto es un texto largo sin puntuación que termina');
     advanceFrame();
-    expect(onHtml).not.toHaveBeenCalled();
+    expect(onSentence).not.toHaveBeenCalled();
+    expect(onPending).toHaveBeenCalled();
+  });
+});
+
+describe('splitSentences', () => {
+  test('oraciones separadas por .', () => {
+    const { sentences, pending } = splitSentences('Una. Dos. Tres.');
+    expect(sentences).toEqual(['Una.', ' Dos.', ' Tres.']);
+    expect(pending).toBe('');
   });
 
-  test('flush con buffer vacío es no-op', () => {
-    streamer.flush();
-    expect(onHtml).not.toHaveBeenCalled();
+  test('oración incompleta queda en pending', () => {
+    const { sentences, pending } = splitSentences('Una. Dos. Tres');
+    expect(sentences).toEqual(['Una.', ' Dos.']);
+    expect(pending).toBe(' Tres');
   });
 
-  test('push después de dispose es no-op', () => {
-    streamer.dispose();
-    streamer.push('olvidado');
-    streamer.flush();
-    advanceFrame();
-    expect(onHtml).not.toHaveBeenCalled();
+  test('salto de línea cuenta como boundary', () => {
+    const { sentences, pending } = splitSentences('Línea 1\nLínea 2\n');
+    expect(sentences).toEqual(['Línea 1\n', 'Línea 2\n']);
+    expect(pending).toBe('');
+  });
+
+  test('no corta dentro de **bold**', () => {
+    const { sentences, pending } = splitSentences('**bold text** here. And more.');
+    expect(sentences).toEqual(['**bold text** here.', ' And more.']);
+    expect(pending).toBe('');
+  });
+
+  test('no corta dentro de ~~strike~~', () => {
+    const { sentences, pending } = splitSentences('~~strike. No cut~~');
+    expect(sentences).toHaveLength(0);
+    expect(pending).toBe('~~strike. No cut~~');
+  });
+
+  test('! y ? también son boundaries', () => {
+    const { sentences } = splitSentences('¡Hola! ¿Cómo estás? Bien.');
+    expect(sentences).toEqual(['¡Hola!', ' ¿Cómo estás?', ' Bien.']);
+  });
+
+  test('texto vacío', () => {
+    const { sentences, pending } = splitSentences('');
+    expect(sentences).toEqual([]);
+    expect(pending).toBe('');
   });
 });

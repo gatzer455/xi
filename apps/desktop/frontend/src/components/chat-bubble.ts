@@ -177,21 +177,15 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
     if (msg.isStreaming) {
       if (!streamer) {
         textContainer.classList.add('message-text--streaming');
-        textContainer.classList.add('message-text--has-cursor');
         streamer = createSmoothStreamer(textContainer);
       }
       streamer.updateText(newText);
     } else if (streamer) {
-      // Stream terminó: flush del último frame y limpieza.
       streamer.finish(newText);
       streamer = null;
       textContainer.classList.remove('message-text--streaming');
-      textContainer.classList.remove('message-text--has-cursor');
     } else {
-      // Sin streamer: contenido ya completo (historial o post-stream).
-      // Solo reemplazar si cambió realmente o container vacío.
       textContainer.classList.remove('message-text--streaming');
-      textContainer.classList.remove('message-text--has-cursor');
       if (newText !== currentText || textContainer.children.length === 0) {
         textContainer.innerHTML = renderMarkdown(newText);
       }
@@ -227,10 +221,36 @@ function createSmoothStreamer(textContainer: HTMLElement): SmoothStreamerHandle 
   let prevLen = 0;
   let isFinished = false;
   let isDisposed = false;
+  let pendingEl: HTMLElement | null = null;
 
-  const streamer = new SmoothStreamer((html) => {
-    textContainer.innerHTML = html;
-  });
+  const streamer = new SmoothStreamer(
+    // onSentence: oración completa → append con fade-in
+    (html) => {
+      const el = document.createElement('div');
+      el.className = 'md-sentence fade-in';
+      el.innerHTML = html;
+      // Insertar antes del pendingEl si existe
+      if (pendingEl) {
+        textContainer.insertBefore(el, pendingEl);
+      } else {
+        textContainer.appendChild(el);
+      }
+    },
+    // onPending: tail incompleto → re-renderizar in-place
+    (html) => {
+      if (html) {
+        if (!pendingEl) {
+          pendingEl = document.createElement('div');
+          pendingEl.className = 'md-sentence md-sentence--pending';
+          textContainer.appendChild(pendingEl);
+        }
+        pendingEl.innerHTML = html;
+      } else if (pendingEl) {
+        pendingEl.remove();
+        pendingEl = null;
+      }
+    },
+  );
 
   return {
     dispose: () => {
@@ -255,6 +275,10 @@ function createSmoothStreamer(textContainer: HTMLElement): SmoothStreamerHandle 
       }
       streamer.flush();
       streamer.dispose();
+      if (pendingEl) {
+        pendingEl.remove();
+        pendingEl = null;
+      }
     },
   };
 }

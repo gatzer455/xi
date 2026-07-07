@@ -86,26 +86,36 @@
 }
 
 /* Streaming container for markdown rendering.
-   SmoothStreamer reemplaza el innerHTML completo cada frame (~60 fps). */
+   SmoothStreamer appends .md-sentence elements here. */
 .message-text--streaming {
   min-height: 1.6em; /* Evita colapso de línea vacía inicial */
 }
 
+/* Sentence-level fade-in animation (Gemini-style).
+   Cada oración completa aparece con un fade-in suave diagonal. */
+.md-sentence {
+  opacity: 1;
+}
+.md-sentence.fade-in {
+  animation: sentence-fade-in 0.35s ease-out both;
+}
+.md-sentence--pending {
+  /* La oración incompleta se re-renderiza sin animación */
+}
+
+@keyframes sentence-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Cursor parpadeante al final del texto pendiente (bloque incompleto).
    Solo visible cuando onPending(true) — el BlockRenderer lo togglea. */
-.message-text--has-cursor::after {
-  content: '\258D';
-  display: inline-block;
-  margin-left: 1px;
-  color: var(--color-accent);
-  animation: cursor-blink 0.9s steps(2, start) infinite;
-  font-weight: 300;
-  opacity: 0.7;
-  vertical-align: text-bottom;
-  line-height: 1.6;
-}
-@keyframes cursor-blink { to { visibility: hidden; } }
-
 /* ═══ THINKING BLOCK ═══
    Bloque colapsable para razonamiento. Aparece ARRIBA del texto del
    assistant, integrado al mismo message-content. Mismo padding que
