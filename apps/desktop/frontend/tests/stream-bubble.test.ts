@@ -4,20 +4,33 @@
  *
  * @vitest-environment jsdom
  */
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi, afterEach } from 'vitest';
 import { ChatBubble } from '../src/components/chat-bubble.ts';
 import type { ChatMessage, Part, ToolCallPart } from '../src/lib/chat/types.ts';
 
-// Helper: esperar N rAF (para que el StreamBuffer revele texto).
-const waitFrames = (n = 3) =>
-  new Promise<void>((r) => {
-    let i = 0;
-    const tick = () => {
-      if (++i >= n) r();
-      else requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
+// ─── rAF mocking ─────────────────────────────────────────
+
+function mockRaf() {
+  const cbs: Array<FrameRequestCallback> = [];
+  let nextId = 1;
+  vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+    const id = nextId++;
+    cbs.push(cb);
+    return id;
   });
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {
+    // En nuestro mock simplificado, permitimos que el callback se ejecute
+    // de todas formas (cancelAnimationFrame es best-effort en tests).
+    // Para tests específicos de cancel, usar smooth-streamer.test.ts.
+  });
+  return {
+    advance: () => {
+      const batch = cbs.splice(0);
+      for (const cb of batch) cb(performance.now());
+    },
+    restore: () => vi.restoreAllMocks(),
+  };
+}
 
 // ─── builders ─────────────────────────────────────────────
 
@@ -91,12 +104,12 @@ describe('ChatBubble — render por rol', () => {
     expect(el.classList.contains('message-text--streaming')).toBe(false);
   });
 
-  test('assistant streaming: clases de streaming activas', () => {
+  test('assistant streaming: clases de streaming activas, cursor on', () => {
     const handle = ChatBubble(assistantMsg('a2', [text('')], { isStreaming: true }));
     const el = handle.root.querySelector('.message-text--assistant')!;
     expect(el.classList.contains('message-text--streaming')).toBe(true);
-    // Sin texto pendiente, el cursor no se muestra (BlockRenderer)
-    expect(el.classList.contains('message-text--has-cursor')).toBe(false);
+    // SmoothStreamer: cursor siempre activo durante streaming
+    expect(el.classList.contains('message-text--has-cursor')).toBe(true);
   });
 
   test('thinking: dots cuando isStreaming, texto cuando no', () => {
@@ -149,48 +162,77 @@ describe('ChatBubble — render por rol', () => {
   });
 });
 
-// ─── delta extraction (D6) ─────────────────────────────────
+// ─── delta extraction (D6) con SmoothStreamer ─────────────
 
 describe('ChatBubble — delta extraction en update()', () => {
-  test('streaming → end: texto pendiente y render markdown al final', async () => {
-    const handle = ChatBubble(assistantMsg('e1', [text('')], { isStreaming: true }));
-
-    // Crece el texto pero no completa bloque (sin \n\n)
-    handle.update(assistantMsg('e1', [text('Hello **wor')], { isStreaming: true }));
-    await waitFrames(4);
-    const el = handle.root.querySelector('.message-text--assistant')!;
-    // BlockRenderer: sin bloque completo aun, cursor activo
-    expect(el.classList.contains('message-text--has-cursor')).toBe(true);
-
-    // Texto final + fin streaming → flush() drena el bloque pendiente
-    handle.update(assistantMsg('e1', [text('Hello **world**')], { isStreaming: false }));
-    const el2 = handle.root.querySelector('.message-text--assistant')!;
-    expect(el2.querySelector('strong')).toBeTruthy();
-    expect(el2.querySelector('strong')?.textContent).toBe('world');
-    expect(el2.classList.contains('message-text--streaming')).toBe(false);
-    expect(el2.classList.contains('message-text--has-cursor')).toBe(false);
-
-    handle.dispose();
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  test('id estable preserva el bubble entre updates (mismo renderer)', async () => {
-    const handle = ChatBubble(assistantMsg('s1', [text('')], { isStreaming: true }));
-    // Enviar un bloque completo con \n\n para que se renderice
-    handle.update(assistantMsg('s1', [text('partial block.\n\n')], { isStreaming: true }));
-    await waitFrames(5);
-    const container = handle.root.querySelector('.message-text--assistant')!;
-    // BlockRenderer inserta .md-block wrappers con el contenido renderizado
-    const blocks = container.querySelectorAll('.md-block');
-    expect(blocks.length).toBeGreaterThanOrEqual(1);
-    expect(blocks[0].textContent).toContain('partial block');
+  test('streaming → end: rAF-batched render y flush final', () => {
+    const raf = mockRaf();
+    const handle = ChatBubble(assistantMsg('e1', [text('')], { isStreaming: true }));
+    const el = handle.root.querySelector('.message-text--assistant')!;
 
-    handle.update(assistantMsg('s1', [text('partial block.\n\nmore text')], { isStreaming: true }));
-    await waitFrames(5);
-    // El segundo bloque ('more text') no está completo aun (sin \n\n al final)
-    // pero el cursor deberia estar activo
-    expect(container.classList.contains('message-text--has-cursor')).toBe(true);
+    // Cursor activo desde el inicio
+    expect(el.classList.contains('message-text--has-cursor')).toBe(true);
+
+    // Crece el texto durante streaming
+    handle.update(assistantMsg('e1', [text('Hello **wor')], { isStreaming: true }));
+    // Sin avanzar frame, innerHTML no cambia (espera rAF)
+    // Avanzar frame → renderiza el buffer completo
+    raf.advance();
+    expect(el.innerHTML).toContain('Hello');
+    expect(el.innerHTML).toMatch(/<strong[^>]*>wor<\/strong>/); // closeInlineSyntax cerró el **
+
+    // Sigue creciendo
+    handle.update(assistantMsg('e1', [text('Hello **world**')], { isStreaming: true }));
+    raf.advance();
+    expect(el.innerHTML).toMatch(/<strong[^>]*>world<\/strong>/);
+
+    // Stream termina → flush final
+    handle.update(assistantMsg('e1', [text('Hello **world**')], { isStreaming: false }));
+    expect(el.classList.contains('message-text--streaming')).toBe(false);
+    expect(el.classList.contains('message-text--has-cursor')).toBe(false);
 
     handle.dispose();
+    raf.restore();
+  });
+
+  test('streaming: múltiples deltas coalescen en un solo frame', () => {
+    const raf = mockRaf();
+    const handle = ChatBubble(assistantMsg('e2', [text('')], { isStreaming: true }));
+    const el = handle.root.querySelector('.message-text--assistant')!;
+
+    handle.update(assistantMsg('e2', [text('abc')], { isStreaming: true }));
+    handle.update(assistantMsg('e2', [text('abcdef')], { isStreaming: true }));
+    handle.update(assistantMsg('e2', [text('abcdefghi')], { isStreaming: true }));
+
+    // Un solo rAF pendiente
+    raf.advance();
+    // innerHTML contiene el texto completo (no solo el último delta)
+    expect(el.innerHTML).toContain('abcdefghi');
+
+    handle.dispose();
+    raf.restore();
+  });
+
+  test('id estable preserva el bubble entre updates', () => {
+    const raf = mockRaf();
+    const handle = ChatBubble(assistantMsg('s1', [text('')], { isStreaming: true }));
+    const el = handle.root.querySelector('.message-text--assistant')!;
+
+    handle.update(assistantMsg('s1', [text('primer párrafo.\n\n')], { isStreaming: true }));
+    raf.advance();
+    expect(el.innerHTML).toContain('primer párrafo');
+
+    handle.update(assistantMsg('s1', [text('primer párrafo.\n\nsegundo')], { isStreaming: true }));
+    raf.advance();
+    expect(el.innerHTML).toContain('primer párrafo');
+    expect(el.innerHTML).toContain('segundo');
+
+    handle.dispose();
+    raf.restore();
   });
 
   test('update con id distinto o rol distinto → no-op', () => {
@@ -201,10 +243,12 @@ describe('ChatBubble — delta extraction en update()', () => {
     expect(handle.root.querySelector('.message-text--user')?.textContent).toBe('original');
   });
 
-  test('dispose limpia el streamer sin explotar', async () => {
+  test('dispose limpia el streamer sin explotar', () => {
+    const raf = mockRaf();
     const handle = ChatBubble(assistantMsg('d1', [text('')], { isStreaming: true }));
     handle.update(assistantMsg('d1', [text('algo')], { isStreaming: true }));
-    await waitFrames(2);
+    raf.advance();
     expect(() => handle.dispose()).not.toThrow();
+    raf.restore();
   });
 });

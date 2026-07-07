@@ -85,8 +85,8 @@
   margin: var(--space-2) 0;
 }
 
-/* Streaming container for block-level markdown rendering.
-   BlockRenderer appends .md-block wrappers here incrementally. */
+/* Streaming container for markdown rendering.
+   SmoothStreamer reemplaza el innerHTML completo cada frame (~60 fps). */
 .message-text--streaming {
   min-height: 1.6em; /* Evita colapso de línea vacía inicial */
 }
@@ -105,24 +105,6 @@
   line-height: 1.6;
 }
 @keyframes cursor-blink { to { visibility: hidden; } }
-
-/* Gemini-style block appearance animation.
-   Cada bloque completado aparece con un fade-in suave desde abajo.
-   La clase .block-appear se agrega en BlockRenderer.push(). */
-.md-block.block-appear {
-  animation: block-fade-in 0.3s ease-out both;
-}
-
-@keyframes block-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 /* ═══ THINKING BLOCK ═══
    Bloque colapsable para razonamiento. Aparece ARRIBA del texto del

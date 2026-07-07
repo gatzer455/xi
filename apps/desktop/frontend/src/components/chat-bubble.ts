@@ -30,7 +30,7 @@ import { extractText } from '../lib/chat/mapping.ts';
 import { ThinkingBlockUI } from './thinking-block.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
 import { formatToolCallHeader } from '../lib/format-tool-call.ts';
-import { BlockRenderer } from '../lib/block-renderer.ts';
+import { SmoothStreamer } from '../lib/smooth-streamer.ts';
 
 export interface ChatBubbleHandle {
   root: HTMLElement;
@@ -102,7 +102,7 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
   const textContainer = document.createElement('div');
   textContainer.className = 'message-text message-text--assistant';
 
-  let streamer: BlockRendererHandle | null = null;
+  let streamer: SmoothStreamerHandle | null = null;
   let currentMsg = message;
   let currentText = extractText(message);
 
@@ -177,19 +177,19 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
     if (msg.isStreaming) {
       if (!streamer) {
         textContainer.classList.add('message-text--streaming');
-        // BlockRenderer anade sus propios wrappers .md-block al container.
-        // No limpiamos con textContent='' porque borraria bloques ya renderizados.
-        streamer = createBlockRenderer(textContainer, () => { streamer = null; });
+        textContainer.classList.add('message-text--has-cursor');
+        streamer = createSmoothStreamer(textContainer);
       }
       streamer.updateText(newText);
     } else if (streamer) {
-      // Stream terminó: flush del bloque pendiente.
+      // Stream terminó: flush del último frame y limpieza.
       streamer.finish(newText);
       streamer = null;
       textContainer.classList.remove('message-text--streaming');
+      textContainer.classList.remove('message-text--has-cursor');
     } else {
       // Sin streamer: contenido ya completo (historial o post-stream).
-      // Solo reemplazar si cambio real o container vacio, para evitar flicker.
+      // Solo reemplazar si cambió realmente o container vacío.
       textContainer.classList.remove('message-text--streaming');
       textContainer.classList.remove('message-text--has-cursor');
       if (newText !== currentText || textContainer.children.length === 0) {
@@ -213,67 +213,48 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
   };
 }
 
-// ─── BlockRenderer wrapper (delta extraction + progressive MD) ────
+// ─── SmoothStreamer wrapper (delta extraction + rAF rendering) ────
 
-interface BlockRendererHandle {
+interface SmoothStreamerHandle {
   dispose(): void;
-  /** Recibe el texto COMPLETO actual; empuja el delta al BlockRenderer. */
+  /** Recibe el texto COMPLETO actual; empuja el delta al SmoothStreamer. */
   updateText(fullText: string): void;
-  /** Fuerza el flush del bloque pendiente. Idempotente. */
+  /** Fuerza el flush del último frame. Idempotente. */
   finish(finalText: string): void;
 }
 
-function createBlockRenderer(
-  textContainer: HTMLElement,
-  onDone: () => void,
-): BlockRendererHandle {
+function createSmoothStreamer(textContainer: HTMLElement): SmoothStreamerHandle {
   let prevLen = 0;
   let isFinished = false;
   let isDisposed = false;
 
-  // BlockRenderer: renderiza markdown por bloques apenas se completan.
-  // Cada bloque se inserta incrementalmente en el DOM con animacion.
-  // El bloque pendiente (incompleto) queda en el buffer hasta flush().
-  const blockRenderer = new BlockRenderer(textContainer, {
-    onPending: (hasPending) => {
-      if (isDisposed || isFinished) return;
-      textContainer.classList.toggle('message-text--has-cursor', hasPending);
-    },
-    onDone: () => { /* no-op: finish() maneja el cleanup */ },
+  const streamer = new SmoothStreamer((html) => {
+    textContainer.innerHTML = html;
   });
-
-  function doFinish(content: string): void {
-    if (isFinished) return;
-    isFinished = true;
-    // Drenar el bloque pendiente y cerrar.
-    blockRenderer.flush();
-    textContainer.classList.remove('message-text--streaming');
-    textContainer.classList.remove('message-text--has-cursor');
-    onDone();
-  }
 
   return {
     dispose: () => {
       if (isDisposed) return;
       isDisposed = true;
-      blockRenderer.dispose();
+      streamer.dispose();
     },
     updateText: (fullText: string) => {
       if (isDisposed || isFinished) return;
       if (fullText.length > prevLen) {
         const delta = fullText.slice(prevLen);
         prevLen = fullText.length;
-        blockRenderer.push(delta);
+        streamer.push(delta);
       }
     },
     finish: (finalText: string) => {
       if (isDisposed || isFinished) return;
-      // Empujar cualquier delta que falte, luego flush.
+      isFinished = true;
       if (finalText.length > prevLen) {
-        blockRenderer.push(finalText.slice(prevLen));
+        streamer.push(finalText.slice(prevLen));
         prevLen = finalText.length;
       }
-      doFinish(finalText);
+      streamer.flush();
+      streamer.dispose();
     },
   };
 }
