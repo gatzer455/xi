@@ -70,6 +70,12 @@ function flushThrottledUpdate(): void {
   for (const ce of chatEvents) store.dispatch(ce);
 }
 
+/** Intervalo mínimo entre procesamientos de message_update (ms).
+ *  rAF ya da ~16ms, pero con subimos a 50ms procesamos ~20/s
+ *  en vez de ~60/s, suficiente para streaming fluido. */
+const THROTTLE_MS = 50;
+let lastProcessedTime = 0;
+
 /** Reclama el routing del próximo stream para `sessionId`. Llamar ANTES
  *  de `sendPrompt` para ganar la carrera contra un cambio de tab que el
  *  usuario pueda hacer antes de que llegue `agent_start`. */
@@ -226,12 +232,23 @@ function routeStreamEvent(event: PiEvent): void {
     return;
   }
 
-  // message_update: throttle a 1 por frame (evita saturar con 100+/s).
-  // Los eventos intermedios se descartan; solo importa el último estado.
+  // message_update: throttle a ~20/s (50ms). Los eventos intermedios
+  // se descartan; solo importa el último estado de cada intervalo.
   if (event.type === 'message_update') {
     pendingThrottledUpdate = { event: event as PiMessageUpdateEvent, targetId };
-    if (throttleFrameId === null) {
-      throttleFrameId = requestAnimationFrame(flushThrottledUpdate);
+    const now = performance.now();
+    const elapsed = now - lastProcessedTime;
+    if (elapsed >= THROTTLE_MS) {
+      lastProcessedTime = now;
+      flushThrottledUpdate();
+    } else if (throttleFrameId === null) {
+      throttleFrameId = requestAnimationFrame(() => {
+        const t = performance.now();
+        if (t - lastProcessedTime >= THROTTLE_MS) {
+          lastProcessedTime = t;
+          flushThrottledUpdate();
+        }
+      });
     }
   } else {
     const chatEvents = mapStreamEvent(event);
