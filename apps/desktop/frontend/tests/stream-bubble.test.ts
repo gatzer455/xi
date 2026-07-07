@@ -91,12 +91,12 @@ describe('ChatBubble — render por rol', () => {
     expect(el.classList.contains('message-text--streaming')).toBe(false);
   });
 
-  test('assistant streaming: textContainer vacío + clases de streaming', () => {
+  test('assistant streaming: clases de streaming activas', () => {
     const handle = ChatBubble(assistantMsg('a2', [text('')], { isStreaming: true }));
     const el = handle.root.querySelector('.message-text--assistant')!;
     expect(el.classList.contains('message-text--streaming')).toBe(true);
-    expect(el.classList.contains('message-text--has-cursor')).toBe(true);
-    expect(el.textContent).toBe('');
+    // Sin texto pendiente, el cursor no se muestra (BlockRenderer)
+    expect(el.classList.contains('message-text--has-cursor')).toBe(false);
   });
 
   test('thinking: dots cuando isStreaming, texto cuando no', () => {
@@ -152,16 +152,17 @@ describe('ChatBubble — render por rol', () => {
 // ─── delta extraction (D6) ─────────────────────────────────
 
 describe('ChatBubble — delta extraction en update()', () => {
-  test('streaming → end: revela texto y renderiza markdown al final', async () => {
+  test('streaming → end: texto pendiente y render markdown al final', async () => {
     const handle = ChatBubble(assistantMsg('e1', [text('')], { isStreaming: true }));
 
-    // Crece el texto
+    // Crece el texto pero no completa bloque (sin \n\n)
     handle.update(assistantMsg('e1', [text('Hello **wor')], { isStreaming: true }));
     await waitFrames(4);
     const el = handle.root.querySelector('.message-text--assistant')!;
-    expect(el.textContent).toContain('Hello');
+    // BlockRenderer: sin bloque completo aun, cursor activo
+    expect(el.classList.contains('message-text--has-cursor')).toBe(true);
 
-    // Texto final + fin streaming → markdown render
+    // Texto final + fin streaming → flush() drena el bloque pendiente
     handle.update(assistantMsg('e1', [text('Hello **world**')], { isStreaming: false }));
     const el2 = handle.root.querySelector('.message-text--assistant')!;
     expect(el2.querySelector('strong')).toBeTruthy();
@@ -172,15 +173,22 @@ describe('ChatBubble — delta extraction en update()', () => {
     handle.dispose();
   });
 
-  test('id estable preserva el bubble entre updates (mismo streamer)', async () => {
+  test('id estable preserva el bubble entre updates (mismo renderer)', async () => {
     const handle = ChatBubble(assistantMsg('s1', [text('')], { isStreaming: true }));
-    handle.update(assistantMsg('s1', [text('partial')], { isStreaming: true }));
+    // Enviar un bloque completo con \n\n para que se renderice
+    handle.update(assistantMsg('s1', [text('partial block.\n\n')], { isStreaming: true }));
     await waitFrames(5);
-    expect(handle.root.querySelector('.message-text--assistant')?.textContent).toBe('partial');
+    const container = handle.root.querySelector('.message-text--assistant')!;
+    // BlockRenderer inserta .md-block wrappers con el contenido renderizado
+    const blocks = container.querySelectorAll('.md-block');
+    expect(blocks.length).toBeGreaterThanOrEqual(1);
+    expect(blocks[0].textContent).toContain('partial block');
 
-    handle.update(assistantMsg('s1', [text('partial + more')], { isStreaming: true }));
+    handle.update(assistantMsg('s1', [text('partial block.\n\nmore text')], { isStreaming: true }));
     await waitFrames(5);
-    expect(handle.root.querySelector('.message-text--assistant')?.textContent).toContain('partial + more');
+    // El segundo bloque ('more text') no está completo aun (sin \n\n al final)
+    // pero el cursor deberia estar activo
+    expect(container.classList.contains('message-text--has-cursor')).toBe(true);
 
     handle.dispose();
   });
