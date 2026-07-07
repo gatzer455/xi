@@ -61,6 +61,11 @@ function flushThrottledUpdate(): void {
   if (!pendingThrottledUpdate) return;
   const { event, targetId } = pendingThrottledUpdate;
   pendingThrottledUpdate = null;
+
+  // Loggear solo el evento que realmente se procesa
+  const size = JSON.stringify(event).length;
+  addEntry('in', `↩ message_update size=${size}B`);
+
   const chatEvents = mapMessageEvent(
     event as PiMessageUpdateEvent,
     'message_update',
@@ -102,18 +107,20 @@ export function endStream(): void {
 // ─── Punto de entrada ─────────────────────────────────────
 
 export function applyEvent(event: PiEvent): void {
-  // Resumen del evento: tipo + comando (si response) + tamaño
-  const size = JSON.stringify(event).length;
+  // Responses siempre se loguean (son pocas e importantes).
   if (event.type === 'response') {
+    const size = JSON.stringify(event).length;
     const cmd = (event as PiResponseEvent).command ?? 'unknown';
     addEntry('in', `↩ response:${cmd} size=${size}B`);
-  } else {
-    addEntry('in', `↩ ${event.type} size=${size}B`);
-  }
-
-  if (event.type === 'response') {
     handleResponse(event as PiResponseEvent);
     return;
+  }
+
+  // message_update se loguea solo cuando se procesa (dentro del throttle).
+  // Los demás eventos (agent_start, message_end, etc.) se loguean siempre.
+  if (event.type !== 'message_update') {
+    const size = JSON.stringify(event).length;
+    addEntry('in', `↩ ${event.type} size=${size}B`);
   }
 
   routeStreamEvent(event);
