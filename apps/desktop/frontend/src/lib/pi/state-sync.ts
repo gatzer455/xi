@@ -49,6 +49,27 @@ import type {
  *  activeTabId como fallback. */
 let streamingSessionId: string | null = null;
 
+// ── Throttle message_update (evita saturar el store con 100+ eventos/s) ──
+
+/** Último message_update pendiente de procesar. Se actualiza en cada
+ *  evento entrante y se procesa una vez por rAF. */
+let pendingThrottledUpdate: { event: PiMessageUpdateEvent; targetId: string } | null = null;
+let throttleFrameId: number | null = null;
+
+function flushThrottledUpdate(): void {
+  throttleFrameId = null;
+  if (!pendingThrottledUpdate) return;
+  const { event, targetId } = pendingThrottledUpdate;
+  pendingThrottledUpdate = null;
+  const chatEvents = mapMessageEvent(
+    event as PiMessageUpdateEvent,
+    'message_update',
+  );
+  if (chatEvents.length === 0) return;
+  const store = getStore(targetId);
+  for (const ce of chatEvents) store.dispatch(ce);
+}
+
 /** Reclama el routing del próximo stream para `sessionId`. Llamar ANTES
  *  de `sendPrompt` para ganar la carrera contra un cambio de tab que el
  *  usuario pueda hacer antes de que llegue `agent_start`. */
@@ -205,11 +226,19 @@ function routeStreamEvent(event: PiEvent): void {
     return;
   }
 
-  const chatEvents = mapStreamEvent(event);
-  if (chatEvents.length === 0) return;
-
-  const store = getStore(targetId);
-  for (const ce of chatEvents) store.dispatch(ce);
+  // message_update: throttle a 1 por frame (evita saturar con 100+/s).
+  // Los eventos intermedios se descartan; solo importa el último estado.
+  if (event.type === 'message_update') {
+    pendingThrottledUpdate = { event: event as PiMessageUpdateEvent, targetId };
+    if (throttleFrameId === null) {
+      throttleFrameId = requestAnimationFrame(flushThrottledUpdate);
+    }
+  } else {
+    const chatEvents = mapStreamEvent(event);
+    if (chatEvents.length === 0) return;
+    const store = getStore(targetId);
+    for (const ce of chatEvents) store.dispatch(ce);
+  }
 
   // agent_end limpia el routing y el flag global.
   if (event.type === 'agent_end') {
