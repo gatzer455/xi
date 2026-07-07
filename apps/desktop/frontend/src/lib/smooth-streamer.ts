@@ -1,19 +1,18 @@
 /**
- * smooth-streamer.ts — Render progresivo de markdown por oraciones.
+ * smooth-streamer.ts — Render progresivo de markdown con DOM reconciliation.
  *
- * A diferencia del SmoothStreamer v1 (carácter-por-carácter), esta versión
- * extrae oraciones completas separadas por `. ! ? \n` y las renderiza
- * una por una con fade-in, como hace Gemini. El texto pendiente (oración
- * incompleta) se re-renderiza cada frame sin animación.
+ * Acumula el texto completo del LLM en un buffer. En cada rAF renderiza
+ * el buffer completo a markdown (correcto: tablas, LaTeX, code fences).
+ * Luego, reconcileDom() diffea el DOM: preserva bloques estables,
+ * reemplaza el último bloque mutable, y anima el delta de texto.
  *
- *   push(chunk) → buffer += chunk → schedule rAF
- *     → extractSentences(buffer) → onSentence(html) por cada una
- *     → onPending(html) para el tail incompleto
+ * El fade-in se aplica a:
+ *   - Bloques GENUINAMENTE NUEVOS (separados por \n\n en el markdown)
+ *   - ORACIONES COMPLETADAS dentro del último bloque mutable,
+ *     detectadas por . ! ? \n en el texto RENDERIZADO (no raw markdown)
  *
- * Inspirado en:
- *   - Sentence-level reveal de Gemini/Claude
- *   - "Respetar inline syntax para no cortar dentro de ** ` ~~"
- *   - Chrome for Developers: "Best practices to render streamed LLM responses"
+ * Inspirado en Chrome Developers "Best practices to render streamed
+ * LLM responses" y Generative DOM / incremark-renderer / StreamMD.
  */
 
 import { renderMarkdown } from './markdown.ts';
@@ -21,22 +20,12 @@ import { renderMarkdown } from './markdown.ts';
 export class SmoothStreamer {
   private buffer = '';
   private rafId: number | null = null;
-  private cutIndex = 0;
   private disposed = false;
 
-  private onSentence: (html: string) => void;
-  private onPending: (html: string) => void;
+  private onHtml: (html: string) => void;
 
-  /**
-   * @param onSentence Callback por cada oración COMPLETA (con fade-in).
-   * @param onPending  Callback para el texto pendiente (sin animación).
-   */
-  constructor(
-    onSentence: (html: string) => void,
-    onPending: (html: string) => void,
-  ) {
-    this.onSentence = onSentence;
-    this.onPending = onPending;
+  constructor(onHtml: (html: string) => void) {
+    this.onHtml = onHtml;
   }
 
   push(chunk: string): void {
@@ -48,31 +37,23 @@ export class SmoothStreamer {
   flush(): void {
     if (this.disposed) return;
     this.cancelRaf();
-    // Renderizar el tail pendiente como oración final (sin fade-in)
-    if (this.buffer.length > this.cutIndex) {
-      const tail = this.buffer.slice(this.cutIndex);
-      const safe = closeInlineSyntax(tail);
-      const html = renderMarkdown(safe);
-      if (html) this.onPending(html);
-      this.cutIndex = this.buffer.length;
+    if (this.buffer.length > 0) {
+      const html = renderMarkdown(this.buffer);
+      if (html) this.onHtml(html);
     }
   }
 
   reset(): void {
     this.cancelRaf();
     this.buffer = '';
-    this.cutIndex = 0;
     this.disposed = false;
   }
 
   dispose(): void {
     this.cancelRaf();
     this.buffer = '';
-    this.cutIndex = 0;
     this.disposed = true;
   }
-
-  // ─── internals ──────────────────────────────────────────
 
   private schedule(): void {
     if (this.rafId !== null) return;
@@ -91,172 +72,177 @@ export class SmoothStreamer {
 
   private render(): void {
     if (this.disposed || this.buffer.length === 0) return;
-
-    const newContent = this.buffer.slice(this.cutIndex);
-    if (newContent.length === 0) return;
-
-    const { sentences, pending } = splitSentences(newContent);
-
-    // Cada oración completa → render + append con fade-in
-    for (const sentence of sentences) {
-      const safe = closeInlineSyntax(sentence);
-      const html = renderMarkdown(safe);
-      if (html) this.onSentence(html);
-    }
-
-    // Tail pendiente → re-renderizar cada frame sin animación
-    if (pending.length > 0) {
-      const safe = closeInlineSyntax(pending);
-      const html = renderMarkdown(safe);
-      this.onPending(html);
-    }
-
-    // Avanzar el corte: buffer.length - pending.length
-    this.cutIndex = this.buffer.length - pending.length;
+    const html = renderMarkdown(this.buffer);
+    if (html) this.onHtml(html);
   }
 }
 
-// ─── Spliteo de oraciones ───────────────────────────────
+// ─── DOM reconciliation ───────────────────────────────────
 
-interface SentenceResult {
-  sentences: string[];
-  pending: string;
+/**
+ * Actualiza `container` con el nuevo HTML de markdown.
+ *
+ * - Bloques estables (mismo outerHTML) → preservados
+ * - Nuevos bloques más allá del count original → `.fade-in`
+ * - Último bloque mutable reemplazado → anima el delta de texto
+ *   (oraciones completadas dentro del bloque)
+ */
+export function reconcileDom(container: HTMLElement, newHtml: string): void {
+  const prevTextLen = container.textContent?.length || 0;
+
+  const temp = document.createElement('div');
+  temp.innerHTML = newHtml;
+
+  const newKids = Array.from(temp.children);
+  const oldKids = Array.from(container.children);
+  const oldCount = oldKids.length;
+
+  // 1. Prefijo de bloques estables
+  let stable = 0;
+  for (; stable < Math.min(newKids.length, oldKids.length); stable++) {
+    const nk = newKids[stable];
+    const ok = oldKids[stable];
+    if (nk.outerHTML === ok.outerHTML) continue;
+    if (nk.tagName === ok.tagName) break;
+    break;
+  }
+
+  // 2. Remover tail viejo
+  while (container.children.length > stable) {
+    const last = container.lastElementChild;
+    if (last) last.remove();
+  }
+
+  // Guardar largo del texto del OLD bloque mutable antes de perderlo
+  const oldBlockLen = stable < oldCount
+    ? oldKids[stable].textContent?.length || 0
+    : 0;
+
+  // 3. Insertar tail nuevo
+  for (let j = stable; j < newKids.length; j++) {
+    const clone = newKids[j].cloneNode(true) as HTMLElement;
+    if (j >= oldCount) {
+      clone.classList.add('fade-in');
+    }
+    container.appendChild(clone);
+  }
+
+  // 4. Animar delta de texto dentro del último bloque mutable
+  if (stable < oldCount && stable < newKids.length) {
+    const newBlock = container.children[stable] as HTMLElement;
+    if (newBlock && !newBlock.classList.contains('fade-in')) {
+      animateLastBlockDelta(newBlock, oldBlockLen);
+    }
+  }
+}
+
+// ─── Animación del delta de texto ─────────────────────────
+
+/**
+ * Dentro de `block` (ej: <p>), envuelve las oraciones completadas
+ * (más allá de `oldBlockLen`) en `<span class="fade-in">`.
+ *
+ * Detecta boundaries de oración en el TEXTO RENDERIZADO
+ * (textContent, no raw markdown), así que es seguro — no rompe
+ * tablas, LaTeX ni code fences.
+ *
+ * La última oración (potencialmente incompleta) NO se anima.
+ */
+function animateLastBlockDelta(block: HTMLElement, oldBlockLen: number): void {
+  const fullText = block.textContent || '';
+  if (fullText.length <= oldBlockLen) return;
+
+  // El texto nuevo dentro de este bloque
+  const newText = fullText.slice(oldBlockLen);
+
+  // Encontrar oraciones completadas (que tienen contenido después)
+  const boundaries = findSentenceBoundaries(newText);
+  const completed = boundaries.filter(b => b + 1 < newText.length);
+  if (completed.length === 0) return;
+
+  // La última oración completada
+  const lastComplete = completed[completed.length - 1];
+  // Hasta dónde animar (incluyendo la puntuación)
+  const animateEnd = oldBlockLen + lastComplete + 1;
+
+  if (animateEnd <= oldBlockLen) return;
+
+  // Envolver el rango de texto en .fade-in
+  wrapTextRange(block, oldBlockLen, animateEnd);
 }
 
 /**
- * Divide texto en oraciones completas + tail pendiente.
- *
- * Una oración termina en `. ! ? \n`, pero solo cuando NO estamos
- * dentro de inline syntax (`**`, `~~) o code fence (```).
- *
- * Esto evita cortar dentro de `**bold**` o `` `code` `` cuando
- * el inline span contiene puntuación.
+ * Encuentra posiciones de boundaries de oración (. ! ? \n)
+ * en texto plano (rendered textContent). Seguro porque no opera
+ * sobre raw markdown.
  */
-function splitSentences(text: string): SentenceResult {
-  if (!text) return { sentences: [], pending: '' };
-
-  const sentences: string[] = [];
-  let lastCut = 0;
-  let inFence = false;
-  let boldOpen = false;
-  let strikeOpen = false;
-  let linkOpen = false;
-
-  const len = text.length;
-  let i = 0;
-
-  while (i < len) {
-    // ── Code fence (```) ──
-    if (i + 3 <= len && text.slice(i, i + 3) === '```') {
-      inFence = !inFence;
-      i += 3;
-      continue;
-    }
-
-    if (inFence) { i++; continue; }
-
-    // ── Bold (**) ──
-    if (i + 2 <= len && text.slice(i, i + 2) === '**') {
-      boldOpen = !boldOpen;
-      i += 2;
-      continue;
-    }
-
-    // ── Strikethrough (~~) ──
-    if (i + 2 <= len && text.slice(i, i + 2) === '~~') {
-      strikeOpen = !strikeOpen;
-      i += 2;
-      continue;
-    }
-
-    // ── Link bracket balance ──
-    if (text[i] === '[' && !linkOpen) {
-      linkOpen = true;
-      i++;
-      continue;
-    }
-    if (text[i] === ']' && linkOpen) {
-      linkOpen = false;
-      i++;
-      continue;
-    }
-
-    // ── Sentence-ending punctuation (solo si no estamos dentro de inline) ──
-    if (!boldOpen && !strikeOpen && !linkOpen) {
-      const ch = text[i];
-
-      // . ! ? seguido de espacio, newline, o fin de string
-      if ((ch === '.' || ch === '!' || ch === '?') &&
-          (i + 1 >= len || text[i + 1] === ' ' || text[i + 1] === '\n')) {
-        const end = i + 1; // incluir la puntuación
-        sentences.push(text.slice(lastCut, end));
-        lastCut = end;
-        i++;
-        continue;
-      }
-
-      // \n también es boundary de oración
-      if (ch === '\n') {
-        const end = i + 1;
-        sentences.push(text.slice(lastCut, end));
-        lastCut = end;
-        i++;
-        continue;
+function findSentenceBoundaries(text: string): number[] {
+  const boundaries: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '.' || ch === '!' || ch === '?' || ch === '\n') {
+      // Debe ir seguido de espacio, newline o fin de string
+      const isEnd = i + 1 >= text.length;
+      const nextCh = isEnd ? '' : text[i + 1];
+      if (isEnd || nextCh === ' ' || nextCh === '\n') {
+        boundaries.push(i);
       }
     }
-
-    i++;
   }
-
-  const pending = text.slice(lastCut);
-  return { sentences, pending };
+  return boundaries;
 }
 
-// ─── Cierre especulativo de inline syntax ────────────────
+/**
+ * Envuelve el rango de texto [startChar, endChar) dentro de `el`
+ * en un `<span class="fade-in">`.
+ *
+ * Usa Range + extractContents para manejar correctamente rangos
+ * que crucen inline elements (bold, italic, code).
+ */
+function wrapTextRange(el: HTMLElement, startChar: number, endChar: number): void {
+  if (startChar >= endChar) return;
 
-function closeInlineSyntax(text: string): string {
-  let result = text;
-  const trimmed = result.trimEnd();
-  if (!trimmed) return result;
+  const range = document.createRange();
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
 
-  if (countOccurrences(trimmed, '**') % 2 !== 0) {
-    result = result.trimEnd() + '**';
-  }
+  let accumulated = 0;
+  let startNode: Text | null = null;
+  let startOffset = 0;
+  let endNode: Text | null = null;
+  let endOffset = 0;
+  let foundEnd = false;
 
-  const withoutBold = trimmed.replace(/\*\*/g, '');
-  if (countOccurrences(withoutBold, '*') % 2 !== 0) {
-    result = result.trimEnd() + '*';
-  }
+  let node: Text | null;
+  while ((node = walker.nextNode() as Text | null)) {
+    const len = node.textContent?.length || 0;
+    const nodeStart = accumulated;
+    const nodeEnd = accumulated + len;
 
-  if (countOccurrences(trimmed, '`') % 2 !== 0) {
-    result = result.trimEnd() + '`';
-  }
-
-  if (countOccurrences(trimmed, '~~') % 2 !== 0) {
-    result = result.trimEnd() + '~~';
-  }
-
-  const openBracket = countOccurrences(trimmed, '[');
-  const closeBracket = countOccurrences(trimmed, ']');
-  if (openBracket > closeBracket) {
-    const lastOpen = trimmed.lastIndexOf('[');
-    const lastClosed = trimmed.lastIndexOf(']');
-    if (lastOpen > lastClosed) {
-      result = result.trimEnd() + ']()';
+    if (startNode === null && nodeEnd > startChar) {
+      startNode = node;
+      startOffset = startChar - nodeStart;
     }
+
+    if (!foundEnd && nodeEnd >= endChar) {
+      endNode = node;
+      endOffset = endChar - nodeStart;
+      foundEnd = true;
+      break;
+    }
+
+    accumulated += len;
   }
 
-  return result;
-}
+  if (!startNode || !endNode) return;
 
-function countOccurrences(str: string, substr: string): number {
-  let count = 0;
-  let pos = 0;
-  while ((pos = str.indexOf(substr, pos)) !== -1) {
-    count++;
-    pos += substr.length;
-  }
-  return count;
-}
+  range.setStart(startNode, startOffset);
+  range.setEnd(endNode, endOffset);
 
-export { closeInlineSyntax, splitSentences };
+  // extractContents + insertNode funciona incluso cruzando
+  // elementos inline, a diferencia de surroundContents
+  const fragment = range.extractContents();
+  const span = document.createElement('span');
+  span.className = 'fade-in';
+  span.appendChild(fragment);
+  range.insertNode(span);
+}

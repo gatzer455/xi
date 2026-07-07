@@ -30,7 +30,7 @@ import { extractText } from '../lib/chat/mapping.ts';
 import { ThinkingBlockUI } from './thinking-block.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
 import { formatToolCallHeader } from '../lib/format-tool-call.ts';
-import { SmoothStreamer } from '../lib/smooth-streamer.ts';
+import { SmoothStreamer, reconcileDom } from '../lib/smooth-streamer.ts';
 
 export interface ChatBubbleHandle {
   root: HTMLElement;
@@ -207,7 +207,7 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
   };
 }
 
-// ─── SmoothStreamer wrapper (delta extraction + rAF rendering) ────
+// ─── SmoothStreamer wrapper (delta extraction + DOM reconciliation) ────
 
 interface SmoothStreamerHandle {
   dispose(): void;
@@ -221,36 +221,10 @@ function createSmoothStreamer(textContainer: HTMLElement): SmoothStreamerHandle 
   let prevLen = 0;
   let isFinished = false;
   let isDisposed = false;
-  let pendingEl: HTMLElement | null = null;
 
-  const streamer = new SmoothStreamer(
-    // onSentence: oración completa → append con fade-in
-    (html) => {
-      const el = document.createElement('div');
-      el.className = 'md-sentence fade-in';
-      el.innerHTML = html;
-      // Insertar antes del pendingEl si existe
-      if (pendingEl) {
-        textContainer.insertBefore(el, pendingEl);
-      } else {
-        textContainer.appendChild(el);
-      }
-    },
-    // onPending: tail incompleto → re-renderizar in-place
-    (html) => {
-      if (html) {
-        if (!pendingEl) {
-          pendingEl = document.createElement('div');
-          pendingEl.className = 'md-sentence md-sentence--pending';
-          textContainer.appendChild(pendingEl);
-        }
-        pendingEl.innerHTML = html;
-      } else if (pendingEl) {
-        pendingEl.remove();
-        pendingEl = null;
-      }
-    },
-  );
+  const streamer = new SmoothStreamer((html) => {
+    reconcileDom(textContainer, html);
+  });
 
   return {
     dispose: () => {
@@ -275,10 +249,6 @@ function createSmoothStreamer(textContainer: HTMLElement): SmoothStreamerHandle 
       }
       streamer.flush();
       streamer.dispose();
-      if (pendingEl) {
-        pendingEl.remove();
-        pendingEl = null;
-      }
     },
   };
 }

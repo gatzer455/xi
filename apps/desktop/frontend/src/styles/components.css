@@ -86,24 +86,18 @@
 }
 
 /* Streaming container for markdown rendering.
-   SmoothStreamer appends .md-sentence elements here. */
+   DOM reconciliation mantiene bloques estables y anima solo los nuevos. */
 .message-text--streaming {
-  min-height: 1.6em; /* Evita colapso de línea vacía inicial */
+  min-height: 1.6em;
 }
 
-/* Sentence-level fade-in animation (Gemini-style).
-   Cada oración completa aparece con un fade-in suave diagonal. */
-.md-sentence {
-  opacity: 1;
-}
-.md-sentence.fade-in {
-  animation: sentence-fade-in 0.35s ease-out both;
-}
-.md-sentence--pending {
-  /* La oración incompleta se re-renderiza sin animación */
+/* Fade-in de bloques nuevos (párrafos, tablas, code fences, listas).
+   reconcileDom() aplica esta clase a bloques genuinamente nuevos. */
+.fade-in {
+  animation: block-fade-in 0.35s ease-out both;
 }
 
-@keyframes sentence-fade-in {
+@keyframes block-fade-in {
   from {
     opacity: 0;
     transform: translateY(4px);

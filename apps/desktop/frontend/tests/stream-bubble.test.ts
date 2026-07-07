@@ -1,6 +1,7 @@
 /**
  * Tests del ChatBubble con el modelo de Parts (chat-architecture-v2).
  * Verifica el render por rol y el delta extraction en update() (D6).
+ * La actualización por streaming usa DOM reconciliation (reconcileDom).
  *
  * @vitest-environment jsdom
  */
@@ -155,54 +156,48 @@ describe('ChatBubble — render por rol', () => {
   });
 });
 
-// ─── delta extraction (D6) con SentenceStreamer ──────────
+// ─── delta extraction (D6) con DOM reconciliation ─────────
 
 describe('ChatBubble — delta extraction en update()', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  test('streaming → end: sentences con fade-in + flush final', () => {
+  test('streaming → end: contenido crece y se renderiza', () => {
     const raf = mockRaf();
     const handle = ChatBubble(assistantMsg('e1', [text('')], { isStreaming: true }));
     const el = handle.root.querySelector('.message-text--assistant')!;
 
     // Crece el texto durante streaming
-    handle.update(assistantMsg('e1', [text('Primera **oración**.')], { isStreaming: true }));
+    handle.update(assistantMsg('e1', [text('Primer párrafo.')], { isStreaming: true }));
     raf.advance();
-    // .md-sentence con fade-in debe existir
-    const sentences1 = el.querySelectorAll('.md-sentence.fade-in');
-    expect(sentences1.length).toBeGreaterThanOrEqual(1);
-    expect(sentences1[0].textContent).toContain('Primera');
+    expect(el.textContent).toContain('Primer párrafo');
 
-    // Sigue creciendo con más oraciones
-    handle.update(assistantMsg('e1', [text('Primera **oración**. Segunda oración. Tercera')], { isStreaming: true }));
+    // Sigue creciendo
+    handle.update(assistantMsg('e1', [text('Primer párrafo. Segundo párrafo.')], { isStreaming: true }));
     raf.advance();
-    const sentences2 = el.querySelectorAll('.md-sentence.fade-in');
-    expect(sentences2.length).toBeGreaterThanOrEqual(2);
+    expect(el.textContent).toContain('Segundo párrafo');
 
-    // Stream termina → flush final (pending se vuelve última sentence)
-    handle.update(assistantMsg('e1', [text('Primera **oración**. Segunda oración. Tercera')], { isStreaming: false }));
+    // Stream termina
+    handle.update(assistantMsg('e1', [text('Primer párrafo. Segundo párrafo.')], { isStreaming: false }));
     expect(el.classList.contains('message-text--streaming')).toBe(false);
 
     handle.dispose();
     raf.restore();
   });
 
-  test('oración incompleta no genera sentence (solo pending)', () => {
+  test('múltiples updates sin rAF intermedio coalescen', () => {
     const raf = mockRaf();
     const handle = ChatBubble(assistantMsg('e2', [text('')], { isStreaming: true }));
     const el = handle.root.querySelector('.message-text--assistant')!;
 
-    handle.update(assistantMsg('e2', [text('texto incompleto sin puntuación')], { isStreaming: true }));
+    // Múltiples updates sin rAF
+    handle.update(assistantMsg('e2', [text('A')], { isStreaming: true }));
+    handle.update(assistantMsg('e2', [text('AB')], { isStreaming: true }));
+    handle.update(assistantMsg('e2', [text('ABC')], { isStreaming: true }));
+
     raf.advance();
-    // No debe tener .md-sentence (no hay oración completa)
-    const sentences = el.querySelectorAll('.md-sentence.fade-in');
-    expect(sentences.length).toBe(0);
-    // Pero debe tener pending
-    const pending = el.querySelector('.md-sentence--pending');
-    expect(pending).toBeTruthy();
-    expect(pending!.textContent).toContain('texto incompleto');
+    expect(el.textContent).toContain('ABC');
 
     handle.dispose();
     raf.restore();
@@ -212,15 +207,12 @@ describe('ChatBubble — delta extraction en update()', () => {
     const raf = mockRaf();
     const handle = ChatBubble(assistantMsg('s1', [text('')], { isStreaming: true }));
 
-    // Primera oración completa
     handle.update(assistantMsg('s1', [text('Primer párrafo.\n\n')], { isStreaming: true }));
     raf.advance();
 
-    // Segunda oración
     handle.update(assistantMsg('s1', [text('Primer párrafo.\n\nSegundo')], { isStreaming: true }));
     raf.advance();
 
-    // Mismo container, contenido creció
     const container = handle.root.querySelector('.message-text--assistant')!;
     expect(container.innerHTML).toContain('Primer párrafo');
     expect(container.innerHTML).toContain('Segundo');
@@ -246,21 +238,17 @@ describe('ChatBubble — delta extraction en update()', () => {
     raf.restore();
   });
 
-  test('restore: fin del stream limpia pendingEl', () => {
+  test('restore: fin del stream no deja residuos', () => {
     const raf = mockRaf();
     const handle = ChatBubble(assistantMsg('r1', [text('')], { isStreaming: true }));
     const el = handle.root.querySelector('.message-text--assistant')!;
 
-    // Texto con oración incompleta
-    handle.update(assistantMsg('r1', [text('Oración completa. Incompleta sin punto')], { isStreaming: true }));
+    handle.update(assistantMsg('r1', [text('Oración completa.')], { isStreaming: true }));
     raf.advance();
 
-    // Debe haber pending
-    expect(el.querySelector('.md-sentence--pending')).toBeTruthy();
-
-    // Finalizar stream → pending se limpia
-    handle.update(assistantMsg('r1', [text('Oración completa. Incompleta sin punto')], { isStreaming: false }));
-    expect(el.querySelector('.md-sentence--pending')).toBeFalsy();
+    // Finalizar stream
+    handle.update(assistantMsg('r1', [text('Oración completa.')], { isStreaming: false }));
+    expect(el.classList.contains('message-text--streaming')).toBe(false);
 
     handle.dispose();
     raf.restore();
