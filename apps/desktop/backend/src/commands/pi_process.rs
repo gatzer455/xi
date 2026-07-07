@@ -312,13 +312,27 @@ fn log_pi_stdout(line: &str) {
             .get("type")
             .and_then(|t| t.as_str())
             .unwrap_or("unknown");
+
+        // message_update es 90% del tráfico: usamos debug! para que no
+        // inunde la terminal en dev normal. Se ve con RUST_LOG=debug.
+        // El resto (response, message_end, agent_end, etc.) sigue en info!.
+        let is_stream = event_type == "message_update";
+
         if size > STDOUT_LOG_SIZE_LIMIT {
             // chars().take() es UTF-8-safe: no paniquea si el corte
             // cae en medio de un carácter multi-byte.
             let truncated: String = line.chars().take(STDOUT_LOG_TRUNCATE).collect();
-            log::info!("[pi stdout] type={event_type} size={size}B (truncated) {truncated}…");
+            if is_stream {
+                log::debug!("[pi stdout] type={event_type} size={size}B (truncated) {truncated}…");
+            } else {
+                log::info!("[pi stdout] type={event_type} size={size}B (truncated) {truncated}…");
+            }
         } else {
-            log::info!("[pi stdout] type={event_type} size={size}B {line}");
+            if is_stream {
+                log::debug!("[pi stdout] type={event_type} size={size}B {line}");
+            } else {
+                log::info!("[pi stdout] type={event_type} size={size}B {line}");
+            }
         }
     } else {
         log::info!("[pi stdout] (unparseable) size={size}B {line}");
