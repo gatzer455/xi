@@ -188,10 +188,13 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
       streamer = null;
       textContainer.classList.remove('message-text--streaming');
     } else {
-      // Sin streamer: render markdown directo (mensaje cargado del historial).
+      // Sin streamer: contenido ya completo (historial o post-stream).
+      // Solo reemplazar si cambio real o container vacio, para evitar flicker.
       textContainer.classList.remove('message-text--streaming');
       textContainer.classList.remove('message-text--has-cursor');
-      textContainer.innerHTML = renderMarkdown(newText);
+      if (newText !== currentText || textContainer.children.length === 0) {
+        textContainer.innerHTML = renderMarkdown(newText);
+      }
     }
     currentText = newText;
   }
