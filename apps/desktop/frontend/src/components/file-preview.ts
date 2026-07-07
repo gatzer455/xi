@@ -11,7 +11,7 @@
 import { appState } from '../lib/state.ts';
 import type { Scope } from '../lib/scope.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
-import { writeFile } from '../lib/pi/tauri-commands.ts';
+import { writeFile, readFile } from '../lib/pi/tauri-commands.ts';
 import { icon } from '../lib/icons.ts';
 
 export function FilePreview(scope: Scope): HTMLElement {
@@ -89,10 +89,8 @@ function renderHeader(file: { name: string; path: string }): HTMLElement {
       // Recargar contenido original
       const cwd = appState.workingDir.value;
       if (cwd && file) {
-        import('../lib/pi/tauri-commands.ts').then(({ readFile }) => {
-          readFile(`${cwd}/${file.path}`).then((content) => {
-            appState.fileContent.value = content;
-          });
+        readFile(`${cwd}/${file.path}`).then((content) => {
+          appState.fileContent.value = content;
         });
       }
     });
