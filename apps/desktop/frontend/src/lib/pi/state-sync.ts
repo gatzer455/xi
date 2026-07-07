@@ -62,9 +62,9 @@ function flushThrottledUpdate(): void {
   const { event, targetId } = pendingThrottledUpdate;
   pendingThrottledUpdate = null;
 
-  // Loggear solo el evento que realmente se procesa
+  // Loggear solo el evento que realmente se procesa (nivel debug para no inundar)
   const size = JSON.stringify(event).length;
-  addEntry('in', `↩ message_update size=${size}B`);
+  addEntry('in', `↩ message_update size=${size}B`, 'debug');
 
   const chatEvents = mapMessageEvent(
     event as PiMessageUpdateEvent,

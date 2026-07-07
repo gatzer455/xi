@@ -10,10 +10,10 @@
  * siguen yendo a stdout + archivo vía el plugin.
  */
 
-import { info, warn, error as logError } from '@tauri-apps/plugin-log';
+import { info, debug, warn, error as logError } from '@tauri-apps/plugin-log';
 
 type Direction = 'in' | 'out' | 'system';
-type LogLevel = 'info' | 'warn' | 'error';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 const MAX_ENTRIES = 500;
 let entries: { timestamp: number; direction: Direction; message: string }[] = [];
@@ -48,6 +48,9 @@ export function addEntry(direction: Direction, message: string, level?: LogLevel
       break;
     case 'warn':
       warn(text);
+      break;
+    case 'debug':
+      debug(text);
       break;
     default:
       info(text);
