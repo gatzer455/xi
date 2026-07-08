@@ -275,6 +275,70 @@ describe('reduce — tool_execution_end', () => {
   });
 });
 
+// ─── toolResult merge ─────────────────────────────────────
+
+describe('reduce — toolResult message merge', () => {
+  it('mergea el output al ToolCallPart con toolCallId coincidente', () => {
+    const initial = {
+      ...emptyState(),
+      messages: [
+        assistantMsg('a_1', [
+          toolCallPart('tc_1', 'running'),
+          toolCallPart('tc_2', 'completed'),
+        ]),
+      ],
+    };
+    const toolResultMsg: ChatMessage = {
+      id: 'tr_1',
+      role: 'toolResult',
+      parts: [{
+        type: 'toolResult',
+        toolCallId: 'tc_1',
+        toolName: 'bash',
+        result: { output: 'output text' },
+        isError: false,
+      }],
+      timestamp: 3000,
+    };
+    const state = reduceFrozen(initial, { type: 'message_update', message: toolResultMsg });
+    // Assistant message debe tener el resultado mergeado
+    const parts = state.messages[0].parts;
+    const tc1 = parts.find((p: any) => p.type === 'toolCall' && p.toolCallId === 'tc_1');
+    expect((tc1 as any).result).toBeDefined();
+    expect((tc1 as any).result.output).toBe('output text');
+    expect((tc1 as any).result.isError).toBe(false);
+
+    // tc_2 no debe tener resultado
+    const tc2 = parts.find((p: any) => p.type === 'toolCall' && p.toolCallId === 'tc_2');
+    expect((tc2 as any).result).toBeUndefined();
+  });
+
+  it('toolResult sin toolCallId matching se inserta igual', () => {
+    const initial = {
+      ...emptyState(),
+      messages: [assistantMsg('a_1', [toolCallPart('tc_1', 'running')])],
+    };
+    const toolResultMsg: ChatMessage = {
+      id: 'tr_orphan',
+      role: 'toolResult',
+      parts: [{
+        type: 'toolResult',
+        toolCallId: 'no_match',
+        toolName: 'bash',
+        result: { output: 'x' },
+        isError: false,
+      }],
+      timestamp: 3000,
+    };
+    const state = reduceFrozen(initial, { type: 'message_start', message: toolResultMsg });
+    // El toolResult se inserta como message
+    expect(state.messages.some(m => m.id === 'tr_orphan')).toBe(true);
+    // Pero no se mergea a ningún ToolCallPart
+    const tc1 = state.messages[0].parts.find((p: any) => p.toolCallId === 'tc_1');
+    expect((tc1 as any).result).toBeUndefined();
+  });
+});
+
 // ─── agent_end ────────────────────────────────────────────
 
 describe('reduce — agent_end', () => {

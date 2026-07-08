@@ -19,18 +19,15 @@
 import type {
   ChatMessage,
   Part,
-  TextPart,
   ThinkingPart,
   ToolCallPart,
   ToolResultPart,
   CompactionPart,
-  ToolState,
 } from '../lib/chat/types.ts';
 import { extractText } from '../lib/chat/mapping.ts';
-import { ThinkingBlockUI } from './thinking-block.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
-import { formatToolCallHeader } from '../lib/format-tool-call.ts';
 import { SmoothStreamer, reconcileDom } from '../lib/smooth-streamer.ts';
+import { ToolChipGroup } from './tool-chip-group.ts';
 
 export interface ChatBubbleHandle {
   root: HTMLElement;
@@ -95,10 +92,9 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
   content.className = 'message-content message-content--assistant';
   root.append(content);
 
-  // Sub-elementos posicionados: thinking, toolCalls, text.
-  let thinkingBlock: HTMLElement | null = null;
-  let toolCallsContainer: HTMLElement | null = null;
-  const toolCallElements = new Map<string, HTMLElement>();
+  // Tool chip group (thinking + tool calls combinados)
+  let chipGroupEl: HTMLElement | null = null;
+
   const textContainer = document.createElement('div');
   textContainer.className = 'message-text message-text--assistant';
 
@@ -111,65 +107,26 @@ function renderAssistantMessage(message: ChatMessage): ChatBubbleHandle {
   applyMessage(message);
 
   function applyMessage(msg: ChatMessage): void {
-    // 1. Thinking parts
-    const thinkingParts = msg.parts.filter(isThinking) as ThinkingPart[];
-    applyThinking(thinkingParts, msg.isStreaming ?? false);
+    // 1. Tool chips (thinking + tool calls)
+    applyToolChips(msg);
 
-    // 2. ToolCall parts
-    const toolCallParts = msg.parts.filter(isToolCall) as ToolCallPart[];
-    applyToolCalls(toolCallParts);
-
-    // 3. Text parts (streaming-aware)
+    // 2. Text parts (streaming-aware)
     const newText = extractText(msg);
     applyText(msg, newText);
   }
 
-  function applyThinking(parts: ThinkingPart[], streaming: boolean): void {
-    if (parts.length > 0) {
-      if (thinkingBlock) {
-        const body = thinkingBlock.querySelector('.thinking-body');
-        const joined = parts.map((p) => p.text).join('\n\n');
-        if (body && body.textContent !== joined) body.textContent = joined;
-        thinkingBlock.classList.toggle('thinking-block--streaming', streaming);
+  function applyToolChips(msg: ChatMessage): void {
+    const newChipGroup = ToolChipGroup(msg);
+    if (newChipGroup) {
+      if (chipGroupEl) {
+        chipGroupEl.replaceWith(newChipGroup);
       } else {
-        thinkingBlock = ThinkingBlockUI(parts, streaming);
-        content.insertBefore(thinkingBlock, textContainer);
+        content.insertBefore(newChipGroup, textContainer);
       }
-    } else if (thinkingBlock) {
-      thinkingBlock.remove();
-      thinkingBlock = null;
-    }
-  }
-
-  function applyToolCalls(parts: ToolCallPart[]): void {
-    if (parts.length > 0) {
-      if (!toolCallsContainer) {
-        toolCallsContainer = document.createElement('div');
-        toolCallsContainer.className = 'message-tool-calls';
-        content.insertBefore(toolCallsContainer, textContainer);
-      }
-      const seen = new Set<string>();
-      for (const tc of parts) {
-        seen.add(tc.toolCallId);
-        const existing = toolCallElements.get(tc.toolCallId);
-        if (existing) {
-          updateToolCallStatus(existing, tc);
-        } else {
-          const el = renderToolCall(tc);
-          toolCallElements.set(tc.toolCallId, el);
-          toolCallsContainer.append(el);
-        }
-      }
-      for (const [id, el] of toolCallElements) {
-        if (!seen.has(id)) {
-          el.remove();
-          toolCallElements.delete(id);
-        }
-      }
-    } else if (toolCallsContainer) {
-      toolCallsContainer.remove();
-      toolCallElements.clear();
-      toolCallsContainer = null;
+      chipGroupEl = newChipGroup;
+    } else if (chipGroupEl) {
+      chipGroupEl.remove();
+      chipGroupEl = null;
     }
   }
 
@@ -253,98 +210,21 @@ function createSmoothStreamer(textContainer: HTMLElement): SmoothStreamerHandle 
   };
 }
 
-// ─── TOOL CALL ─────────────────────────────────────────────
-
-function renderToolCall(tc: ToolCallPart): HTMLElement {
-  const visual = toolVisualState(tc.state);
-  const details = document.createElement('details');
-  details.className = `tool-call tool-call--${visual}`;
-  details.dataset.toolCallId = tc.toolCallId;
-  details.open = false;
-
-  const summary = document.createElement('summary');
-  summary.className = 'tool-call-header';
-
-  const name = document.createElement('span');
-  name.className = 'tool-call-name';
-  name.textContent = formatToolCallHeader(tc);
-  summary.append(name);
-
-  const status = document.createElement('span');
-  status.className = `tool-call-status tool-call-status--${visual}`;
-  status.setAttribute('aria-label', statusLabel(visual));
-  summary.append(status);
-
-  details.append(summary);
-
-  const body = document.createElement('pre');
-  body.className = 'tool-call-body';
-  body.textContent = JSON.stringify(tc.arguments, null, 2);
-  details.append(body);
-
-  return details;
-}
-
-function updateToolCallStatus(el: HTMLElement, tc: ToolCallPart): void {
-  const visual = toolVisualState(tc.state);
-  el.className = `tool-call tool-call--${visual}`;
-  const status = el.querySelector('.tool-call-status');
-  if (status) {
-    status.className = `tool-call-status tool-call-status--${visual}`;
-    status.setAttribute('aria-label', statusLabel(visual));
-  }
-}
-
-/** Mapea el ToolState del reducer a las 3 clases visuales del CSS. */
-function toolVisualState(state: ToolState): 'pending' | 'success' | 'error' {
-  if (state === 'completed') return 'success';
-  if (state === 'failed') return 'error';
-  return 'pending';
-}
-
-function statusLabel(state: 'pending' | 'success' | 'error'): string {
-  switch (state) {
-    case 'pending': return 'Ejecutando';
-    case 'success': return 'Completado';
-    case 'error': return 'Error';
-  }
-}
-
 // ─── TOOL RESULT (mensaje aparte) ─────────────────────────
 
 function renderToolResultMessage(message: ChatMessage): ChatBubbleHandle {
+  // Los tool results ya no se renderizan como bubbles separados.
+  // El reducer mergea el output al ToolCallPart correspondiente,
+  // y se muestra inline dentro del chip expandido (tool-call-chip).
   const root = document.createElement('div');
   root.className = 'message message--toolResult';
   root.dataset.messageId = message.id;
-
-  const part = message.parts.find(isToolResult) as ToolResultPart | undefined;
-  if (part) {
-    const details = document.createElement('details');
-    details.className = `tool-result-card${part.isError ? ' tool-result-card--error' : ''}`;
-    details.open = false;
-
-    const summary = document.createElement('summary');
-    summary.className = 'tool-result-header';
-
-    const name = document.createElement('span');
-    name.className = 'tool-result-name';
-    name.textContent = `Result: ${part.toolName}`;
-    summary.append(name);
-
-    details.append(summary);
-
-    const body = document.createElement('pre');
-    body.className = 'tool-result-body';
-    body.textContent = part.result.output;
-    details.append(body);
-
-    root.append(details);
-  }
+  root.style.display = 'none';
 
   return {
     root,
     id: message.id,
-    update: () => { /* toolResult no se actualiza in-place */ },
+    update: () => {},
     dispose: () => {},
   };
 }
@@ -388,7 +268,6 @@ function renderCompactionDivider(message: ChatMessage): ChatBubbleHandle {
 // ─── Helpers ──────────────────────────────────────────────
 
 const isThinking = (p: Part): p is ThinkingPart => p.type === 'thinking';
-const isToolCall = (p: Part): p is ToolCallPart => p.type === 'toolCall';
 const isToolResult = (p: Part): p is ToolResultPart => p.type === 'toolResult';
 const isCompaction = (p: Part): p is CompactionPart => p.type === 'compaction';
 

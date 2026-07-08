@@ -33,6 +33,7 @@ import type {
   TokenUsage,
   ToolCallPart,
   ToolState,
+  ToolGroupSummary,
 } from './types.ts';
 
 // ─── ID ───────────────────────────────────────────────────
@@ -296,6 +297,74 @@ export function extractText(msg: ChatMessage): string {
     if (part.type === 'text') out += part.text;
   }
   return out;
+}
+
+// ─── Tool call grouping para chips UI ─────────────────────
+
+/** Mapeo de tool name a verbo en español para los chips. */
+const TOOL_ACTION_LABELS: Record<string, string> = {
+  bash: 'Ejecutó',
+  read: 'Leyó',
+  edit: 'Editó',
+  write: 'Escribió',
+  grep: 'Buscó',
+  find: 'Buscó',
+  ls: 'Listó',
+  web_search: 'Buscó en la web',
+  web_search_exa: 'Buscó en la web',
+  get_code_context_exa: 'Buscó código',
+  crawling_exa: 'Extrayó página',
+  web_search_advanced_exa: 'Buscó en la web',
+  ask: 'Preguntó',
+};
+
+/** Mapeo inverso: verbo → forma pasiva (Se + 3ra persona). */
+const PASSIVE_FORM: Record<string, string> = {
+  Ejecutó: 'Se ejecutó',
+  Leyó: 'Se leyó',
+  Editó: 'Se editó',
+  Escribió: 'Se escribió',
+  Buscó: 'Se buscó',
+  Listó: 'Se listó',
+  'Extrayó página': 'Se extrajo página',
+  'Buscó en la web': 'Se buscó en la web',
+  'Buscó código': 'Se buscó código',
+  Preguntó: 'Se preguntó',
+};
+
+/** Convierte una acción a forma pasiva para el summary. */
+export function passiveLabel(action: string): string {
+  return PASSIVE_FORM[action] ?? action;
+}
+
+/** Obtiene el verbo en español para un tool name.
+ *  Si no está mapeado, usa el nombre raw. */
+export function actionName(toolName: string): string {
+  return TOOL_ACTION_LABELS[toolName] ?? toolName;
+}
+
+/** Agrupa ToolCallParts por acción para mostrar un resumen tipo
+ *  "Editó 2 archivos, leyó 3 archivos". Los tools con estado
+ *  'failed' se agrupan aparte como "Error al ${name}".
+ *
+ *  Ej: parts = [edit(file1), edit(file2), read(file3)]
+ *    → [{action: "Editó", count: 2, tools: [...]},
+ *        {action: "Leyó", count: 1, tools: [...]}] */
+export function groupToolCalls(parts: ToolCallPart[]): ToolGroupSummary[] {
+  const groups = new Map<string, ToolGroupSummary>();
+  for (const tc of parts) {
+    const action = tc.state === 'failed'
+      ? `Error al ${tc.name}`
+      : actionName(tc.name);
+    const existing = groups.get(action);
+    if (existing) {
+      existing.count++;
+      existing.tools.push(tc);
+    } else {
+      groups.set(action, { action, count: 1, tools: [tc] });
+    }
+  }
+  return Array.from(groups.values());
 }
 
 /** Helper de tipos: retorna el role de un Part. Útil para switch

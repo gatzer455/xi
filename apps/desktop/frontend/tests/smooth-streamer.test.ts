@@ -18,7 +18,9 @@ describe('SmoothStreamer', () => {
 
   beforeEach(() => {
     onHtml = vi.fn();
-    streamer = new SmoothStreamer(onHtml);
+    // intervalMs: 0 → renderiza cada rAF (modo legacy) para estos tests
+    // de coalescing. El throttle se prueba aparte con fake timers.
+    streamer = new SmoothStreamer(onHtml, { intervalMs: 0 });
     rafCallbacks = new Map();
     nextRafId = 1;
 
@@ -171,65 +173,128 @@ describe('reconcileDom', () => {
     expect(container.children.length).toBe(0);
   });
 
-  test('delta: oración completada dentro del último bloque se anima', () => {
+  test('delta: el texto nuevo del bloque mutable se envuelve en fade-in', () => {
     container.innerHTML = '<p>Hola.</p>';
-    // La segunda oración está completa (tiene texto después)
     reconcileDom(container, '<p>Hola. Soy un asistente. Te ayudo</p>');
 
     const spans = fadeInSpans(container);
     expect(spans.length).toBeGreaterThanOrEqual(1);
-    // "Soy un asistente." es la oración completada (tiene " Te ayudo" después)
-    expect(spans[0].textContent).toContain('Soy un asistente');
+    // Se anima TODO el delta (sin importar boundaries de oración).
+    const animated = spans.map((s) => s.textContent).join('');
+    expect(animated).toBe(' Soy un asistente. Te ayudo');
+    // El texto viejo NO se re-anima.
+    expect(container.textContent).toBe('Hola. Soy un asistente. Te ayudo');
   });
 
-  test('delta: última oración incompleta no se anima', () => {
-    container.innerHTML = '<p>Hola.</p>';
-    // "Soy un asistente" NO termina con . ! ? \n → sigue siendo pendiente
-    reconcileDom(container, '<p>Hola. Soy un asistente</p>');
-    // Debe tener un span.fade-in para "Soy un asistente"... wait, no.
-    // " Soy un asistente" no termina con . ! ? \n. El texto después de "Hola."
-    // es " Soy un asistente" que no tiene boundaries. Así que completedBoundaries
-    // filter(b => b+1 < newText.length) → no hay boundaries en newText → 0.
-    // Ergo: ningún span.fade-in dentro del bloque.
-    const spans = fadeInSpans(container);
-    expect(spans.length).toBe(0);
-  });
-
-  test('delta: múltiples oraciones completadas se animan juntas', () => {
-    container.innerHTML = '<p>Inicio.</p>';
-    // Dos oraciones completadas
-    reconcileDom(container, '<p>Inicio. Primera. Segunda. Tercera</p>');
-
-    const spans = fadeInSpans(container);
-    expect(spans.length).toBeGreaterThanOrEqual(1);
-    // Debería animar " Primera. Segunda." (ambas están completas, " Tercera" es pendiente)
-    expect(spans[0].textContent).toContain('Primera');
-    expect(spans[0].textContent).toContain('Segunda');
-  });
-
-  test('delta: texto sin boundaries no se anima', () => {
+  test('delta: texto sin puntuación también se anima (todo el delta)', () => {
     container.innerHTML = '<p>Texto</p>';
     reconcileDom(container, '<p>Texto que sigue creciendo sin punto</p>');
     const spans = fadeInSpans(container);
-    expect(spans.length).toBe(0);
+    expect(spans.length).toBeGreaterThanOrEqual(1);
+    expect(spans.map((s) => s.textContent).join('')).toBe(' que sigue creciendo sin punto');
+  });
+
+  test('delta: no re-anima si el bloque no creció', () => {
+    container.innerHTML = '<p>Estable</p>';
+    reconcileDom(container, '<p>Estable</p>');
+    expect(fadeInSpans(container).length).toBe(0);
   });
 
   test('delta: respeta inline syntax (no rompe bold)', () => {
     container.innerHTML = '<p><strong>Hola</strong></p>';
-    // El delta son palabras nuevas sin boundaries
     reconcileDom(container, '<p><strong>Hola mundo</strong></p>');
-    // El bold debe estar intacto
+    // El bold sigue intacto: el span vive DENTRO del <strong>.
     expect(container.querySelector('strong')?.textContent).toBe('Hola mundo');
     const spans = fadeInSpans(container);
-    expect(spans.length).toBe(0); // sin boundaries → sin fade-in
+    expect(spans.length).toBe(1);
+    expect(spans[0].textContent).toBe(' mundo');
+    expect(spans[0].closest('strong')).not.toBeNull();
   });
 
-  test('delta: oración completada dentro de bold se anima correctamente', () => {
-    container.innerHTML = '<p><strong>Hola.</strong></p>';
-    reconcileDom(container, '<p><strong>Hola. Nuevo texto.</strong> Final</p>');
-    // " Nuevo texto." es oración completada → debe estar en fade-in
+  test('delta: no anima (ni flickea) cuando el markdown re-formatea el tail', () => {
+    // El viejo tenía `**negr` literal (los ** visibles como texto).
+    container.innerHTML = '<p>Hola **negr</p>';
+    // Al cerrarse el bold, `**` desaparecen del textContent → el viejo
+    // "Hola **negr" ya NO es prefijo de "Hola negrita".
+    reconcileDom(container, '<p>Hola <strong>negrita</strong></p>');
+    // No debe re-envolver texto ya visible en spans opacity:0 (eso flickea).
+    expect(fadeInSpans(container).length).toBe(0);
+    // Y el contenido queda correcto.
+    expect(container.querySelector('strong')?.textContent).toBe('negrita');
+    expect(container.textContent).toBe('Hola negrita');
+  });
+
+  test('delta: cruza inline elements → un span por text node, sin romper estructura', () => {
+    container.innerHTML = '<p>Hola </p>';
+    // El delta cruza texto plano + un <strong>.
+    reconcileDom(container, '<p>Hola mundo <strong>fuerte</strong></p>');
+    // Estructura íntegra: el <strong> sigue siendo hijo del <p>.
+    expect(container.querySelector('strong')?.textContent).toBe('fuerte');
     const spans = fadeInSpans(container);
     expect(spans.length).toBeGreaterThanOrEqual(1);
-    expect(spans[0].textContent).toContain('Nuevo texto');
+    expect(spans.map((s) => s.textContent).join('')).toBe('mundo fuerte');
+  });
+});
+
+describe('SmoothStreamer throttle', () => {
+  let onHtml: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    onHtml = vi.fn();
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      // rAF inmediato bajo fake timers: ejecuta el callback en microtask.
+      return setTimeout(() => cb(performance.now()), 0) as unknown as number;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
+      clearTimeout(id as unknown as ReturnType<typeof setTimeout>);
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  test('el primer push renderiza de inmediato', () => {
+    const s = new SmoothStreamer(onHtml, { intervalMs: 200 });
+    s.push('Hola');
+    vi.advanceTimersByTime(1); // deja correr el rAF inmediato
+    expect(onHtml).toHaveBeenCalledTimes(1);
+    s.dispose();
+  });
+
+  test('pushes seguidos coalescen hasta el próximo intervalo', () => {
+    const s = new SmoothStreamer(onHtml, { intervalMs: 200 });
+    s.push('a');
+    vi.advanceTimersByTime(1);
+    expect(onHtml).toHaveBeenCalledTimes(1); // render inmediato inicial
+
+    // Estos caen dentro del intervalo → un solo render diferido.
+    s.push('b');
+    s.push('c');
+    vi.advanceTimersByTime(50);
+    expect(onHtml).toHaveBeenCalledTimes(1); // aún no pasa el intervalo
+
+    vi.advanceTimersByTime(200);
+    expect(onHtml).toHaveBeenCalledTimes(2); // render coalescido con "abc"
+    expect(onHtml.mock.calls[1][0]).toContain('abc');
+    s.dispose();
+  });
+
+  test('flush cancela el timer pendiente y renderiza ya', () => {
+    const s = new SmoothStreamer(onHtml, { intervalMs: 200 });
+    s.push('uno');
+    vi.advanceTimersByTime(1);
+    onHtml.mockClear();
+
+    s.push(' dos'); // agenda un timer diferido
+    s.flush();
+    expect(onHtml).toHaveBeenCalledTimes(1);
+    expect(onHtml.mock.calls[0][0]).toContain('uno dos');
+
+    // El timer diferido ya no debe disparar otro render.
+    vi.advanceTimersByTime(500);
+    expect(onHtml).toHaveBeenCalledTimes(1);
   });
 });

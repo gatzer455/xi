@@ -14,7 +14,10 @@ import {
   messageId,
   stringifyContent,
   extractText,
+  groupToolCalls,
+  actionName,
 } from '../../src/lib/chat/mapping.ts';
+import type { ToolCallPart, ToolGroupSummary } from '../../src/lib/chat/types.ts';
 import type { ChatMessage } from '../../src/lib/chat/types.ts';
 
 // ─── messageId ────────────────────────────────────────────
@@ -391,6 +394,71 @@ describe('mapAgentMessage — bashExecution', () => {
     };
     const m = mapAgentMessage(raw)!;
     expect((m.parts[0] as any).result.output).toBe('just output');
+  });
+});
+
+// ─── Tool call grouping ──────────────────────────────────
+
+describe('actionName', () => {
+  it('mapea tools conocidas a verbos en español', () => {
+    expect(actionName('bash')).toBe('Ejecutó');
+    expect(actionName('read')).toBe('Leyó');
+    expect(actionName('edit')).toBe('Editó');
+    expect(actionName('write')).toBe('Escribió');
+    expect(actionName('grep')).toBe('Buscó');
+    expect(actionName('find')).toBe('Buscó');
+    expect(actionName('ls')).toBe('Listó');
+    expect(actionName('ask')).toBe('Preguntó');
+  });
+
+  it('usa el nombre raw si no está mapeado', () => {
+    expect(actionName('custom_tool')).toBe('custom_tool');
+    expect(actionName('unknown')).toBe('unknown');
+  });
+});
+
+describe('groupToolCalls', () => {
+  function tc(name: string, state: ToolCallPart['state'], id = '1'): ToolCallPart {
+    return { type: 'toolCall', toolCallId: id, name, arguments: {}, state };
+  }
+
+  it('agrupa tools del mismo tipo', () => {
+    const parts = [tc('edit', 'completed', '1'), tc('edit', 'completed', '2')];
+    const groups = groupToolCalls(parts);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].action).toBe('Editó');
+    expect(groups[0].count).toBe(2);
+  });
+
+  it('separa herramientas distintas', () => {
+    const parts = [tc('edit', 'completed', '1'), tc('read', 'completed', '2')];
+    const groups = groupToolCalls(parts);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].action).toBe('Editó');
+    expect(groups[1].action).toBe('Leyó');
+  });
+
+  it('tools fallidas se agrupan como Error al X', () => {
+    const parts = [tc('edit', 'failed', '1'), tc('edit', 'failed', '2')];
+    const groups = groupToolCalls(parts);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].action).toBe('Error al edit');
+    expect(groups[0].count).toBe(2);
+  });
+
+  it('mezcla estados: success + failed se separan en distintos grupos', () => {
+    const parts = [
+      tc('edit', 'completed', '1'),
+      tc('edit', 'failed', '2'),
+    ];
+    const groups = groupToolCalls(parts);
+    expect(groups).toHaveLength(2);
+    expect(groups[0].action).toBe('Editó');
+    expect(groups[1].action).toBe('Error al edit');
+  });
+
+  it('array vacío → array vacío', () => {
+    expect(groupToolCalls([])).toEqual([]);
   });
 });
 

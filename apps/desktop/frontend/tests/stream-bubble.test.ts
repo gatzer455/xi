@@ -5,11 +5,38 @@
  *
  * @vitest-environment jsdom
  */
-import { describe, test, expect, vi, afterEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ChatBubble } from '../src/components/chat-bubble.ts';
+import { setRevealInterval } from '../src/lib/smooth-streamer.ts';
 import type { ChatMessage, Part, ToolCallPart } from '../src/lib/chat/types.ts';
 
-// ─── rAF mocking ─────────────────────────────────────────
+// El streamer de ChatBubble usa una cadencia de ~200ms en producción.
+// En los tests la forzamos a 0 para que cada rAF renderice de inmediato.
+beforeEach(() => setRevealInterval(0));
+afterEach(() => setRevealInterval(200));
+
+// ─── Timer mocking ───────────────────────────────────────
+
+/** Mock setInterval/clearInterval para tests que crean chips con spinner. */
+function mockTimers() {
+  const intervals = new Set<ReturnType<typeof setInterval>>();
+  vi.spyOn(globalThis, 'setInterval').mockImplementation(((fn: TimerHandler, ms?: number, ...args: unknown[]) => {
+    const id = setInterval(fn, ms ?? 0, ...args);
+    intervals.add(id);
+    return id;
+  }) as typeof setInterval);
+  vi.spyOn(globalThis, 'clearInterval').mockImplementation(((id: ReturnType<typeof setInterval>) => {
+    intervals.delete(id);
+    clearInterval(id);
+  }) as typeof clearInterval);
+  return {
+    clearAll: () => {
+      for (const id of intervals) clearInterval(id);
+      intervals.clear();
+    },
+    restore: () => vi.restoreAllMocks(),
+  };
+}
 
 function mockRaf() {
   const cbs: Array<FrameRequestCallback> = [];
@@ -106,34 +133,40 @@ describe('ChatBubble — render por rol', () => {
     expect(el.classList.contains('message-text--streaming')).toBe(true);
   });
 
-  test('thinking: dots cuando isStreaming, texto cuando no', () => {
+  test('thinking: puntos animados cuando streaming, "Se pensó" cuando no', () => {
     const h1 = ChatBubble(assistantMsg('a3', [thinking('razonamiento')], { isStreaming: true }));
-    const t1 = h1.root.querySelector('.thinking-block')!;
-    expect(t1.querySelector('.thinking-dots')).toBeTruthy();
-    expect(t1.querySelector('.thinking-body')?.textContent).toBe('razonamiento');
+    const t1 = h1.root.querySelector('.thinking-chip')!;
+    const label = t1.querySelector('.tool-chip-label')!;
+    // El label tiene "Pensando" + span con dots animados CSS
+    expect(label.textContent).toContain('Pensando');
+    expect(label.querySelector('.thinking-dots-anim')).toBeTruthy();
     h1.dispose();
 
     const h2 = ChatBubble(assistantMsg('a4', [thinking('razonamiento')], { isStreaming: false }));
-    const t2 = h2.root.querySelector('.thinking-block')!;
-    expect(t2.querySelector('.thinking-dots')).toBeFalsy();
+    const t2 = h2.root.querySelector('.thinking-chip')!;
+    const label2 = t2.querySelector('.tool-chip-label')!;
+    expect(label2.textContent).toContain('Se pensó');
+    expect(label2.querySelector('.thinking-dots-anim')).toBeFalsy();
   });
 
-  test('tool call: pending → update a completed → success', () => {
-    const msg = assistantMsg('a5', [toolCall('tc1', 'bash', { command: 'ls' }, 'pending')]);
+  test('tool call: grupo colapsable se muestra con resumen en voz pasiva', () => {
+    const msg = assistantMsg('a5', [toolCall('tc1', 'bash', { command: 'ls' }, 'pending')], { isStreaming: true });
     const handle = ChatBubble(msg);
-    expect(handle.root.querySelector('.tool-call--pending')).toBeTruthy();
-    expect(handle.root.querySelector('.tool-call-name')?.textContent).toContain('ls');
-    expect(handle.root.querySelector('.tool-call--success')).toBeFalsy();
-
-    handle.update(assistantMsg('a5', [toolCall('tc1', 'bash', { command: 'ls' }, 'completed')]));
-    expect(handle.root.querySelector('.tool-call--success')).toBeTruthy();
-    expect(handle.root.querySelector('.tool-call--pending')).toBeFalsy();
+    const group = handle.root.querySelector('.tool-call-group')!;
+    expect(group).toBeTruthy();
+    expect(group.querySelector('.tool-chip-summary')?.textContent).toContain('Se ejecutó');
+    expect(handle.root.querySelector('.tool-chip-group--inferencing')).toBeTruthy();
   });
 
-  test('tool call: update a failed → error', () => {
-    const handle = ChatBubble(assistantMsg('a6', [toolCall('tc2', 'grep', { pattern: 'x', path: '.' }, 'running')]));
-    handle.update(assistantMsg('a6', [toolCall('tc2', 'grep', { pattern: 'x', path: '.' }, 'failed')]));
-    expect(handle.root.querySelector('.tool-call--error')).toBeTruthy();
+  test('tool call: update de pending a completed → fase cambia a writing', () => {
+    const msg = assistantMsg('a6', [toolCall('tc2', 'grep', { pattern: 'x', path: '.' }, 'running')], { isStreaming: true });
+    const handle = ChatBubble(msg);
+    expect(handle.root.querySelector('.tool-chip-group--inferencing')).toBeTruthy();
+
+    handle.update(assistantMsg('a6', [toolCall('tc2', 'grep', { pattern: 'x', path: '.' }, 'completed')], { isStreaming: true }));
+    // Ya no hay tools activas + isStreaming → writing
+    expect(handle.root.querySelector('.tool-chip-group--inferencing')).toBeFalsy();
+    expect(handle.root.querySelector('.tool-chip-group--writing')).toBeTruthy();
   });
 
   test('compaction: divider con tokens formateados', () => {
@@ -143,16 +176,15 @@ describe('ChatBubble — render por rol', () => {
     expect(handle.root.querySelector('.compaction-body')?.textContent).toBe('summary text');
   });
 
-  test('toolResult: card con body', () => {
+  test('toolResult: oculto (display none), resultado en chip', () => {
     const handle = ChatBubble(toolResult('tc1', 'bash', 'output text'));
-    expect(handle.root.querySelector('.tool-result-card')).toBeTruthy();
-    expect(handle.root.querySelector('.tool-result-name')?.textContent).toContain('bash');
-    expect(handle.root.querySelector('.tool-result-body')?.textContent).toBe('output text');
+    expect(handle.root.style.display).toBe('none');
+    expect(handle.root.dataset.messageId).toBeTruthy();
   });
 
-  test('toolResult con isError → clase error', () => {
+  test('toolResult con isError: igualmente oculto', () => {
     const handle = ChatBubble(toolResult('tc2', 'grep', 'not found', true));
-    expect(handle.root.querySelector('.tool-result-card--error')).toBeTruthy();
+    expect(handle.root.style.display).toBe('none');
   });
 });
 
