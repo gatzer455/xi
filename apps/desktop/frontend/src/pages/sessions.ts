@@ -580,7 +580,7 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
       t.id === tabId
         ? {
             ...t,
-            name: piSession.name,
+            name: piSession.name || t.name,
             file: piSession.file,
             messageCount: piSession.messageCount,
           }
