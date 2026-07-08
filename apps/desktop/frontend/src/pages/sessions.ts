@@ -295,7 +295,9 @@ function renderList(): HTMLElement {
   // esta suscripción a `sessions` (también module-level) se va a trackear
   // acá. Por ahora, el bug preexistente es: si el user entra y sale
   // múltiples veces, se acumulan callbacks de repaint.
+  // También re-renderizar cuando cambia el target de rename (abrir/cerrar input).
   sessions.subscribe(repaint);
+  renamingPath.subscribe(() => repaint(sessions.value));
   repaint(sessions.value);
 
   list.append(inner);
@@ -349,15 +351,31 @@ function renderItem(session: SessionInfo): HTMLElement {
     header.append(badge);
   }
 
-  const menuBtn = document.createElement("button");
-  menuBtn.className = "session-item-menu-btn";
-  menuBtn.textContent = "⋯";
-  menuBtn.title = "Acciones";
-  menuBtn.addEventListener("click", (ev) => {
+  // Botones de acción directos: renombrar inline y borrar.
+  const actions = document.createElement("div");
+  actions.className = "session-item-actions";
+
+  const renameBtn = document.createElement("button");
+  renameBtn.className = "session-item-action";
+  renameBtn.textContent = "✎";
+  renameBtn.title = "Renombrar";
+  renameBtn.addEventListener("click", (ev) => {
     ev.stopPropagation();
-    openMenu(menuBtn, session);
+    renamingPath.value = session.path;
   });
-  header.append(menuBtn);
+  actions.append(renameBtn);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "session-item-action session-item-action--danger";
+  deleteBtn.textContent = "✕";
+  deleteBtn.title = "Borrar";
+  deleteBtn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    void handleDelete(session);
+  });
+  actions.append(deleteBtn);
+
+  header.append(actions);
 
   item.append(header);
 
@@ -388,8 +406,15 @@ function renderItem(session: SessionInfo): HTMLElement {
   paintName(nameEl, session);
 
   // Click en el item (no en el menú) → switch.
+  // Click abre la sesión; doble click sobre el nombre activa rename.
   item.addEventListener("click", () => {
     void switchToSession(session);
+  });
+
+  // Doble click en el nombre → renombrar inline.
+  nameEl.addEventListener("dblclick", (ev) => {
+    ev.stopPropagation();
+    renamingPath.value = session.path;
   });
 
   return item;
@@ -421,46 +446,6 @@ function paintName(container: HTMLElement, session: SessionInfo): void {
 // Menú ⋯ — renombrar / borrar
 // ═══════════════════════════════════════════════════════
 
-function openMenu(anchor: HTMLElement, session: SessionInfo): void {
-  // Cierra cualquier menú abierto.
-  document.querySelectorAll(".session-menu").forEach((el) => el.remove());
-
-  const menu = document.createElement("div");
-  menu.className = "session-menu";
-
-  const renameBtn = document.createElement("button");
-  renameBtn.textContent = "Renombrar";
-  renameBtn.addEventListener("click", () => {
-    renamingPath.value = session.path;
-    menu.remove();
-  });
-  menu.append(renameBtn);
-
-  const deleteBtn = document.createElement("button");
-  deleteBtn.textContent = "Borrar";
-  deleteBtn.className = "session-menu-danger";
-  deleteBtn.addEventListener("click", () => {
-    menu.remove();
-    void handleDelete(session);
-  });
-  menu.append(deleteBtn);
-
-  // Posicionar el menú justo abajo del botón ⋯
-  const rect = anchor.getBoundingClientRect();
-  menu.style.position = "fixed";
-  menu.style.top = `${rect.bottom}px`;
-  menu.style.left = `${rect.right - 160}px`;
-  document.body.append(menu);
-
-  // Click fuera del menú cierra.
-  const onClickOutside = (ev: MouseEvent) => {
-    if (!menu.contains(ev.target as Node)) {
-      menu.remove();
-      document.removeEventListener("click", onClickOutside);
-    }
-  };
-  setTimeout(() => document.addEventListener("click", onClickOutside), 0);
-}
 
 function attachRenameHandlers(
   input: HTMLInputElement,
