@@ -44,6 +44,7 @@ export function ToolCallChip(
     chip.addEventListener('click', () => {
       const expanded = chip.classList.toggle('tool-chip--expanded');
       chevron.textContent = expanded ? '▾' : '▸';
+      chip.setAttribute('aria-expanded', String(expanded));
     });
 
     chip.setAttribute('role', 'button');
@@ -52,6 +53,7 @@ export function ToolCallChip(
     chip.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
+        e.stopPropagation();
         chip.click();
       }
     });

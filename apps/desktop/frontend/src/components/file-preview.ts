@@ -89,9 +89,14 @@ function renderHeader(file: { name: string; path: string }): HTMLElement {
       // Recargar contenido original
       const cwd = appState.workingDir.value;
       if (cwd && file) {
-        readFile(`${cwd}/${file.path}`).then((content) => {
-          appState.fileContent.value = content;
-        });
+        readFile(`${cwd}/${file.path}`)
+          .then((content) => {
+            appState.fileContent.value = content;
+          })
+          .catch((err) => {
+            console.error('Error reloading file content:', err);
+            appState.fileContent.value = null;
+          });
       }
     });
 

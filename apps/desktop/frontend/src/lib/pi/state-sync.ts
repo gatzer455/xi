@@ -249,13 +249,17 @@ function routeStreamEvent(event: PiEvent): void {
       lastProcessedTime = now;
       flushThrottledUpdate();
     } else if (throttleFrameId === null) {
-      throttleFrameId = requestAnimationFrame(() => {
+      const onFrame = () => {
+        throttleFrameId = null;
         const t = performance.now();
         if (t - lastProcessedTime >= THROTTLE_MS) {
           lastProcessedTime = t;
           flushThrottledUpdate();
+        } else if (pendingThrottledUpdate) {
+          throttleFrameId = requestAnimationFrame(onFrame);
         }
-      });
+      };
+      throttleFrameId = requestAnimationFrame(onFrame);
     }
   } else {
     const chatEvents = mapStreamEvent(event);
