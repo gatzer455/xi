@@ -21,6 +21,7 @@ import {
   getPiMessages,
   newPiSession,
   getPiState,
+  getAvailableModels,
 } from "../lib/pi/index.ts";
 import type {
   ListSessionsResult,
@@ -502,8 +503,17 @@ function attachRenameHandlers(
 async function createNewTab(): Promise<void> {
   // 1. UUID del cliente = identidad de la tab.
   const tabId = crypto.randomUUID();
+  const now = new Date();
+  const placeholderName = now.toLocaleDateString("es-CL", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   const newTab: Session = {
     id: tabId,
+    name: placeholderName,
     messageCount: 0,
   };
 
@@ -545,6 +555,7 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
     await ensurePiRunning();
     await newPiSession();
     await getPiState();
+    getAvailableModels();
     // Si pi no asignó nombre, ponemos la fecha de creación.
     const piSession = appState.session.value;
     if (!piSession) return;
@@ -616,7 +627,9 @@ async function switchToSession(session: SessionInfo): Promise<void> {
   loading.value = true;
   try {
     await startPi(cwd, session.path);
+    await getPiState();
     await getPiMessages();
+    getAvailableModels();
     navigate("chat");
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
