@@ -49,7 +49,10 @@ const md: MarkdownIt = new MarkdownIt({
   linkify: true,
   typographer: false,
 }).use(markdownItMath, {
-  temmlOptions: { macros: {} },
+  // throwOnError: false → si llega LaTeX inválido (típico en streaming,
+  // ej. `$$x^$$` a medio escribir) temml emite un nodo de error en vez
+  // de tirar una excepción que rompería todo el render.
+  temmlOptions: { macros: {}, throwOnError: false },
 });
 
 // ─────────────────────────────────────────────────────────────────
@@ -148,8 +151,129 @@ Object.assign(md.options, {
  * Renderiza texto markdown a HTML. Para inyectar con `innerHTML`.
  * El caller es responsable de pasar el output por un DOM seguro
  * (no user input no sanitizado — aunque html:false ya mitiga).
+ *
+ * Usar para el render FINAL (texto completo). Para renders intermedios
+ * de streaming usar `renderStreamingMarkdown`, que repara la sintaxis
+ * a medio formar.
  */
 export function renderMarkdown(text: string): string {
   if (!text) return '';
   return md.render(text);
+}
+
+// ─── Streaming: reparación de markdown incompleto ────────────────────
+//
+// El LLM emite markdown token a token, así que el tail del buffer suele
+// tener sintaxis abierta (`**negr`, `` `cod ``, `$$x`, `[link](htt`...).
+// Renderizar eso crudo muestra los caracteres de sintaxis un instante y
+// luego "snapea" al formato final = flickering.
+//
+// Solución (renderizado optimista, igual que Gemini/Streamdown):
+// completar la sintaxis abierta ANTES de parsear, para que el tail se
+// muestre siempre en su estilo final y el texto crezca DENTRO del estilo.
+//
+//   - Inline (bold/italic/code/strikethrough/links): `remend`.
+//   - Tablas y math de bloque `$$…$$`: no se pueden completar de forma
+//     optimista (no hay con qué inventar el separador de tabla ni el
+//     cuerpo de la fórmula). Se RETIENE el bloque a medio formar hasta
+//     que cierre (buffering selectivo). Reaparece —y hace fade-in como
+//     bloque nuevo— en cuanto está completo.
+
+/** Separador de tabla GFM: `|---|`, `|:--:|`, etc. (requiere un `-`). */
+const TABLE_SEPARATOR_RE = /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/;
+
+/**
+ * Si hay un bloque de math `$$…$$` sin cerrar, retiene desde su apertura
+ * hasta el final (temml no puede renderizar LaTeX incompleto de forma
+ * limpia). remend NO cierra `$$` (lo desactivamos) para no forzar esto.
+ */
+export function holdIncompleteMath(text: string): string {
+  const count = (text.match(/\$\$/g) || []).length;
+  if (count % 2 === 1) {
+    return text.slice(0, text.lastIndexOf('$$'));
+  }
+  return text;
+}
+
+/**
+ * Si el final del buffer es una tabla a medio formar (fila(s) con `|`
+ * pero sin fila separadora todavía), devuelve el texto SIN ese bloque
+ * para no mostrar pipes crudos. El texto retenido no se pierde: reaparece
+ * en cuanto el separador llega y la tabla ya es renderizable.
+ */
+export function holdIncompleteTable(text: string): string {
+  const lines = text.split('\n');
+
+  // Run final de líneas que contienen `|`.
+  let start = lines.length;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].includes('|')) start = i;
+    else break;
+  }
+  if (start === lines.length) return text; // sin líneas de tabla al final
+
+  const run = lines.slice(start);
+
+  // Señal fuerte de fila de tabla: la cabecera tiene ≥2 pipes. Evita
+  // retener prosa con un pipe suelto (ej: "usa `a | b`").
+  const headerPipes = (run[0].match(/\|/g) || []).length;
+  if (headerPipes < 2) return text;
+
+  // Si ya hay una fila separadora, markdown-it renderiza la tabla → no retener.
+  if (run.some((l) => TABLE_SEPARATOR_RE.test(l))) return text;
+
+  // Retener el bloque de tabla incompleto.
+  return lines.slice(0, start).join('\n');
+}
+
+/**
+ * Delimitador de énfasis/código recién abierto al final del buffer, sin
+ * contenido todavía (`**`, `***`, `~~`, `` ` ``, `*`, `_` precedido de
+ * inicio o espacio). remend no puede cerrarlo (no hay contenido que
+ * envolver), así que se mostraría crudo por un frame = flash. Lo quitamos;
+ * reaparece bien formado en cuanto llega el contenido.
+ */
+const DANGLING_DELIM_RE = /(^|\s)(\*{1,3}|_{1,3}|~{1,2}|`)$/;
+
+export function stripDanglingDelimiter(text: string): string {
+  return text.replace(DANGLING_DELIM_RE, '$1');
+}
+
+/**
+ * Link recién cerrado en corchetes pero sin `(url)` todavía (`[texto]` al
+ * final del buffer). remend solo repara el corchete ABIERTO (`[texto` →
+ * texto), pero deja `[texto]` literal, así que los corchetes aparecen un
+ * frame y desaparecen cuando llega `(` = flash. Quitamos el `]` final para
+ * que remend trate el link como en formación y muestre solo el texto.
+ */
+export function stripDanglingLinkClose(text: string): string {
+  if (!text.endsWith(']')) return text;
+  const open = text.lastIndexOf('[');
+  if (open === -1) return text;
+  const inner = text.slice(open + 1, -1);
+  if (inner.includes('[') || inner.includes(']')) return text;
+  return text.slice(0, -1);
+}
+
+/**
+ * Render para frames INTERMEDIOS de streaming: repara el tail incompleto
+ * antes de parsear, de modo que nunca se ve sintaxis cruda. El resultado
+ * es prefix-stable frame a frame, lo que además evita re-animar texto ya
+ * visible (ver reconcileDom).
+ *
+ * Observación: anteriormente se usaba remend para cerrar inline syntax
+ * (**bold, *italic, `code) de forma optimista. Se eliminó por:
+ *  - No maneja $$ (desactivado explícitamente)
+ *  - Nuestras holds (holdIncompleteMath, holdIncompleteTable) + strips
+ *    (stripDanglingDelimiter, stripDanglingLinkClose) cubren mejor los
+ *    casos importantes sin dependencia extra.
+ *  - El flash de 1 frame de **text crudo es casi invisible a 60fps.
+ */
+export function renderStreamingMarkdown(text: string): string {
+  if (!text) return '';
+  const held = stripDanglingLinkClose(
+    stripDanglingDelimiter(holdIncompleteTable(holdIncompleteMath(text))),
+  );
+  if (!held) return '';
+  return md.render(held);
 }
