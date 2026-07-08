@@ -33,7 +33,7 @@ import { setActiveTab, type Session } from "../lib/state.ts";
 import { dropStore } from "../lib/chat/stores.ts";
 import { ensurePiRunning } from "../lib/pi/lifecycle.ts";
 
-const POLL_INTERVAL_MS = 10_000;
+const POLL_INTERVAL_MS = 30_000;
 
 // Signals locales: viven a nivel de módulo (no se recrean en cada mount).
 // Esto significa que conservan estado entre mounts — si el user entra
@@ -673,7 +673,9 @@ async function handleDelete(session: SessionInfo): Promise<void> {
       appState.activeTabId.value = null;
       appState.session.value = null;
     }
-    await loadSessions();
+    // Update optimístico: remover del listado local sin esperar loadSessions.
+    sessions.value = sessions.value.filter((s) => s.path !== session.path);
+    void loadSessions();
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   }
@@ -684,11 +686,19 @@ async function handleRename(
   newName: string,
   onDone: () => void,
 ): Promise<void> {
+  // Update optimístico: cambiar nombre localmente.
+  sessions.value = sessions.value.map((s) =>
+    s.path === session.path ? { ...s, name: newName } : s,
+  );
   try {
     await renameSession(session.path, newName);
     onDone();
-    await loadSessions();
+    void loadSessions();
   } catch (err) {
+    // Revertir al nombre anterior.
+    sessions.value = sessions.value.map((s) =>
+      s.path === session.path ? { ...s, name: session.name } : s,
+    );
     error.value = err instanceof Error ? err.message : String(err);
     onDone();
   }
