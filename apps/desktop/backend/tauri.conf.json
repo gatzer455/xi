@@ -45,7 +45,7 @@
     "windows": {
       "nsis": {
         "installerIcon": "icons/icon.ico",
-        "installMode": "perUser",
+        "installMode": "currentUser",
         "headerImage": "installer/header.bmp",
         "sidebarImage": "installer/sidebar.bmp",
         "installerHooks": "installer/xi-hooks.nsh"
