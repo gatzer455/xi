@@ -187,7 +187,8 @@ export function reconcileDom(container: HTMLElement, newHtml: string): void {
     const block = container.children[stable] as HTMLElement;
     if (block && !block.classList.contains('fade-in')) {
       const newText = block.textContent || '';
-      if (newText.length > oldBlockLen && newText.startsWith(oldBlockText)) {
+      const hasMath = !!block.querySelector('math');
+      if (!hasMath && newText.length > oldBlockLen && newText.startsWith(oldBlockText)) {
         wrapDeltaRange(block, oldBlockLen, newText.length);
       }
     }
@@ -201,9 +202,9 @@ export function reconcileDom(container: HTMLElement, newHtml: string): void {
  * en `<span class="fade-in">`, un span por cada text node afectado.
  *
  * Trabaja sobre el TEXTO RENDERIZADO (text nodes del DOM), no sobre raw
- * markdown, así que es seguro: nunca rompe tablas, LaTeX ni code fences.
- * Envolver por text node (en vez de un único Range que cruza elementos)
+ * markdown. Envolver por text node (en vez de un único Range que cruza elementos)
  * garantiza que nunca se extrae estructura parcial de `<td>`/`<li>`/etc.
+ * NOTA: no se aplica a bloques con MathML (Temml) — se usa full-block fade-in.
  */
 function wrapDeltaRange(el: HTMLElement, startChar: number, endChar: number): void {
   if (startChar >= endChar) return;
