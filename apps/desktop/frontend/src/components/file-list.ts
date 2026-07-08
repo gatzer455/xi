@@ -8,7 +8,7 @@
 
 import { appState, type FileEntry } from '../lib/state.ts';
 import type { Scope } from '../lib/scope.ts';
-import { listFiles } from '../lib/pi/tauri-commands.ts';
+import { listFiles, readFile } from '../lib/pi/tauri-commands.ts';
 import { icon, getFileIconName } from '../lib/icons.ts';
 
 export function FileList(scope: Scope): HTMLElement {
@@ -171,7 +171,6 @@ async function handleFileClick(file: FileEntry): Promise<void> {
   const currentPath = appState.explorerPath.value;
   if (currentPath) {
     try {
-      const { readFile } = await import('../lib/pi/tauri-commands.ts');
       const content = await readFile(`${currentPath}/${file.name}`);
       appState.fileContent.value = content;
     } catch (err) {

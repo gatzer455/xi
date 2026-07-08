@@ -49,6 +49,38 @@ import type {
  *  activeTabId como fallback. */
 let streamingSessionId: string | null = null;
 
+// ── Throttle message_update (evita saturar el store con 100+ eventos/s) ──
+
+/** Último message_update pendiente de procesar. Se actualiza en cada
+ *  evento entrante y se procesa una vez por rAF. */
+let pendingThrottledUpdate: { event: PiMessageUpdateEvent; targetId: string } | null = null;
+let throttleFrameId: number | null = null;
+
+function flushThrottledUpdate(): void {
+  throttleFrameId = null;
+  if (!pendingThrottledUpdate) return;
+  const { event, targetId } = pendingThrottledUpdate;
+  pendingThrottledUpdate = null;
+
+  // Loggear solo el evento que realmente se procesa (nivel debug para no inundar)
+  const size = JSON.stringify(event).length;
+  addEntry('in', `↩ message_update size=${size}B`, 'debug');
+
+  const chatEvents = mapMessageEvent(
+    event as PiMessageUpdateEvent,
+    'message_update',
+  );
+  if (chatEvents.length === 0) return;
+  const store = getStore(targetId);
+  for (const ce of chatEvents) store.dispatch(ce);
+}
+
+/** Intervalo mínimo entre procesamientos de message_update (ms).
+ *  rAF ya da ~16ms, pero con subimos a 50ms procesamos ~20/s
+ *  en vez de ~60/s, suficiente para streaming fluido. */
+const THROTTLE_MS = 50;
+let lastProcessedTime = 0;
+
 /** Reclama el routing del próximo stream para `sessionId`. Llamar ANTES
  *  de `sendPrompt` para ganar la carrera contra un cambio de tab que el
  *  usuario pueda hacer antes de que llegue `agent_start`. */
@@ -75,18 +107,20 @@ export function endStream(): void {
 // ─── Punto de entrada ─────────────────────────────────────
 
 export function applyEvent(event: PiEvent): void {
-  // Resumen del evento: tipo + comando (si response) + tamaño
-  const size = JSON.stringify(event).length;
+  // Responses siempre se loguean (son pocas e importantes).
   if (event.type === 'response') {
+    const size = JSON.stringify(event).length;
     const cmd = (event as PiResponseEvent).command ?? 'unknown';
     addEntry('in', `↩ response:${cmd} size=${size}B`);
-  } else {
-    addEntry('in', `↩ ${event.type} size=${size}B`);
-  }
-
-  if (event.type === 'response') {
     handleResponse(event as PiResponseEvent);
     return;
+  }
+
+  // message_update se loguea solo cuando se procesa (dentro del throttle).
+  // Los demás eventos (agent_start, message_end, etc.) se loguean siempre.
+  if (event.type !== 'message_update') {
+    const size = JSON.stringify(event).length;
+    addEntry('in', `↩ ${event.type} size=${size}B`);
   }
 
   routeStreamEvent(event);
@@ -205,11 +239,34 @@ function routeStreamEvent(event: PiEvent): void {
     return;
   }
 
-  const chatEvents = mapStreamEvent(event);
-  if (chatEvents.length === 0) return;
-
-  const store = getStore(targetId);
-  for (const ce of chatEvents) store.dispatch(ce);
+  // message_update: throttle a ~20/s (50ms). Los eventos intermedios
+  // se descartan; solo importa el último estado de cada intervalo.
+  if (event.type === 'message_update') {
+    pendingThrottledUpdate = { event: event as PiMessageUpdateEvent, targetId };
+    const now = performance.now();
+    const elapsed = now - lastProcessedTime;
+    if (elapsed >= THROTTLE_MS) {
+      lastProcessedTime = now;
+      flushThrottledUpdate();
+    } else if (throttleFrameId === null) {
+      const onFrame = () => {
+        throttleFrameId = null;
+        const t = performance.now();
+        if (t - lastProcessedTime >= THROTTLE_MS) {
+          lastProcessedTime = t;
+          flushThrottledUpdate();
+        } else if (pendingThrottledUpdate) {
+          throttleFrameId = requestAnimationFrame(onFrame);
+        }
+      };
+      throttleFrameId = requestAnimationFrame(onFrame);
+    }
+  } else {
+    const chatEvents = mapStreamEvent(event);
+    if (chatEvents.length === 0) return;
+    const store = getStore(targetId);
+    for (const ce of chatEvents) store.dispatch(ce);
+  }
 
   // agent_end limpia el routing y el flag global.
   if (event.type === 'agent_end') {

@@ -21,6 +21,7 @@ import type {
   ChatSession,
   MessageId,
   ToolCallPart,
+  ToolResultPart,
   ToolState,
   Part,
 } from './types.ts';
@@ -57,9 +58,16 @@ export function reduce(state: ChatState, event: ChatEvent): ChatState {
   switch (event.type) {
     case 'init':                   return reduceInit(event.session, event.messages);
     case 'agent_start':            return { ...state, isStreaming: true };
-    case 'message_start':          return reduceMessageStart(state, event.message);
-    case 'message_update':         return reduceMessageUpdate(state, event.message);
-    case 'message_end':            return reduceMessageEnd(state, event.message);
+    case 'message_start':
+      // Los toolResult se mergean al ToolCallPart correspondiente
+      if (event.message.role === 'toolResult') return reduceToolResultMessage(state, event.message);
+      return reduceMessageStart(state, event.message);
+    case 'message_update':
+      if (event.message.role === 'toolResult') return reduceToolResultMessage(state, event.message);
+      return reduceMessageUpdate(state, event.message);
+    case 'message_end':
+      if (event.message.role === 'toolResult') return reduceToolResultMessage(state, event.message);
+      return reduceMessageEnd(state, event.message);
     case 'tool_execution_start':   return reduceToolExec(state, event.toolCallId, 'running');
     case 'tool_execution_end':     return reduceToolExec(state, event.toolCallId, event.isError ? 'failed' : 'completed');
     case 'agent_end':              return reduceAgentEnd(state, event.messages);
@@ -111,6 +119,46 @@ function reduceMessageEnd(state: ChatState, message: ChatMessage): ChatState {
   const existing = findMessage(state, message.id);
   const finalMsg = existing ? mergeToolCallStates(message, existing) : message;
   const messages = upsertMessage(state.messages, { ...finalMsg, isStreaming: false });
+  return { ...state, messages };
+}
+
+// ─── tool result → merge al ToolCallPart ──────────────────
+
+/** Type guard: `p.type === 'toolResult'` */
+function isToolResultPart(p: Part): p is ToolResultPart {
+  return p.type === 'toolResult';
+}
+
+/** Cuando llega un mensaje toolResult, mergea el output al
+ *  ToolCallPart correspondiente en el assistant message que lo
+ *  invocó, para que los chips puedan mostrar el resultado inline.
+ *  También inserta el toolResult message (por si alguien lo
+ *  necesita), pero la UI no lo renderiza como bubble separado. */
+function reduceToolResultMessage(state: ChatState, message: ChatMessage): ChatState {
+  // Extraer el ToolResultPart
+  const resultPart = message.parts.find(isToolResultPart) as ToolResultPart | undefined;
+  if (!resultPart) {
+    return { ...state, messages: upsertMessage(state.messages, message) };
+  }
+
+  const { toolCallId, result, isError } = resultPart;
+
+  // Mergear el resultado en el ToolCallPart correspondiente
+  const updatedMessages = state.messages.map(msg => {
+    if (msg.role !== 'assistant') return msg;
+    let changed = false;
+    const parts = msg.parts.map(part => {
+      if (part.type === 'toolCall' && part.toolCallId === toolCallId) {
+        changed = true;
+        return { ...part, result: { output: result.output, isError } };
+      }
+      return part;
+    });
+    return changed ? { ...msg, parts } : msg;
+  });
+
+  // Insertar/actualizar el toolResult message también
+  const messages = upsertMessage(updatedMessages, message);
   return { ...state, messages };
 }
 
@@ -214,7 +262,7 @@ export function mergeToolCallStates(
   const parts: Part[] = incoming.parts.map(part => {
     if (part.type !== 'toolCall') return part;
     const existingPart = findToolCallPart(existing, part.toolCallId);
-    return existingPart ? { ...part, state: existingPart.state } : part;
+    return existingPart ? { ...part, state: existingPart.state, result: existingPart.result } : part;
   });
   return { ...incoming, parts };
 }

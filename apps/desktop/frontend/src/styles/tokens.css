@@ -34,11 +34,11 @@
   --font-sans: 'Adwaita Sans', 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'Adwaita Mono', 'Iosevka', 'JetBrains Mono', monospace;
   --font-size-base: 1rem;
-  --text-xs:   0.75em;
-  --text-sm:   0.875em;
-  --text-base: 1em;
-  --text-lg:   1.125em;
-  --text-xl:   1.25em;
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
 
   /* ═══ Espaciado ═══
      Escala de 4px base. Un solo archivo para cambiar si

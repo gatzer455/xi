@@ -51,19 +51,35 @@ export interface ThinkingPart {
 
 /** Tool call dentro de un assistant message.
  *
- *  Trackea SOLO el `state` (string) para UI — color del dot, spinner.
- *  El result text vive en un `ToolResultPart` separado (D8), fiel a
- *  pi donde `ToolResultMessage` es un message aparte. */
+ *  Trackea el `state` (string) para UI. El `result` se mergea desde
+ *  el mensaje toolResult correspondiente a través del reducer, para
+ *  que los chips puedan mostrar el resultado inline (como Claude Desktop).
+ *  Originalmente el result text vivía en un `ToolResultPart` separado
+ *  (D8), pero ahora se duplica al ToolCallPart para facilitar la UI. */
 export interface ToolCallPart {
   type: 'toolCall';
   toolCallId: ToolCallId;
   name: string;
   arguments: Record<string, unknown>;
   state: ToolState;
+  /** Resultado mergeado desde el toolResult message. Undefined hasta
+   *  que el reducer lo procesa. */
+  result?: { output: string; isError: boolean };
 }
 
 /** State machine del ToolCallPart (D8). */
 export type ToolState = 'pending' | 'running' | 'completed' | 'failed';
+
+/** Resumen agrupado de tool calls para chips UI.
+ *  Ej: "Editó 2 archivos, leyó 3 archivos" */
+export interface ToolGroupSummary {
+  /** Verbo en español: "Editó", "Leyó", "Ejecutó", "Error al editar" */
+  action: string;
+  /** Cantidad de tool calls en este grupo */
+  count: number;
+  /** Las tool calls agrupadas */
+  tools: ToolCallPart[];
+}
 
 /** Tool result como message separado (role='toolResult').
  *

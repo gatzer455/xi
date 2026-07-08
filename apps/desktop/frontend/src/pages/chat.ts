@@ -38,7 +38,6 @@ import {
 import { navigate } from '../lib/nav.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
-const NEAR_BOTTOM_PX = 100;
 
 export function ChatPage(): Page {
   const root = document.createElement('div');
@@ -166,7 +165,7 @@ function createMessagesContainer() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// Auto-scroll
+// Scroll (manual, sin auto-scroll)
 // ═══════════════════════════════════════════════════════════
 
 interface AutoScrollOptions {
@@ -180,13 +179,6 @@ function createAutoScroll(opts: AutoScrollOptions) {
   const { container, sentinel, inner, scope } = opts;
 
   let hasPinnedOnFirstRender = false;
-  let pauseAutoScroll = false;
-
-  function isNearBottom(): boolean {
-    const distance =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
-    return distance <= NEAR_BOTTOM_PX;
-  }
 
   function pinToBottom(): void {
     requestAnimationFrame(() => {
@@ -196,27 +188,6 @@ function createAutoScroll(opts: AutoScrollOptions) {
       });
     });
   }
-
-  inner.addEventListener(
-    'toggle',
-    (e) => {
-      if (e.target instanceof HTMLDetailsElement) {
-        pauseAutoScroll = true;
-        setTimeout(() => { pauseAutoScroll = false; }, 300);
-      }
-    },
-    true,
-  );
-
-  const resizeObserver = new ResizeObserver(() => {
-    if (pauseAutoScroll) return;
-    if (isNearBottom()) {
-      sentinel.scrollIntoView({ block: 'end', behavior: 'instant' });
-    }
-  });
-
-  resizeObserver.observe(inner);
-  scope.add(() => resizeObserver.disconnect());
 
   return {
     pinToBottom: (): void => {
@@ -272,13 +243,21 @@ function renderMessagesInto(
     }
   }
 
-  // Re-attach en orden antes del sentinel.
-  for (const handle of bubbleHandles.values()) {
-    if (handle.root.parentNode !== messagesInner) {
-      messagesInner.insertBefore(handle.root, endSentinel);
-    } else {
-      messagesInner.insertBefore(handle.root, endSentinel);
+  // Re-attach SOLO los nodos que están fuera de orden. Mover un nodo ya
+  // colocado con insertBefore lo desasocia y re-inserta → fuerza repaint.
+  // Hacerlo con TODOS los bubbles en cada emisión de messages$ (~cada 50ms
+  // durante streaming) hacía parpadear el final de cada mensaje —incluido
+  // el anterior ya completo— en sincronía con el que se escribe.
+  // Recorremos en orden inverso posicionando cada nodo antes de `ref`;
+  // en streaming estable (orden sin cambios) no se mueve nada.
+  let ref: ChildNode = endSentinel;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const handle = bubbleHandles.get(messages[i].id);
+    if (!handle) continue;
+    if (handle.root.nextSibling !== ref || handle.root.parentNode !== messagesInner) {
+      messagesInner.insertBefore(handle.root, ref);
     }
+    ref = handle.root;
   }
 
   pinToBottom();

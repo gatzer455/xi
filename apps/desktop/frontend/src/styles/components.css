@@ -85,27 +85,41 @@
   margin: var(--space-2) 0;
 }
 
-/* Streaming text: textContent plain, line-height consistente para
-   evitar layout jumps al cambiar a markdown al final. */
+/* Streaming container for markdown rendering.
+   DOM reconciliation mantiene bloques estables y anima solo los nuevos. */
 .message-text--streaming {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  line-height: 1.6;
-  min-height: 1.6em; /* Evita colapso de línea vacía inicial */
+  min-height: 1.6em;
 }
 
-/* Cursor parpadeante al final del texto en streaming */
-.message-text--has-cursor::after {
-  content: '\258D';
-  display: inline-block;
-  margin-left: 1px;
-  color: var(--color-accent);
-  animation: cursor-blink 0.9s steps(2, start) infinite;
-  font-weight: 300;
-  opacity: 0.7;
+/* Fade-in del contenido nuevo en streaming.
+   reconcileDom() aplica esta clase a:
+     - bloques genuinamente nuevos (párrafos, tablas, code fences, listas)
+     - spans que envuelven el delta de texto del último bloque mutable
+   La duración (0.18s) debe caber dentro de la cadencia de revelado
+   (~200ms) para que la animación complete antes del siguiente render. */
+.fade-in {
+  animation: block-fade-in 0.18s ease-out both;
 }
-@keyframes cursor-blink { to { visibility: hidden; } }
 
+@keyframes block-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-in {
+    animation: none;
+  }
+}
+
+/* Cursor parpadeante al final del texto pendiente (bloque incompleto).
+   Solo visible cuando onPending(true) — el BlockRenderer lo togglea. */
 /* ═══ THINKING BLOCK ═══
    Bloque colapsable para razonamiento. Aparece ARRIBA del texto del
    assistant, integrado al mismo message-content. Mismo padding que
@@ -148,147 +162,138 @@ details[open] > .thinking-summary::before { content: '▾'; }
   font-style: normal;
 }
 
-/* Dots animados del thinking block durante streaming */
-.thinking-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  margin-right: 2px;
-}
-.thinking-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-text-muted);
-  animation: thinking-bounce 1.4s ease-in-out infinite;
-}
-.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
-@keyframes thinking-bounce {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
-  40% { transform: scale(1); opacity: 1; }
+
+
+/* ═══ TOOL CHIP GROUP ═══
+   Contenedor de chips (thinking + tool calls). Aparece entre el
+   borde superior del bubble y el texto de respuesta.
+
+   Fases:
+     --inferencing: spinner animado en el contenedor
+     --writing:     pixel dot quieto
+     --done:        sin indicador, chips neutros */
+.tool-chip-group {
+  margin-bottom: var(--space-2);
 }
 
-/* ═══ TOOL CALL ═══
-   Card colapsable para herramientas de pi. Header con
-   nombre + status badge. Background según estado. */
-.tool-call {
-  margin: 0 0 var(--space-2) 0;
-  border-radius: var(--radius-sm);
-  font-size: 1em;
-  overflow: hidden;
-  border: 1px solid transparent;
-  transition: background 0.15s ease;
-}
-.tool-call--pending {
-  background: var(--color-tool-pending-bg);
-  border-color: var(--color-border-muted);
-}
-.tool-call--success { background: var(--color-tool-success-bg); }
-.tool-call--error {
-  background: var(--color-tool-error-bg);
-  border-color: var(--color-warning);
+/* Dots animados para el label "Pensando" durante streaming.
+   Ciclo . → .. → ... sin JS, solo con animation + content. */
+.thinking-dots-anim::after {
+  display: inline;
+  animation: thinking-dots 1.5s steps(4) infinite;
+  content: '.';
 }
 
-.tool-call-header {
-  padding: var(--space-2) var(--space-3);
+@keyframes thinking-dots {
+  0%   { content: '.'; }
+  25%  { content: '..'; }
+  50%  { content: '...'; }
+  75%  { content: '..'; }
+  100% { content: '.'; }
+}
+
+/* ═══ TOOL CHIP (base) ═══
+   Chip individual o grupo. Sutil, compacto, interactivo.
+   Sin cards, sin backgrounds de estado. */
+.tool-chip {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary, var(--color-text-muted));
   cursor: pointer;
+  user-select: none;
+}
+
+.tool-chip:hover > .tool-chip-header {
+  color: var(--color-text);
+}
+
+.tool-chip-header {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  list-style: none;
-  font-weight: 500;
-  user-select: none;
-  font-size: var(--text-sm);
-  font-family: var(--font-mono);
-}
-.tool-call-header::-webkit-details-marker { display: none; }
-
-.tool-call-name {
-  flex: 1;
-  color: var(--color-tool-title);
-  word-break: break-all;
+  gap: 6px;
+  padding: 2px 0;
 }
 
-/* Status indicator: solo color, sin icono */
-.tool-call-status {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.tool-chip-status {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
   flex-shrink: 0;
-  background: var(--color-text-muted);
-}
-.tool-call-status--pending {
-  background: var(--color-info-bg, #e3f2fd);
-  outline: 2px solid var(--color-warning);
-  outline-offset: -1px;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-.tool-call-status--success { background: var(--color-diff-added); }
-.tool-call-status--error { background: var(--color-diff-removed); }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  font-size: var(--text-sm);
+  font-style: normal;
+  color: var(--color-context-bar-spinner, var(--color-accent));
 }
 
-.tool-call-body {
+.tool-chip-label {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-weight: 400;
+}
+
+.tool-chip-chevron {
+  font-size: 10px;
+  color: var(--color-text-dim, var(--color-text-muted));
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+  width: 10px;
+  text-align: center;
+}
+
+.tool-chip--expanded .tool-chip-chevron {
+  transform: rotate(0deg);
+}
+
+/* Body expandible: display none/block */
+.tool-chip-body {
+  display: none;
+}
+
+.tool-chip--expanded > .tool-chip-body {
+  display: block;
+}
+
+/* El thinking chip body necesita un contenedor grid interno para que
+   markdown-it renderice correctamente los párrafos anidados. */
+
+/* ═══ THINKING CHIP ═══ */
+.thinking-chip .tool-chip-body {
+  padding: 0;
+  margin-left: 16px;
+  color: var(--color-text-secondary, var(--color-text-muted));
+}
+
+/* ═══ TOOL CALL GROUP (nivel 1) ═══ */
+.tool-call-group .tool-chip-group-item {
+  padding: 2px 0;
+}
+
+.tool-chip-summary {
+  flex: 1;
+}
+
+/* ═══ TOOL CALL CHIP (nivel 2+3) ═══ */
+.tool-call-chip .tool-chip-header {
+  padding: 2px 0 2px 16px; /* indent bajo el summary */
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.tool-chip-detail {
   margin: 0;
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6);
+  padding: var(--space-1) var(--space-2) var(--space-2) calc(16px + var(--space-2));
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  color: var(--color-text);
+  color: var(--color-text-dim, var(--color-text-muted));
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-height: 400px;
+  max-height: 200px;
   overflow-y: auto;
-  border-top: 1px solid var(--color-border-muted);
+  line-height: 1.6;
 }
 
-/* ═══ TOOL RESULT CARD ═══
-   Card colapsable para mensajes de tipo toolResult. Hermana del
-   tool call que la produjo. */
-.tool-result-card {
-  background: var(--color-tool-success-bg);
-  border-radius: var(--radius-sm);
-  margin: 0;
-  font-size: 1em;
-  overflow: hidden;
-  border: 1px solid transparent;
-  transition: background 0.15s ease;
-  width: 100%;
-  max-width: 700px;
-}
-.tool-result-card--error {
-  background: var(--color-tool-error-bg);
-  border-color: var(--color-warning);
-}
-
-.tool-result-header {
-  padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  list-style: none;
-  font-weight: 500;
-  user-select: none;
-  font-size: var(--text-sm);
-  font-family: var(--font-mono);
-}
-.tool-result-name { flex: 1; font-weight: 500; }
-
-.tool-result-body {
-  margin: 0;
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--color-text);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  max-height: 300px;
-  overflow-y: auto;
-  border-top: 1px solid var(--color-border-muted);
+/* Error state: tool detail en rojo */
+.tool-chip-detail--error {
+  color: var(--color-error, #f87171);
 }
 
 /* ═══ COMPACTION DIVIDER ═══
