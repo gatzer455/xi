@@ -2,7 +2,7 @@
  * sessions.ts — Página de gestión de sesiones (Etapa 4).
  *
  * Lista las sesiones del cwd activo, permite switch, rename y delete.
- * Hace polling cada 10s para reflejar cambios en el FS.
+ * Hace polling cada 30s para reflejar cambios externos en el FS.
  *
  * Patrón: signal local + `setInterval` que se limpia en `page:remove`.
  * El polling se pausa si la pestaña no es visible o si hay un input
@@ -85,7 +85,7 @@ export function SessionsPage(): Page {
   root.append(renderHeader());
   root.append(renderSkipWarning(scope));
   root.append(renderErrorBanner(scope));
-  root.append(renderList());
+  root.append(renderList(scope));
   root.append(renderFooter());
 
   // Carga inicial + polling.
@@ -268,7 +268,7 @@ function renderErrorBanner(
   );
 }
 
-function renderList(): HTMLElement {
+function renderList(scope: import("../lib/scope.ts").Scope): HTMLElement {
   const list = document.createElement("div");
   list.className = "sessions-list";
 
@@ -297,8 +297,9 @@ function renderList(): HTMLElement {
   // acá. Por ahora, el bug preexistente es: si el user entra y sale
   // múltiples veces, se acumulan callbacks de repaint.
   // También re-renderizar cuando cambia el target de rename (abrir/cerrar input).
-  sessions.subscribe(repaint);
-  renamingPath.subscribe(() => repaint(sessions.value));
+  const unsubSessions = sessions.subscribe(repaint);
+  const unsubRenaming = renamingPath.subscribe(() => repaint(sessions.value));
+  scope.add(() => { unsubSessions(); unsubRenaming(); });
   repaint(sessions.value);
 
   list.append(inner);
@@ -352,6 +353,7 @@ function renderItem(session: SessionInfo): HTMLElement {
   const renameBtn = document.createElement("button");
   renameBtn.className = "session-item-action";
   renameBtn.title = "Renombrar";
+  renameBtn.setAttribute("aria-label", "Renombrar sesión");
   renameBtn.append(icon('pencil', { size: 14 }));
   renameBtn.addEventListener("click", (ev) => {
     ev.stopPropagation();
@@ -362,6 +364,7 @@ function renderItem(session: SessionInfo): HTMLElement {
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "session-item-action session-item-action--danger";
   deleteBtn.title = "Borrar";
+  deleteBtn.setAttribute("aria-label", "Borrar sesión");
   deleteBtn.append(icon('trash-2', { size: 14 }));
   deleteBtn.addEventListener("click", (ev) => {
     ev.stopPropagation();
@@ -399,16 +402,39 @@ function renderItem(session: SessionInfo): HTMLElement {
   // ── Renderizar el nombre (puede ser <span> o <input> si está en rename) ──
   paintName(nameEl, session);
 
-  // Click en el item (no en el menú) → switch.
-  // Click abre la sesión; doble click sobre el nombre activa rename.
-  item.addEventListener("click", () => {
-    void switchToSession(session);
+  // Click en el item → switch a la sesión.
+  // Si el click es sobre el nombre, diferimos ~250ms para distinguir
+  // doble click (rename) de click simple (switch).
+  let clickTimer: ReturnType<typeof setTimeout> | null = null;
+  nameEl.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (clickTimer) {
+      // Segundo click → doble click; cancelar la navegación.
+      clearTimeout(clickTimer);
+      clickTimer = null;
+      return;
+    }
+    clickTimer = setTimeout(() => {
+      clickTimer = null;
+      void switchToSession(session);
+    }, 250);
   });
 
-  // Doble click en el nombre → renombrar inline.
+  // Doble click en el nombre → renombrar inline (sin navegar).
   nameEl.addEventListener("dblclick", (ev) => {
     ev.stopPropagation();
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      clickTimer = null;
+    }
     renamingPath.value = session.path;
+  });
+
+  // Click en otras partes del item (preview, stats) → navega directo.
+  item.addEventListener("click", (ev) => {
+    // nameEl ya manejó su propio click con timer.
+    if (ev.target === nameEl || nameEl.contains(ev.target as Node)) return;
+    void switchToSession(session);
   });
 
   return item;
