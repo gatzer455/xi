@@ -425,6 +425,11 @@ function paintName(container: HTMLElement, session: SessionInfo): void {
     input.type = "text";
     input.value = session.name ?? "";
     input.autofocus = true;
+    // Seleccionar todo el texto al entrar a rename.
+    // requestAnimationFrame asegura que el autoFocus ya se aplicó.
+    requestAnimationFrame(() => input.select());
+    // Evitar que click en el input navegue a la sesión.
+    input.addEventListener("click", (ev) => ev.stopPropagation());
     attachRenameHandlers(input, session, () => {
       renamingPath.value = null;
     });
