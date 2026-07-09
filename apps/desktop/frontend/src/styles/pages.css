@@ -328,27 +328,35 @@
   outline: none;
 }
 
-.session-badge-active {
-  font-size: var(--text-sm);
-  background: var(--color-accent);
-  color: white;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
+.session-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
-
-.session-item-menu-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md);
+.session-card:hover .session-item-actions,
+.session-card:focus-within .session-item-actions {
+  opacity: 1;
+}
+.session-item-action {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
   color: var(--color-text-muted);
-  font-size: var(--text-lg);
-  flex-shrink: 0;
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.15s, color 0.15s;
 }
-.session-item-menu-btn:hover { background: var(--color-surface-2); color: var(--color-text); }
+.session-item-action:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.session-item-action--danger:hover {
+  color: var(--color-error);
+}
 
 .session-item-preview {
   color: var(--color-text-muted);
@@ -362,27 +370,7 @@
 
 .session-item-stats { font-size: var(--text-sm); color: var(--color-text-muted); display: flex; align-items: center; gap: var(--space-1); }
 
-.session-menu {
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  padding: var(--space-1);
-  min-width: 160px;
-  z-index: 100;
-  display: flex;
-  flex-direction: column;
-}
-.session-menu button {
-  text-align: left;
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--color-text);
-  border-radius: var(--radius-sm);
-  transition: background 0.15s;
-}
-.session-menu button:hover { background: var(--color-surface); }
-.session-menu-danger { color: var(--color-error) !important; }
+
 
 .sessions-footer {
   padding: var(--space-3) var(--space-6);

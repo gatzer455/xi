@@ -2,7 +2,7 @@
  * sessions.ts — Página de gestión de sesiones (Etapa 4).
  *
  * Lista las sesiones del cwd activo, permite switch, rename y delete.
- * Hace polling cada 10s para reflejar cambios en el FS.
+ * Hace polling cada 30s para reflejar cambios externos en el FS.
  *
  * Patrón: signal local + `setInterval` que se limpia en `page:remove`.
  * El polling se pausa si la pestaña no es visible o si hay un input
@@ -21,18 +21,20 @@ import {
   getPiMessages,
   newPiSession,
   getPiState,
+  getAvailableModels,
 } from "../lib/pi/index.ts";
 import type {
   ListSessionsResult,
   SessionInfo,
   SkippedInfo,
 } from "../lib/pi/types.ts";
+import { icon } from "../lib/icons.ts";
 import { navigate } from "../lib/nav.ts";
 import { setActiveTab, type Session } from "../lib/state.ts";
 import { dropStore } from "../lib/chat/stores.ts";
 import { ensurePiRunning } from "../lib/pi/lifecycle.ts";
 
-const POLL_INTERVAL_MS = 10_000;
+const POLL_INTERVAL_MS = 30_000;
 
 // Signals locales: viven a nivel de módulo (no se recrean en cada mount).
 // Esto significa que conservan estado entre mounts — si el user entra
@@ -83,7 +85,7 @@ export function SessionsPage(): Page {
   root.append(renderHeader());
   root.append(renderSkipWarning(scope));
   root.append(renderErrorBanner(scope));
-  root.append(renderList());
+  root.append(renderList(scope));
   root.append(renderFooter());
 
   // Carga inicial + polling.
@@ -266,7 +268,7 @@ function renderErrorBanner(
   );
 }
 
-function renderList(): HTMLElement {
+function renderList(scope: import("../lib/scope.ts").Scope): HTMLElement {
   const list = document.createElement("div");
   list.className = "sessions-list";
 
@@ -294,7 +296,10 @@ function renderList(): HTMLElement {
   // esta suscripción a `sessions` (también module-level) se va a trackear
   // acá. Por ahora, el bug preexistente es: si el user entra y sale
   // múltiples veces, se acumulan callbacks de repaint.
-  sessions.subscribe(repaint);
+  // También re-renderizar cuando cambia el target de rename (abrir/cerrar input).
+  const unsubSessions = sessions.subscribe(repaint);
+  const unsubRenaming = renamingPath.subscribe(() => repaint(sessions.value));
+  scope.add(() => { unsubSessions(); unsubRenaming(); });
   repaint(sessions.value);
 
   list.append(inner);
@@ -341,22 +346,33 @@ function renderItem(session: SessionInfo): HTMLElement {
   nameEl.className = "session-item-name";
   header.append(nameEl);
 
-  if (isActive) {
-    const badge = document.createElement("span");
-    badge.className = "session-badge-active";
-    badge.textContent = "Activa";
-    header.append(badge);
-  }
+  // Botones de acción directos: renombrar inline y borrar.
+  const actions = document.createElement("div");
+  actions.className = "session-item-actions";
 
-  const menuBtn = document.createElement("button");
-  menuBtn.className = "session-item-menu-btn";
-  menuBtn.textContent = "⋯";
-  menuBtn.title = "Acciones";
-  menuBtn.addEventListener("click", (ev) => {
+  const renameBtn = document.createElement("button");
+  renameBtn.className = "session-item-action";
+  renameBtn.title = "Renombrar";
+  renameBtn.setAttribute("aria-label", "Renombrar sesión");
+  renameBtn.append(icon('pencil', { size: 14 }));
+  renameBtn.addEventListener("click", (ev) => {
     ev.stopPropagation();
-    openMenu(menuBtn, session);
+    renamingPath.value = session.path;
   });
-  header.append(menuBtn);
+  actions.append(renameBtn);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "session-item-action session-item-action--danger";
+  deleteBtn.title = "Borrar";
+  deleteBtn.setAttribute("aria-label", "Borrar sesión");
+  deleteBtn.append(icon('trash-2', { size: 14 }));
+  deleteBtn.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    void handleDelete(session);
+  });
+  actions.append(deleteBtn);
+
+  header.append(actions);
 
   item.append(header);
 
@@ -386,8 +402,38 @@ function renderItem(session: SessionInfo): HTMLElement {
   // ── Renderizar el nombre (puede ser <span> o <input> si está en rename) ──
   paintName(nameEl, session);
 
-  // Click en el item (no en el menú) → switch.
-  item.addEventListener("click", () => {
+  // Click en el item → switch a la sesión.
+  // Si el click es sobre el nombre, diferimos ~250ms para distinguir
+  // doble click (rename) de click simple (switch).
+  let clickTimer: ReturnType<typeof setTimeout> | null = null;
+  nameEl.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    if (clickTimer) {
+      // Segundo click → doble click; cancelar la navegación.
+      clearTimeout(clickTimer);
+      clickTimer = null;
+      return;
+    }
+    clickTimer = setTimeout(() => {
+      clickTimer = null;
+      void switchToSession(session);
+    }, 250);
+  });
+
+  // Doble click en el nombre → renombrar inline (sin navegar).
+  nameEl.addEventListener("dblclick", (ev) => {
+    ev.stopPropagation();
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      clickTimer = null;
+    }
+    renamingPath.value = session.path;
+  });
+
+  // Click en otras partes del item (preview, stats) → navega directo.
+  item.addEventListener("click", (ev) => {
+    // nameEl ya manejó su propio click con timer.
+    if (ev.target === nameEl || nameEl.contains(ev.target as Node)) return;
     void switchToSession(session);
   });
 
@@ -405,6 +451,11 @@ function paintName(container: HTMLElement, session: SessionInfo): void {
     input.type = "text";
     input.value = session.name ?? "";
     input.autofocus = true;
+    // Seleccionar todo el texto al entrar a rename.
+    // requestAnimationFrame asegura que el autoFocus ya se aplicó.
+    requestAnimationFrame(() => input.select());
+    // Evitar que click en el input navegue a la sesión.
+    input.addEventListener("click", (ev) => ev.stopPropagation());
     attachRenameHandlers(input, session, () => {
       renamingPath.value = null;
     });
@@ -420,46 +471,6 @@ function paintName(container: HTMLElement, session: SessionInfo): void {
 // Menú ⋯ — renombrar / borrar
 // ═══════════════════════════════════════════════════════
 
-function openMenu(anchor: HTMLElement, session: SessionInfo): void {
-  // Cierra cualquier menú abierto.
-  document.querySelectorAll(".session-menu").forEach((el) => el.remove());
-
-  const menu = document.createElement("div");
-  menu.className = "session-menu";
-
-  const renameBtn = document.createElement("button");
-  renameBtn.textContent = "Renombrar";
-  renameBtn.addEventListener("click", () => {
-    renamingPath.value = session.path;
-    menu.remove();
-  });
-  menu.append(renameBtn);
-
-  const deleteBtn = document.createElement("button");
-  deleteBtn.textContent = "Borrar";
-  deleteBtn.className = "session-menu-danger";
-  deleteBtn.addEventListener("click", () => {
-    menu.remove();
-    void handleDelete(session);
-  });
-  menu.append(deleteBtn);
-
-  // Posicionar el menú justo abajo del botón ⋯
-  const rect = anchor.getBoundingClientRect();
-  menu.style.position = "fixed";
-  menu.style.top = `${rect.bottom}px`;
-  menu.style.left = `${rect.right - 160}px`;
-  document.body.append(menu);
-
-  // Click fuera del menú cierra.
-  const onClickOutside = (ev: MouseEvent) => {
-    if (!menu.contains(ev.target as Node)) {
-      menu.remove();
-      document.removeEventListener("click", onClickOutside);
-    }
-  };
-  setTimeout(() => document.addEventListener("click", onClickOutside), 0);
-}
 
 function attachRenameHandlers(
   input: HTMLInputElement,
@@ -502,8 +513,17 @@ function attachRenameHandlers(
 async function createNewTab(): Promise<void> {
   // 1. UUID del cliente = identidad de la tab.
   const tabId = crypto.randomUUID();
+  const now = new Date();
+  const placeholderName = now.toLocaleDateString("es-CL", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   const newTab: Session = {
     id: tabId,
+    name: placeholderName,
     messageCount: 0,
   };
 
@@ -545,6 +565,7 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
     await ensurePiRunning();
     await newPiSession();
     await getPiState();
+    getAvailableModels();
     // Si pi no asignó nombre, ponemos la fecha de creación.
     const piSession = appState.session.value;
     if (!piSession) return;
@@ -569,7 +590,7 @@ async function syncPiSessionInBackground(tabId: string): Promise<void> {
       t.id === tabId
         ? {
             ...t,
-            name: piSession.name,
+            name: piSession.name || t.name,
             file: piSession.file,
             messageCount: piSession.messageCount,
           }
@@ -616,7 +637,9 @@ async function switchToSession(session: SessionInfo): Promise<void> {
   loading.value = true;
   try {
     await startPi(cwd, session.path);
+    await getPiState();
     await getPiMessages();
+    getAvailableModels();
     navigate("chat");
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
@@ -660,7 +683,9 @@ async function handleDelete(session: SessionInfo): Promise<void> {
       appState.activeTabId.value = null;
       appState.session.value = null;
     }
-    await loadSessions();
+    // Update optimístico: remover del listado local sin esperar loadSessions.
+    sessions.value = sessions.value.filter((s) => s.path !== session.path);
+    void loadSessions();
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
   }
@@ -671,11 +696,19 @@ async function handleRename(
   newName: string,
   onDone: () => void,
 ): Promise<void> {
+  // Update optimístico: cambiar nombre localmente.
+  sessions.value = sessions.value.map((s) =>
+    s.path === session.path ? { ...s, name: newName } : s,
+  );
   try {
     await renameSession(session.path, newName);
     onDone();
-    await loadSessions();
+    void loadSessions();
   } catch (err) {
+    // Revertir al nombre anterior.
+    sessions.value = sessions.value.map((s) =>
+      s.path === session.path ? { ...s, name: session.name } : s,
+    );
     error.value = err instanceof Error ? err.message : String(err);
     onDone();
   }

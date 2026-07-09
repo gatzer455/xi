@@ -26,6 +26,7 @@ import {
   ChevronDown,
   MessageSquarePlus,
   Pencil,
+  Trash2,
 } from 'lucide';
 
 // Tipo para los nodos de icono Lucide: [tag, attrs] o [['tag', attrs], ...]
@@ -46,6 +47,7 @@ const iconMap: Record<string, IconNode> = {
   'chevron-right': ChevronRight as unknown as IconNode,
   'chevron-down': ChevronDown as unknown as IconNode,
   pencil: Pencil as unknown as IconNode,
+  'trash-2': Trash2 as unknown as IconNode,
 };
 
 interface IconOptions {

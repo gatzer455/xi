@@ -21,6 +21,7 @@ export {
   renameSession,
   getRecents,
   addRecent,
+  getAvailableModels,
 } from './tauri-commands.ts';
 export type { PiStatus } from './tauri-commands.ts';
 export type { Recent, SessionInfo } from './types.ts';
