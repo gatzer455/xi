@@ -28,6 +28,7 @@ import type {
   SessionInfo,
   SkippedInfo,
 } from "../lib/pi/types.ts";
+import { icon } from "../lib/icons.ts";
 import { navigate } from "../lib/nav.ts";
 import { setActiveTab, type Session } from "../lib/state.ts";
 import { dropStore } from "../lib/chat/stores.ts";
@@ -344,21 +345,14 @@ function renderItem(session: SessionInfo): HTMLElement {
   nameEl.className = "session-item-name";
   header.append(nameEl);
 
-  if (isActive) {
-    const badge = document.createElement("span");
-    badge.className = "session-badge-active";
-    badge.textContent = "Activa";
-    header.append(badge);
-  }
-
   // Botones de acción directos: renombrar inline y borrar.
   const actions = document.createElement("div");
   actions.className = "session-item-actions";
 
   const renameBtn = document.createElement("button");
   renameBtn.className = "session-item-action";
-  renameBtn.textContent = "✎";
   renameBtn.title = "Renombrar";
+  renameBtn.append(icon('pencil', { size: 14 }));
   renameBtn.addEventListener("click", (ev) => {
     ev.stopPropagation();
     renamingPath.value = session.path;
@@ -367,8 +361,8 @@ function renderItem(session: SessionInfo): HTMLElement {
 
   const deleteBtn = document.createElement("button");
   deleteBtn.className = "session-item-action session-item-action--danger";
-  deleteBtn.textContent = "✕";
   deleteBtn.title = "Borrar";
+  deleteBtn.append(icon('trash-2', { size: 14 }));
   deleteBtn.addEventListener("click", (ev) => {
     ev.stopPropagation();
     void handleDelete(session);

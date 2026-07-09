@@ -328,15 +328,6 @@
   outline: none;
 }
 
-.session-badge-active {
-  font-size: var(--text-sm);
-  background: var(--color-accent);
-  color: white;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
-}
-
 .session-item-actions {
   display: flex;
   align-items: center;
