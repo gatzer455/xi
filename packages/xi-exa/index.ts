@@ -58,13 +58,20 @@ function getExaConfig(): ExaConfig {
   if (envKey) return { apiKey: envKey };
 
   try {
-    const { join, dirname } = require("node:path");
-    const { fileURLToPath } = require("node:url");
+    const { join, homedir } = require("node:os");
 
-    const extDir = dirname(fileURLToPath(import.meta.url));
-    const configPath = join(extDir, "exa-config.json");
-    const key = tryReadConfig(configPath);
+    // 1. Central config (~/.pi/config/exa-config.json)
+    const centralPath = join(homedir(), ".pi", "config", "exa-config.json");
+    const key = tryReadConfig(centralPath);
     if (key) return { apiKey: key };
+
+    // 2. Fallback: extension dir (legacy)
+    const { dirname } = require("node:path");
+    const { fileURLToPath } = require("node:url");
+    const extDir = dirname(fileURLToPath(import.meta.url));
+    const extPath = join(extDir, "exa-config.json");
+    const legacyKey = tryReadConfig(extPath);
+    if (legacyKey) return { apiKey: legacyKey };
   } catch (err) {
     console.error("[xi-exa] Could not load config:", err);
   }

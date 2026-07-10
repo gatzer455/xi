@@ -1114,7 +1114,7 @@ function renderExtensionsSection(scope: Scope): HTMLElement {
   // ── xi-exa ──
   controls.append(renderExaConfig());
 
-  // ── xi-approve ──
+  // ── xi-flow ──
   controls.append(renderApproveConfig());
 
   return createSection({
@@ -1356,7 +1356,7 @@ async function loadExaStatus(
   }
 }
 
-// ────────────── xi-approve ────────────────────────────────
+// ────────────── xi-flow ─────────────────────────────
 
 const APPROVE_TOOLS = [
   { key: 'bash', label: 'Bash', desc: 'Comandos que requieren confirmación' },
@@ -1370,7 +1370,7 @@ function renderApproveConfig(): HTMLElement {
 
   const title = document.createElement('h3');
   title.className = 'settings-subsection-title';
-  title.textContent = 'xi-approve — Aprobación de comandos';
+  title.textContent = 'xi-flow — Flujo de trabajo';
   block.append(title);
 
   const desc = document.createElement('p');

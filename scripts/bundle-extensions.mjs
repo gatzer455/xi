@@ -71,32 +71,28 @@ copyFileSync(
 
 console.log("  📦 xi-tools listo");
 
-// ── xi-approve ─────────────────────────────────────────────────────
-console.log("  📋 Copiando xi-approve...");
-const approveDir = resolve(RESOURCES_DIR, "xi-approve");
-mkdirSync(approveDir, { recursive: true });
-copyFileSync(resolve(PKG_DIR, "xi-approve", "index.ts"), resolve(approveDir, "index.ts"));
-
-// ── xi-ask ─────────────────────────────────────────────────────────
-console.log("  📋 Copiando xi-ask...");
-const askDir = resolve(RESOURCES_DIR, "xi-ask");
-mkdirSync(askDir, { recursive: true });
-copyFileSync(resolve(PKG_DIR, "xi-ask", "index.ts"), resolve(askDir, "index.ts"));
-copyFileSync(resolve(PKG_DIR, "xi-ask", "ask-logic.ts"), resolve(askDir, "ask-logic.ts"));
+// ── xi-flow ───────────────────────────────────────────────────
+console.log("  📋 Copiando xi-flow...");
+const flowtoolsDir = resolve(RESOURCES_DIR, "xi-flow");
+mkdirSync(flowtoolsDir, { recursive: true });
+copyFileSync(resolve(PKG_DIR, "xi-flow", "index.ts"), resolve(flowtoolsDir, "index.ts"));
+copyFileSync(resolve(PKG_DIR, "xi-flow", "approve.ts"), resolve(flowtoolsDir, "approve.ts"));
+copyFileSync(resolve(PKG_DIR, "xi-flow", "ask.ts"), resolve(flowtoolsDir, "ask.ts"));
+copyFileSync(resolve(PKG_DIR, "xi-flow", "ask-logic.ts"), resolve(flowtoolsDir, "ask-logic.ts"));
+copyFileSync(resolve(PKG_DIR, "xi-flow", "nested-context.ts"), resolve(flowtoolsDir, "nested-context.ts"));
 
 // ── xi-exa ─────────────────────────────────────────────────────────
 console.log("  📋 Copiando xi-exa...");
 const exaDir = resolve(RESOURCES_DIR, "xi-exa");
 mkdirSync(exaDir, { recursive: true });
 copyFileSync(resolve(PKG_DIR, "xi-exa", "index.ts"), resolve(exaDir, "index.ts"));
-copyFileSync(resolve(PKG_DIR, "xi-exa", "exa-config.json"), resolve(exaDir, "exa-config.json"));
 
 // ── Reporte ───────────────────────────────────────────────────────
 console.log("");
 console.log("━━━ Extensiones bundleadas ─━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
 let total = 0;
-for (const ext of ["xi-tools", "xi-approve", "xi-ask", "xi-exa"]) {
+for (const ext of ["xi-tools", "xi-flow", "xi-exa"]) {
   const dir = resolve(RESOURCES_DIR, ext);
   const entries = readdirSync(dir, { withFileTypes: true }).filter(e => e.isFile());
   for (const e of entries) {

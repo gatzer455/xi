@@ -5,7 +5,7 @@ use tauri::AppHandle;
 use tauri::Manager;
 
 /// Extensiones que xi empaqueta y debe asegurar en ~/.pi/agent/extensions/
-const BUNDLED_EXTENSIONS: &[&str] = &["xi-tools", "pi-approve", "pi-ask", "pi-exa"];
+const BUNDLED_EXTENSIONS: &[&str] = &["xi-tools", "xi-flow", "xi-exa"];
 
 /// Copia las extensiones empaquetadas a ~/.pi/agent/extensions/
 /// si no existen ya. Se llama en setup() al iniciar la app.
@@ -16,7 +16,7 @@ const BUNDLED_EXTENSIONS: &[&str] = &["xi-tools", "pi-approve", "pi-ask", "pi-ex
 ///
 /// Cada extensión se chequea individualmente: si una falla al
 /// copiarse, las demás siguen (no queremos que un error de
-/// permisos en pi-exa impida instalar xi-tools).
+/// permisos en xi-exa impida instalar xi-tools).
 pub fn ensure_extensions(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let home = app.path().home_dir()?;
     let target_dir = home.join(".pi").join("agent").join("extensions");

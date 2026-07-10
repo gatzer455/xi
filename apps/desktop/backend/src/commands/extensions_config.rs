@@ -1,8 +1,8 @@
 // extensions_config.rs — Commands para gestionar la config de extensiones.
 //
 // Maneja dos archivos:
-// - ~/.pi/agent/extensions/pi-exa/exa-config.json: API key de Exa
-// - ~/.pi/agent/approve-rules.json: reglas de pi-approve
+// - ~/.pi/config/exa-config.json: API key de Exa
+// - ~/.pi/agent/approve-rules.json: reglas de xi-flow
 //
 // Patrón: mismo que auth_config.rs (atomic write, chmod 600, leer → modificar → escribir).
 
@@ -13,13 +13,9 @@ use std::path::{Path, PathBuf};
 // Paths
 // ═══════════════════════════════════════════════════════
 
-fn extensions_dir() -> PathBuf {
-    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    home.join(".pi").join("agent").join("extensions")
-}
-
 fn exa_config_path() -> PathBuf {
-    extensions_dir().join("pi-exa").join("exa-config.json")
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    home.join(".pi").join("config").join("exa-config.json")
 }
 
 fn approve_rules_path() -> PathBuf {
@@ -28,7 +24,7 @@ fn approve_rules_path() -> PathBuf {
 }
 
 // ═══════════════════════════════════════════════════════
-// pi-exa
+// xi-exa
 // ═══════════════════════════════════════════════════════
 
 #[derive(Serialize)]
@@ -155,7 +151,7 @@ pub async fn test_exa_api_key(api_key: String) -> Result<(), String> {
 }
 
 // ═══════════════════════════════════════════════════════
-// pi-approve
+// xi-flow (approve rules)
 // ═══════════════════════════════════════════════════════
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -213,7 +209,7 @@ impl Default for ApproveRules {
     }
 }
 
-/// Lee las reglas de pi-approve. Si no existe el archivo, retorna defaults.
+/// Lee las reglas de xi-flow. Si no existe el archivo, retorna defaults.
 #[tauri::command]
 pub async fn get_approve_rules() -> Result<ApproveRules, String> {
     let path = approve_rules_path();
@@ -232,7 +228,7 @@ pub async fn get_approve_rules() -> Result<ApproveRules, String> {
     serde_json::from_str(&content).map_err(|e| format!("approve-rules.json corrupto: {e}"))
 }
 
-/// Guarda las reglas de pi-approve. Atomic write.
+/// Guarda las reglas de xi-flow. Atomic write.
 #[tauri::command]
 pub async fn set_approve_rules(config: ApproveRules) -> Result<(), String> {
     super::atomic::write_json(&approve_rules_path(), &config, None, None).await
