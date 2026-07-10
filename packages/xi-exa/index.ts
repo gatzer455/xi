@@ -67,7 +67,8 @@ function getExaConfig(): ExaConfig {
   if (envKey) return { apiKey: envKey };
 
   try {
-    const { join, homedir } = require("node:os");
+    const { homedir } = require("node:os");
+    const { join } = require("node:path");
 
     // 1. Central config (~/.pi/config/exa-config.json)
     const centralPath = join(homedir(), ".pi", "config", "exa-config.json");
