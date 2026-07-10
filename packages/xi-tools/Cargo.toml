@@ -1,6 +1,6 @@
 [package]
 name = "xi-tools"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 description = "Cross-platform native tools for pi coding agent (bash, grep, find, ls, read, write, edit)"
 
