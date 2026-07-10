@@ -89,6 +89,19 @@ function getExaConfig(): ExaConfig {
   return { apiKey: null };
 }
 
+// ── Parsing helpers ────────────────────────────────────────────────────────
+
+/**
+ * Parses tokensNum parameter: accepts number, "dynamic", or number-like string.
+ * Exa API v2.0.0 /context expects a number or the literal string "dynamic".
+ */
+function parseTokensNum(val: unknown): number | "dynamic" {
+  if (val === "dynamic" || val === undefined || val === null) return "dynamic";
+  const n = Number(val);
+  if (!isNaN(n) && isFinite(n)) return n;
+  return "dynamic";
+}
+
 // ── HTTP helpers ───────────────────────────────────────────────────────────
 
 const EXA_BASE = "https://api.exa.ai";
@@ -332,7 +345,7 @@ async function contextSearch(
 ): Promise<{ content: Array<{ type: "text"; text: string }> }> {
   const body: Record<string, unknown> = {
     query: params.query,
-    tokensNum: (params.tokensNum as number | string) ?? "dynamic",
+    tokensNum: parseTokensNum(params.tokensNum),
   };
 
   const data = await exaPost(apiKey, "/context", body, signal);
