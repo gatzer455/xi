@@ -29,6 +29,7 @@ export type { Recent, SessionInfo } from './types.ts';
 export { initPiConnection, destroyPiConnection } from './init.ts';
 export type { PiEventBus } from './transport.ts';
 export { TauriEventBus } from './tauri-event-bus.ts';
+export { WsEventBus, connectWsBus } from './ws-event-bus.ts';
 
 export { parsePiEvent } from './event-parser.ts';
 export type {
