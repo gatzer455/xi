@@ -145,29 +145,4 @@
   background: var(--color-md-code-bg);
 }
 
-/* ── Highlight.js (overrides para matchear xi warm palette) ── */
-.hljs { color: var(--color-text); background: transparent; }
-.hljs-comment,
-.hljs-quote { color: var(--hljs-comment); font-style: italic; }
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-literal,
-.hljs-section { color: var(--hljs-keyword); }
-.hljs-function .hljs-keyword { color: var(--hljs-keyword); }
-.hljs-subst { color: var(--color-text); }
-.hljs-string,
-.hljs-title,
-.hljs-name,
-.hljs-type,
-.hljs-attribute,
-.hljs-symbol,
-.hljs-bullet,
-.hljs-addition,
-.hljs-variable .hljs-template-variable { color: var(--hljs-string); }
-.hljs-built_in,
-.hljs-builtin-name { color: var(--hljs-type); }
-.hljs-number,
-.hljs-meta { color: var(--hljs-number); }
-.hljs-deletion { color: var(--color-diff-removed); }
-.hljs-emphasis { font-style: italic; }
-.hljs-strong { font-weight: 600; }
+

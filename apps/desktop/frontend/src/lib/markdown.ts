@@ -2,7 +2,7 @@
  * markdown.ts — Wrapper sobre markdown-it con tema pi-light.
  *
  * Qué hace:
- * - Renderiza markdown a HTML con syntax highlighting (highlight.js).
+ * - Renderiza markdown a HTML (sin syntax highlighting — se usa escapeHtml).
  * - Agrega clases .md-* a cada elemento para que markdown.css pueda
  *   estilarlos por clase en vez de por tag (más portable).
  *
@@ -17,32 +17,6 @@
 
 import MarkdownIt from 'markdown-it';
 import markdownItMath from 'markdown-it-math/temml';
-import hljs from 'highlight.js/lib/core';
-import bash from 'highlight.js/lib/languages/bash';
-import typescript from 'highlight.js/lib/languages/typescript';
-import javascript from 'highlight.js/lib/languages/javascript';
-import json from 'highlight.js/lib/languages/json';
-import rust from 'highlight.js/lib/languages/rust';
-import python from 'highlight.js/lib/languages/python';
-import xml from 'highlight.js/lib/languages/xml';     // html
-import css from 'highlight.js/lib/languages/css';
-import markdown from 'highlight.js/lib/languages/markdown';
-
-hljs.registerLanguage('bash', bash);
-hljs.registerLanguage('typescript', typescript);
-hljs.registerLanguage('ts', typescript);               // alias
-hljs.registerLanguage('javascript', javascript);
-hljs.registerLanguage('js', javascript);                // alias
-hljs.registerLanguage('json', json);
-hljs.registerLanguage('rust', rust);
-hljs.registerLanguage('rs', rust);                     // alias
-hljs.registerLanguage('python', python);
-hljs.registerLanguage('py', python);                   // alias
-hljs.registerLanguage('html', xml);                    // alias
-hljs.registerLanguage('xml', xml);
-hljs.registerLanguage('css', css);
-hljs.registerLanguage('markdown', markdown);
-hljs.registerLanguage('md', markdown);                 // alias
 
 const md: MarkdownIt = new MarkdownIt({
   html: false,
@@ -132,17 +106,9 @@ md.renderer.rules.tr_open    = addClass('md-tr');
 md.renderer.rules.th_open    = addClass('md-th');
 md.renderer.rules.td_open    = addClass('md-td');
 
-// Configuración de highlight.js (después de crear md).
+// Configuración de syntax highlighting: escapeHtml (sin hljs).
 Object.assign(md.options, {
-  highlight(code: string, lang: string): string {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        const highlighted = hljs.highlight(code, { language: lang, ignoreIllegals: true }).value;
-        return `<pre class="md-code-block hljs"><code class="hljs language-${lang}">${highlighted}</code></pre>`;
-      } catch {
-        // Fall through a escapeHtml
-      }
-    }
+  highlight(code: string, _lang: string): string {
     return `<pre class="md-code-block"><code>${md.utils.escapeHtml(code)}</code></pre>`;
   },
 });

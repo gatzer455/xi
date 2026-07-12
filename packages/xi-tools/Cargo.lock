@@ -2240,12 +2240,11 @@ checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
 
 [[package]]
 name = "xi-tools"
-version = "0.3.1"
+version = "0.3.6"
 dependencies = [
  "brush-builtins",
  "brush-core",
  "clap",
- "futures",
  "globset",
  "ignore",
  "processkit",
@@ -2253,15 +2252,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "walkdir",
- "xxhash-rust",
 ]
-
-[[package]]
-name = "xxhash-rust"
-version = "0.8.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d93c89cdc2d3a63c3ec48ffe926931bdc069eafa8e4402fe6d8f790c9d1e576"
 
 [[package]]
 name = "yoke"

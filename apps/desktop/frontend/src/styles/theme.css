@@ -63,15 +63,6 @@
   --color-border-muted: #3d3830;
 
   /* ── Highlight.js (warm dark theme) ── */
-  --hljs-comment: #6b665c;
-  --hljs-keyword: #b8c4a0;
-  --hljs-function: #e3d9b4;
-  --hljs-variable: #f0ede6;
-  --hljs-string: #c4a882;
-  --hljs-number: #a8b890;
-  --hljs-type: #d4a017;
-  --hljs-operator: #f0ede6;
-  --hljs-punctuation: #8a8680;
 }
 
 /* ───────────────────────────────────────────────────────────────
@@ -127,15 +118,6 @@
     --color-border-muted: #e0ddd6;
 
     /* ── Highlight.js (warm light theme) ── */
-    --hljs-comment: #8a8680;
-    --hljs-keyword: #5a7a5a;
-    --hljs-function: #8a7a50;
-    --hljs-variable: #2d2a24;
-    --hljs-string: #a07050;
-    --hljs-number: #5a7a5a;
-    --hljs-type: #d4a017;
-    --hljs-operator: #2d2a24;
-    --hljs-punctuation: #8a8680;
   }
 }
 
@@ -191,15 +173,6 @@
   --color-border-muted: #e0ddd6;
 
   /* ── Highlight.js ── */
-  --hljs-comment: #8a8680;
-  --hljs-keyword: #5a7a5a;
-  --hljs-function: #8a7a50;
-  --hljs-variable: #2d2a24;
-  --hljs-string: #a07050;
-  --hljs-number: #5a7a5a;
-  --hljs-type: #d4a017;
-  --hljs-operator: #2d2a24;
-  --hljs-punctuation: #8a8680;
 }
 
 :root[data-theme='dark'] {
@@ -251,13 +224,4 @@
   --color-border-muted: #3d3830;
 
   /* ── Highlight.js ── */
-  --hljs-comment: #6b665c;
-  --hljs-keyword: #b8c4a0;
-  --hljs-function: #e3d9b4;
-  --hljs-variable: #f0ede6;
-  --hljs-string: #c4a882;
-  --hljs-number: #a8b890;
-  --hljs-type: #d4a017;
-  --hljs-operator: #f0ede6;
-  --hljs-punctuation: #8a8680;
 }

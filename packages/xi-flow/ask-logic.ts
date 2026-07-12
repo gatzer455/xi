@@ -63,37 +63,5 @@ export function buildSingleSelectionResult(selectedOptionLabel: string, note?: s
 	return { selectedOptions: [normalizedSelectedOption] };
 }
 
-export function buildMultiSelectionResult(
-	optionLabels: string[],
-	selectedOptionIndexes: number[],
-	optionNotes: string[],
-	otherOptionIndex: number,
-): AskSelection {
-	const selectedOptionSet = new Set(selectedOptionIndexes);
-	const selectedOptions: string[] = [];
-	let customInput: string | undefined;
-
-	for (let optionIndex = 0; optionIndex < optionLabels.length; optionIndex++) {
-		if (!selectedOptionSet.has(optionIndex)) continue;
-
-		const optionLabel = removeRecommendedTagFromOptionLabel(optionLabels[optionIndex]);
-		const optionNote = optionNotes[optionIndex]?.trim();
-
-		if (optionIndex === otherOptionIndex) {
-			if (optionNote) customInput = optionNote;
-			continue;
-		}
-
-		if (optionNote) {
-			selectedOptions.push(`${optionLabel} - ${optionNote}`);
-		} else {
-			selectedOptions.push(optionLabel);
-		}
-	}
-
-	if (customInput) {
-		return { selectedOptions, customInput };
-	}
-
-	return { selectedOptions };
-}
+// ponytail: buildMultiSelectionResult removed — multi-select no implementado.
+// Agregar cuando ask tool soporte multi: true (ver ask.ts línea 237).

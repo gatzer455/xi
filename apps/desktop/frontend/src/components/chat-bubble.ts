@@ -27,7 +27,7 @@ import type {
 import { extractText } from '../lib/chat/mapping.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
 import { SmoothStreamer, reconcileDom } from '../lib/smooth-streamer.ts';
-import { ToolChipGroup } from './tool-chip-group.ts';
+import { ToolChipGroup } from './chip-groups.ts';
 
 export interface ChatBubbleHandle {
   root: HTMLElement;
