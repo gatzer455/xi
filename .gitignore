@@ -71,3 +71,4 @@ e2e/test-results/
 resources/extensions/*
 !resources/extensions/.gitkeep
 packages/xi-tools/target/
+packages/xi-serve/target/
