@@ -41,7 +41,9 @@ const BINARY_EXTENSIONS: &[&str] = &[
 
 /// Valida que la ruta esté dentro del directorio raíz permitido.
 pub fn confine_path(path: &str, root: &Path) -> Result<PathBuf, String> {
-    let requested = Path::new(path).canonicalize().map_err(|_| "Ruta inválida o no existe".to_string())?;
+    let requested = Path::new(path)
+        .canonicalize()
+        .map_err(|_| "Ruta inválida o no existe".to_string())?;
     if !requested.starts_with(root) {
         return Err("Ruta fuera del directorio permitido".into());
     }
@@ -51,8 +53,12 @@ pub fn confine_path(path: &str, root: &Path) -> Result<PathBuf, String> {
 /// Extrae el working directory de pi del estado Tauri.
 pub fn get_cwd(state: &PiProcessState) -> Result<PathBuf, String> {
     let process = state.lock().unwrap();
-    let cwd = process.cwd().ok_or_else(|| "No hay directorio de trabajo".to_string())?;
-    Path::new(cwd).canonicalize().map_err(|e| format!("Error resolviendo directorio de trabajo: {e}"))
+    let cwd = process
+        .cwd()
+        .ok_or_else(|| "No hay directorio de trabajo".to_string())?;
+    Path::new(cwd)
+        .canonicalize()
+        .map_err(|e| format!("Error resolviendo directorio de trabajo: {e}"))
 }
 
 /// Integrado: get_cwd + confine_path.
@@ -76,8 +82,12 @@ pub fn list_files_inner(dir: &Path) -> Result<Vec<FileEntry>, String> {
         let file_name = entry.file_name();
         let name_str = file_name.to_string_lossy().to_string();
 
-        if EXCLUDED.contains(&name_str.as_str()) { continue; }
-        if name_str.starts_with('.') { continue; }
+        if EXCLUDED.contains(&name_str.as_str()) {
+            continue;
+        }
+        if name_str.starts_with('.') {
+            continue;
+        }
 
         let metadata = match entry.metadata() {
             Ok(m) => m,
@@ -102,7 +112,9 @@ pub fn list_files_inner(dir: &Path) -> Result<Vec<FileEntry>, String> {
                 .unwrap_or_default()
         };
 
-        if !is_dir && BINARY_EXTENSIONS.contains(&ext.as_str()) { continue; }
+        if !is_dir && BINARY_EXTENSIONS.contains(&ext.as_str()) {
+            continue;
+        }
 
         let rel_path = entry
             .path()
@@ -111,18 +123,29 @@ pub fn list_files_inner(dir: &Path) -> Result<Vec<FileEntry>, String> {
             .to_string_lossy()
             .to_string();
 
-        result.push(FileEntry { name: name_str, path: rel_path, is_dir, size, modified });
+        result.push(FileEntry {
+            name: name_str,
+            path: rel_path,
+            is_dir,
+            size,
+            modified,
+        });
     }
 
     result.sort_by(|a, b| {
-        if a.is_dir != b.is_dir { return b.is_dir.cmp(&a.is_dir); }
+        if a.is_dir != b.is_dir {
+            return b.is_dir.cmp(&a.is_dir);
+        }
         a.name.to_lowercase().cmp(&b.name.to_lowercase())
     });
     Ok(result)
 }
 
 #[tauri::command]
-pub fn list_files(path: String, state: State<'_, PiProcessState>) -> Result<Vec<FileEntry>, String> {
+pub fn list_files(
+    path: String,
+    state: State<'_, PiProcessState>,
+) -> Result<Vec<FileEntry>, String> {
     let dir = confine(&path, &state)?;
     list_files_inner(&dir)
 }
@@ -138,7 +161,10 @@ pub fn read_file_inner(file: &Path) -> Result<String, String> {
     if metadata.len() > 1_048_576 {
         return Err("Archivo demasiado grande (máximo 1MB)".to_string());
     }
-    let ext = file.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
+    let ext = file
+        .extension()
+        .map(|e| e.to_string_lossy().to_string())
+        .unwrap_or_default();
     if BINARY_EXTENSIONS.contains(&format!(".{ext}").as_str()) {
         return Err("Archivo binario no soportado".to_string());
     }
@@ -162,7 +188,11 @@ pub fn write_file_inner(file: &Path, content: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn write_file(path: String, content: String, state: State<'_, PiProcessState>) -> Result<(), String> {
+pub fn write_file(
+    path: String,
+    content: String,
+    state: State<'_, PiProcessState>,
+) -> Result<(), String> {
     let file = confine(&path, &state)?;
     write_file_inner(&file, &content)
 }
