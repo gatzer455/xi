@@ -11,22 +11,34 @@
 
 import type { PiEventBus } from './transport.ts';
 import { TauriEventBus } from './tauri-event-bus.ts';
+import { WsEventBus } from './ws-event-bus.ts';
 import { appState } from '../state.ts';
 import { addEntry } from '../debug-panel.ts';
 import { parsePiEvent } from './event-parser.ts';
 import { applyEvent, endStream } from './state-sync.ts';
 import { initExtensionUIHandler } from './extension-ui-handler.ts';
 
+declare const __XI_SERVE_URL__: string | undefined;
+
 let bus: PiEventBus | null = null;
 
 /**
  * Inicializa la conexión con pi. Opcionalmente recibe un PiEventBus;
- * si no se pasa, usa TauriEventBus (desktop).
+ * si no se pasa, detecta automáticamente:
+ *   - Si window.__XI_SERVE_URL__ está definido → WsEventBus (mobile)
+ *   - Si no → TauriEventBus (desktop)
  */
 export async function initPiConnection(customBus?: PiEventBus): Promise<void> {
   destroyPiConnection();
 
-  bus = customBus ?? new TauriEventBus();
+  if (customBus) {
+    bus = customBus;
+  } else if (typeof __XI_SERVE_URL__ !== 'undefined' && __XI_SERVE_URL__) {
+    bus = new WsEventBus(__XI_SERVE_URL__);
+    await (bus as WsEventBus).connect();
+  } else {
+    bus = new TauriEventBus();
+  }
 
   // Iniciar handler de extension UI (select, confirm, input, etc.)
   initExtensionUIHandler();
@@ -53,6 +65,8 @@ export async function initPiConnection(customBus?: PiEventBus): Promise<void> {
 export function destroyPiConnection(): void {
   if (bus instanceof TauriEventBus) {
     bus.destroy();
+  } else if (bus instanceof WsEventBus) {
+    bus.disconnect();
   }
   bus = null;
 }

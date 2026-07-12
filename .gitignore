@@ -72,3 +72,7 @@ resources/extensions/*
 !resources/extensions/.gitkeep
 packages/xi-tools/target/
 packages/xi-serve/target/
+apps/mobile/target/
+apps/mobile/src-tauri/gen/
+apps/mobile/node_modules/
+apps/mobile/dist/
