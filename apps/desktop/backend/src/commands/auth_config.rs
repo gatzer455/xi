@@ -46,8 +46,7 @@ fn auth_path() -> PathBuf {
 ///
 /// `last4` son los últimos 4 caracteres del key (si es api_key).
 /// Sirve para mostrar `sk-***1234` en la UI. La key completa NUNCA
-/// viaja al frontend en este command — solo via get_api_key, y solo
-/// cuando el user hace click en "Ver".
+/// viaja al frontend.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderInfo {
@@ -71,7 +70,7 @@ pub async fn get_auth_status() -> Result<Vec<ProviderInfo>, String> {
 }
 
 /// Lee auth.json y parsea el contenido. Helper compartido por
-/// get_auth_status, get_api_key y delete_api_key. Si el archivo no
+/// get_auth_status y delete_api_key. Si el archivo no
 /// existe, retorna un Map vacío (no es error).
 async fn read_auth_map(path: &PathBuf) -> Result<serde_json::Map<String, Value>, String> {
     if !path.exists() {
@@ -129,30 +128,6 @@ fn provider_info_from_value(id: &str, value: &Value) -> ProviderInfo {
         has_key: true,
         last4,
     }
-}
-
-/// Retorna la key completa de un provider. SOLO se llama cuando el
-/// user hace click en "Ver" en la UI. La key NUNCA se envía por
-/// ningún otro canal. Si el provider no existe o no es api_key,
-/// retorna None.
-#[tauri::command]
-pub async fn get_api_key(provider: String) -> Result<Option<String>, String> {
-    let path = auth_path();
-    let map = read_auth_map(&path).await?;
-
-    let Some(entry) = map.get(&provider) else {
-        return Ok(None);
-    };
-    let Some(obj) = entry.as_object() else {
-        return Ok(None);
-    };
-
-    let entry_type = obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
-    if entry_type != "api_key" {
-        return Ok(None);
-    }
-
-    Ok(obj.get("key").and_then(|v| v.as_str()).map(String::from))
 }
 
 /// Elimina la entry de un provider de auth.json. Atomic write +

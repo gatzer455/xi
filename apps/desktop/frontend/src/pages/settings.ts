@@ -28,7 +28,7 @@ import {
   getPiState,
   setApiKey,
   testApiKey,
-  getApiKey,
+
   deleteApiKey,
   type ProviderInfo,
 } from '../lib/pi/tauri-commands.ts';
@@ -355,7 +355,6 @@ function renderProviderSection(scope: Scope): HTMLElement {
   let isKeyVisible = false;
   eyeBtn.addEventListener('click', async () => {
     if (isKeyVisible) {
-      // Ya está visible → limpiar y volver a "👁"
       keyInput.value = '';
       keyInput.type = 'password';
       eyeBtn.textContent = '👁';
@@ -363,19 +362,7 @@ function renderProviderSection(scope: Scope): HTMLElement {
       isKeyVisible = false;
       return;
     }
-    // Si el input está vacío, traer la key del backend.
-    // Si ya tiene algo escrito, no pisamos: solo alternamos visibilidad.
-    if (keyInput.value === '') {
-      eyeBtn.disabled = true;
-      saveStatus.value = { kind: 'idle' };
-      const key = await getApiKey(currentProvider);
-      eyeBtn.disabled = false;
-      if (key === null) {
-        saveStatus.value = { kind: 'error', message: 'No se pudo leer la key' };
-        return;
-      }
-      keyInput.value = key;
-    }
+    if (keyInput.value === '') return;
     keyInput.type = 'text';
     eyeBtn.textContent = '🙈';
     eyeBtn.setAttribute('aria-label', 'Ocultar API key');

@@ -60,7 +60,6 @@ fn main() {
             commands::auth_config::get_auth_status,
             commands::auth_config::set_api_key,
             commands::auth_config::test_api_key,
-            commands::auth_config::get_api_key,
             commands::auth_config::delete_api_key,
             commands::recents::get_recents,
             commands::recents::add_recent,
