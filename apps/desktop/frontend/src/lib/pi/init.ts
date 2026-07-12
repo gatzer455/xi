@@ -35,9 +35,15 @@ export async function initPiConnection(customBus?: PiEventBus): Promise<void> {
     bus = customBus;
   } else if (typeof __XI_SERVE_URL__ !== 'undefined' && __XI_SERVE_URL__) {
     bus = new WsEventBus(__XI_SERVE_URL__);
-    await (bus as WsEventBus).connect();
+    try {
+      await bus.connect();
+    } catch (e) {
+      addEntry('system', `Error conectando a xi-serve: ${e}`);
+      throw e;
+    }
   } else {
     bus = new TauriEventBus();
+    await bus.connect();
   }
 
   // Iniciar handler de extension UI (select, confirm, input, etc.)

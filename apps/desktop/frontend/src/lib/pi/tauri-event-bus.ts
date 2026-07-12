@@ -21,13 +21,16 @@ export class TauriEventBus implements PiEventBus {
   private unlistenErr: UnlistenFn | null = null;
   private unlistenTerminated: UnlistenFn | null = null;
 
+  async connect(): Promise<void> {
+    // TauriEventBus no necesita init asíncrono
+  }
+
   async sendCommand(json: string): Promise<void> {
     await invoke('send_pi_command', { json });
   }
 
   setEventHandler(handler: (line: string) => void): void {
     this.handler = handler;
-    // Registrar listener si es primera vez
     if (!this.unlistenRaw) {
       this.initRawListener();
     }
@@ -65,7 +68,6 @@ export class TauriEventBus implements PiEventBus {
     });
   }
 
-  /** Limpia los listeners Tauri al destruir el bus. */
   destroy(): void {
     this.unlistenRaw?.();
     this.unlistenErr?.();

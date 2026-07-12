@@ -24,16 +24,16 @@ use tracing::{error, info, warn};
 #[derive(Parser)]
 #[command(name = "xi-serve", version, about)]
 struct Args {
-    /// Puerto de escucha (default: 9876, o XI_SERVE_PORT)
-    #[arg(long, default_value_t = 9876)]
+    /// Puerto de escucha
+    #[arg(long, env = "XI_SERVE_PORT", default_value_t = 9876)]
     port: u16,
 
-    /// Dirección IP a la que bindear (default: 127.0.0.1, o XI_SERVE_BIND)
-    #[arg(long, default_value = "127.0.0.1")]
+    /// Dirección IP a la que bindear
+    #[arg(long, env = "XI_SERVE_BIND", default_value = "127.0.0.1")]
     bind: String,
 
-    /// Ruta al binario de pi (default: "pi", o XI_SERVE_PI)
-    #[arg(long, default_value = "pi")]
+    /// Ruta al binario de pi
+    #[arg(long, env = "XI_SERVE_PI", default_value = "pi")]
     pi: String,
 }
 
@@ -81,26 +81,21 @@ async fn main() {
         .init();
 
     let args = Args::parse();
+    let addr = format!("{bind}:{port}",
+        bind = if args.bind.contains(':') { format!("[{}]", args.bind) } else { args.bind },
+        port = args.port);
 
-    // Env vars como fallback
-    let port: u16 = std::env::var("XI_SERVE_PORT")
-        .ok().and_then(|p| p.parse().ok())
-        .unwrap_or(args.port);
-    let bind = std::env::var("XI_SERVE_BIND").unwrap_or(args.bind);
-    let pi_bin = std::env::var("XI_SERVE_PI").unwrap_or(args.pi);
-
-    let addr = format!("{bind}:{port}");
     let state = Arc::new(Mutex::new(PiHandle::new()));
     let listener = TcpListener::bind(&addr).await.unwrap_or_else(|e| {
         panic!("No se pudo bindear {addr}: {e}");
     });
 
     info!("xi-serve en ws://{addr}");
-    info!("Conectar desde el celular: ws://<tailscale-ip>:{port}/ws");
+    info!("Conectar desde el celular: ws://<tailscale-ip>:{}/ws", args.port);
 
     while let Ok((stream, addr)) = listener.accept().await {
         let state = state.clone();
-        let pi_bin = pi_bin.clone();
+        let pi_bin = args.pi.clone();
         tokio::spawn(async move {
             info!("Conexión desde {addr}");
             match accept_async(stream).await {
@@ -168,7 +163,8 @@ async fn proxy(
     loop {
         tokio::select! {
             Some(line) = line_rx.recv() => {
-                if ws_tx.send(Message::Text(line)).await.is_err() { break; }
+                // ponytail: Utf8Bytes from tungstenite 0.24, .into() for explicit conversion
+                if ws_tx.send(Message::Text(line.into())).await.is_err() { break; }
             }
             msg = ws_rx.next() => {
                 match msg {
@@ -189,4 +185,8 @@ async fn proxy(
     }
 
     info!("Cliente desconectado");
+
+    // Matar pi para que el próximo cliente arranque fresco con stdout/stderr intactos
+    let mut pi = state.lock().await;
+    pi.kill().await;
 }

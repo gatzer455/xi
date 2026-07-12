@@ -14,6 +14,7 @@
 /**
  * Bus de eventos entre el frontend y pi.
  *
+ * - connect: inicializa la conexión (TauriEventBus es no-op, WsEventBus abre WS).
  * - sendCommand: envía un JSON al stdin de pi.
  * - setEventHandler: registra el handler que recibe cada línea de stdout.
  *   Solo un handler a la vez (el último set reemplaza al anterior).
@@ -21,9 +22,9 @@
  * - setErrorHandler: notifica líneas de stderr.
  */
 export interface PiEventBus {
+  connect(): Promise<void>;
   sendCommand(json: string): Promise<void>;
   setEventHandler(handler: (line: string) => void): void;
   setTerminatedHandler(handler: (code: number | null) => void): void;
   setErrorHandler(handler: (line: string) => void): void;
 }
-

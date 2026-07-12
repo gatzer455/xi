@@ -4,11 +4,6 @@
  * Conecta a xi-serve (el daemon Rust que spawnea pi en el homeserver).
  * Envía comandos como mensajes WS, recibe eventos como mensajes WS.
  *
- * Uso:
- *   const bus = new WsEventBus('ws://homeserver:9876/ws');
- *   await bus.connect();
- *   initPiConnection(bus);
- *
  * Reconexión automática con backoff exponencial (1s, 2s, 4s, … máx 30s).
  */
 
@@ -42,7 +37,14 @@ export class WsEventBus implements PiEventBus {
         return;
       }
 
+      const timeout = setTimeout(() => {
+        this.ws?.close();
+        this.ws = null;
+        reject(new Error('Timeout conectando a xi-serve'));
+      }, 10000);
+
       this.ws.onopen = () => {
+        clearTimeout(timeout);
         this.connectionState = 'connected';
         this.reconnectDelay = 1000;
         resolve();
@@ -55,7 +57,9 @@ export class WsEventBus implements PiEventBus {
       };
 
       this.ws.onerror = () => {
+        clearTimeout(timeout);
         this.connectionState = 'offline';
+        reject(new Error('Error de conexión WebSocket'));
       };
 
       this.ws.onclose = (event: CloseEvent) => {
@@ -67,19 +71,14 @@ export class WsEventBus implements PiEventBus {
           this.terminatedHandler?.(null);
         }
       };
-
-      setTimeout(() => {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-          reject(new Error('Timeout conectando a xi-serve'));
-        }
-      }, 10000);
     });
   }
 
   async sendCommand(json: string): Promise<void> {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(json);
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('WebSocket no conectado');
     }
+    this.ws.send(json);
   }
 
   setEventHandler(handler: (line: string) => void): void {
