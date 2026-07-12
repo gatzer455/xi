@@ -14,23 +14,19 @@
 
 import type { PiEventBus } from './transport.ts';
 
-type EventHandler = (line: string) => void;
-type TerminatedHandler = (code: number | null) => void;
-type ErrorHandler = (line: string) => void;
-
 export class WsEventBus implements PiEventBus {
   private url: string;
   private ws: WebSocket | null = null;
-  private eventHandler: EventHandler | null = null;
-  private terminatedHandler: TerminatedHandler | null = null;
-  private errorHandler: ErrorHandler | null = null;
+  private eventHandler: ((line: string) => void) | null = null;
+  private terminatedHandler: ((code: number | null) => void) | null = null;
+  private errorHandler: ((line: string) => void) | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
   private maxReconnectDelay = 30000;
   private destroyed = false;
 
-  /** Señal de estado de conexión: 'connected' | 'reconnecting' | 'offline' */
-  readonly connectionState: { value: 'connected' | 'reconnecting' | 'offline' } = { value: 'offline' };
+  /** Estado de conexión */
+  connectionState: 'connected' | 'reconnecting' | 'offline' = 'offline';
 
   constructor(url: string) {
     this.url = url;
@@ -47,7 +43,7 @@ export class WsEventBus implements PiEventBus {
       }
 
       this.ws.onopen = () => {
-        this.connectionState.value = 'connected';
+        this.connectionState = 'connected';
         this.reconnectDelay = 1000;
         resolve();
       };
@@ -59,9 +55,7 @@ export class WsEventBus implements PiEventBus {
       };
 
       this.ws.onerror = () => {
-        this.connectionState.value = 'offline';
-        // No reject — el WebSocket API no da detalles en onerror.
-        // Si no se abrió nunca, reject en timeout.
+        this.connectionState = 'offline';
       };
 
       this.ws.onclose = (event: CloseEvent) => {
@@ -70,12 +64,10 @@ export class WsEventBus implements PiEventBus {
           this.scheduleReconnect();
         }
         if (event.code === 1006 && !this.destroyed) {
-          // 1006 = conexión cerrada anormal (ej: servidor murió)
           this.terminatedHandler?.(null);
         }
       };
 
-      // Timeout si no se conecta en 10s
       setTimeout(() => {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
           reject(new Error('Timeout conectando a xi-serve'));
@@ -84,7 +76,6 @@ export class WsEventBus implements PiEventBus {
     });
   }
 
-  /** Envía un comando JSON a pi via WebSocket. */
   async sendCommand(json: string): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(json);
@@ -105,26 +96,18 @@ export class WsEventBus implements PiEventBus {
 
   private scheduleReconnect(): void {
     if (this.destroyed) return;
-    this.connectionState.value = 'reconnecting';
+    this.connectionState = 'reconnecting';
     this.reconnectTimer = setTimeout(() => {
       this.connect().catch(() => {});
     }, this.reconnectDelay);
     this.reconnectDelay = Math.min(this.reconnectDelay * 2, this.maxReconnectDelay);
   }
 
-  /** Cierra la conexión y detiene la reconexión automática. */
   disconnect(): void {
     this.destroyed = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.ws?.close();
     this.ws = null;
-    this.connectionState.value = 'offline';
+    this.connectionState = 'offline';
   }
-}
-
-/** Helper: crea un WsEventBus conectado, listo para pasar a initPiConnection. */
-export async function connectWsBus(url: string): Promise<WsEventBus> {
-  const bus = new WsEventBus(url);
-  await bus.connect();
-  return bus;
 }

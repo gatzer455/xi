@@ -9,9 +9,7 @@
  * El resto del pipeline (state-sync, smooth-streamer, chat) es
  * agnóstico del transporte — solo necesita un PiEventBus.
  */
-
-import type { addEntry } from '../debug-panel.ts';
-import type { PiEvent } from './event-parser.ts';
+// ponytail: add ExtensionUiRequest + ExtensionUiHandler when mobile approve exists
 
 /**
  * Bus de eventos entre el frontend y pi.
@@ -29,17 +27,3 @@ export interface PiEventBus {
   setErrorHandler(handler: (line: string) => void): void;
 }
 
-/**
- * Evento de extensión UI que pi envía para pedir interacción
- * (approve, ask, select, confirm, input).
- */
-export interface ExtensionUiRequest {
-  type: string;
-  [key: string]: unknown;
-}
-
-/**
- * Handler para eventos de extensión UI. Recibe el request y
- * debe retornar la respuesta (promesa).
- */
-export type ExtensionUiHandler = (req: ExtensionUiRequest) => Promise<unknown>;

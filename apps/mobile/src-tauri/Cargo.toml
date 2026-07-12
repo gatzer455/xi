@@ -2,6 +2,7 @@
 name = "xi-mobile"
 version = "0.1.0"
 edition = "2021"
+# ponytail: Cargo.lock regenerado en el primer android build real
 
 [lib]
 name = "xi_mobile_lib"
