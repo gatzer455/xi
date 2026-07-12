@@ -3,9 +3,11 @@
 //! Permite listar, leer y escribir archivos del workingDir.
 //! Filtra archivos ocultos y directorios no deseados (.git, node_modules, etc.).
 
+use super::pi_process::PiProcessState;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use tauri::State;
 
 /// Entrada de archivo para el explorador.
 #[derive(Serialize, Deserialize)]
@@ -37,35 +39,45 @@ const BINARY_EXTENSIONS: &[&str] = &[
     ".woff", ".woff2", ".ttf", ".otf", ".eot", ".so", ".dll", ".dylib",
 ];
 
-/// Listar archivos de un directorio.
-///
-/// Retorna la lista de archivos y subdirectorios, excluyendo
-/// los directorios de la lista EXCLUDED.
-#[tauri::command]
-pub fn list_files(path: String) -> Result<Vec<FileEntry>, String> {
-    let dir = Path::new(&path);
+/// Valida que la ruta esté dentro del directorio raíz permitido.
+pub fn confine_path(path: &str, root: &Path) -> Result<PathBuf, String> {
+    let requested = Path::new(path).canonicalize().map_err(|_| "Ruta inválida o no existe".to_string())?;
+    if !requested.starts_with(root) {
+        return Err("Ruta fuera del directorio permitido".into());
+    }
+    Ok(requested)
+}
 
+/// Extrae el working directory de pi del estado Tauri.
+pub fn get_cwd(state: &PiProcessState) -> Result<PathBuf, String> {
+    let process = state.lock().unwrap();
+    let cwd = process.cwd().ok_or_else(|| "No hay directorio de trabajo".to_string())?;
+    Path::new(cwd).canonicalize().map_err(|e| format!("Error resolviendo directorio de trabajo: {e}"))
+}
+
+/// Integrado: get_cwd + confine_path.
+pub fn confine(path: &str, state: &PiProcessState) -> Result<PathBuf, String> {
+    let root = get_cwd(state)?;
+    confine_path(path, &root)
+}
+
+// ── list_files ─────────────────────────────────────────────────
+
+/// Lógica interna, sin confinamiento (para tests).
+pub fn list_files_inner(dir: &Path) -> Result<Vec<FileEntry>, String> {
     if !dir.is_dir() {
-        return Err(format!("No es un directorio: {}", path));
+        return Err(format!("No es un directorio: {}", dir.display()));
     }
 
-    let entries = fs::read_dir(dir).map_err(|e| format!("Error leyendo directorio: {}", e))?;
-
+    let entries = fs::read_dir(dir).map_err(|e| format!("Error leyendo directorio: {e}"))?;
     let mut result: Vec<FileEntry> = Vec::new();
 
     for entry in entries.flatten() {
         let file_name = entry.file_name();
         let name_str = file_name.to_string_lossy().to_string();
 
-        // Saltar archivos/directorios excluidos
-        if EXCLUDED.contains(&name_str.as_str()) {
-            continue;
-        }
-
-        // Saltar archivos que empiezan con . (ocultos)
-        if name_str.starts_with('.') {
-            continue;
-        }
+        if EXCLUDED.contains(&name_str.as_str()) { continue; }
+        if name_str.starts_with('.') { continue; }
 
         let metadata = match entry.metadata() {
             Ok(m) => m,
@@ -81,7 +93,6 @@ pub fn list_files(path: String) -> Result<Vec<FileEntry>, String> {
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0);
 
-        // Para archivos,获取 la extensión
         let ext = if is_dir {
             String::new()
         } else {
@@ -91,12 +102,8 @@ pub fn list_files(path: String) -> Result<Vec<FileEntry>, String> {
                 .unwrap_or_default()
         };
 
-        // Saltar archivos binarios
-        if !is_dir && BINARY_EXTENSIONS.contains(&ext.as_str()) {
-            continue;
-        }
+        if !is_dir && BINARY_EXTENSIONS.contains(&ext.as_str()) { continue; }
 
-        // Construir path relativo al directorio actual
         let rel_path = entry
             .path()
             .strip_prefix(dir)
@@ -104,69 +111,60 @@ pub fn list_files(path: String) -> Result<Vec<FileEntry>, String> {
             .to_string_lossy()
             .to_string();
 
-        result.push(FileEntry {
-            name: name_str,
-            path: rel_path,
-            is_dir,
-            size,
-            modified,
-        });
+        result.push(FileEntry { name: name_str, path: rel_path, is_dir, size, modified });
     }
 
-    // Ordenar: directorios primero, luego por nombre
     result.sort_by(|a, b| {
-        if a.is_dir != b.is_dir {
-            return b.is_dir.cmp(&a.is_dir);
-        }
+        if a.is_dir != b.is_dir { return b.is_dir.cmp(&a.is_dir); }
         a.name.to_lowercase().cmp(&b.name.to_lowercase())
     });
-
     Ok(result)
 }
 
-/// Leer contenido de un archivo.
-///
-/// Retorna el contenido como string. Si el archivo es binario
-/// o muy grande, retorna error.
 #[tauri::command]
-pub fn read_file(path: String) -> Result<String, String> {
-    let file = Path::new(&path);
+pub fn list_files(path: String, state: State<'_, PiProcessState>) -> Result<Vec<FileEntry>, String> {
+    let dir = confine(&path, &state)?;
+    list_files_inner(&dir)
+}
 
+// ── read_file ──────────────────────────────────────────────────
+
+/// Lógica interna, sin confinamiento (para tests).
+pub fn read_file_inner(file: &Path) -> Result<String, String> {
     if !file.is_file() {
-        return Err(format!("No es un archivo: {}", path));
+        return Err(format!("No es un archivo: {}", file.display()));
     }
-
-    // Verificar tamaño (máximo 1MB)
-    let metadata = fs::metadata(file).map_err(|e| format!("Error leyendo metadata: {}", e))?;
+    let metadata = fs::metadata(file).map_err(|e| format!("Error leyendo metadata: {e}"))?;
     if metadata.len() > 1_048_576 {
         return Err("Archivo demasiado grande (máximo 1MB)".to_string());
     }
-
-    // Verificar que no sea binario
-    let ext = file
-        .extension()
-        .map(|e| e.to_string_lossy().to_string())
-        .unwrap_or_default();
-    if BINARY_EXTENSIONS.contains(&format!(".{}", ext).as_str()) {
+    let ext = file.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_default();
+    if BINARY_EXTENSIONS.contains(&format!(".{ext}").as_str()) {
         return Err("Archivo binario no soportado".to_string());
     }
-
-    fs::read_to_string(file).map_err(|e| format!("Error leyendo archivo: {}", e))
+    fs::read_to_string(file).map_err(|e| format!("Error leyendo archivo: {e}"))
 }
 
-/// Escribir contenido a un archivo.
-///
-/// Sobrescribe el contenido completo del archivo.
 #[tauri::command]
-pub fn write_file(path: String, content: String) -> Result<(), String> {
-    let file = Path::new(&path);
+pub fn read_file(path: String, state: State<'_, PiProcessState>) -> Result<String, String> {
+    let file = confine(&path, &state)?;
+    read_file_inner(&file)
+}
 
-    // Crear directorio padre si no existe
+// ── write_file ─────────────────────────────────────────────────
+
+/// Lógica interna, sin confinamiento (para tests).
+pub fn write_file_inner(file: &Path, content: &str) -> Result<(), String> {
     if let Some(parent) = file.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Error creando directorio: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Error creando directorio: {e}"))?;
     }
+    fs::write(file, content).map_err(|e| format!("Error escribiendo archivo: {e}"))
+}
 
-    fs::write(file, content).map_err(|e| format!("Error escribiendo archivo: {}", e))
+#[tauri::command]
+pub fn write_file(path: String, content: String, state: State<'_, PiProcessState>) -> Result<(), String> {
+    let file = confine(&path, &state)?;
+    write_file_inner(&file, &content)
 }
 
 #[cfg(test)]
@@ -175,17 +173,13 @@ mod tests {
     use std::fs;
     use tempfile::TempDir;
 
-    /// Helper: crea un directorio temporal con archivos de prueba.
     fn setup_test_dir() -> TempDir {
         let dir = TempDir::new().unwrap();
-        // Archivos
         fs::write(dir.path().join("test.txt"), "hello world").unwrap();
         fs::write(dir.path().join("test.md"), "# Markdown").unwrap();
         fs::write(dir.path().join("config.json"), "{\"key\": \"value\"}").unwrap();
-        // Directorio
         fs::create_dir(dir.path().join("subdir")).unwrap();
         fs::write(dir.path().join("subdir/nested.txt"), "nested").unwrap();
-        // Archivo oculto (debe ser filtrado)
         fs::write(dir.path().join(".hidden"), "hidden").unwrap();
         dir
     }
@@ -193,39 +187,29 @@ mod tests {
     #[test]
     fn list_files_retorna_archivos_y_directorios() {
         let dir = setup_test_dir();
-        let result = list_files(dir.path().to_string_lossy().to_string()).unwrap();
-
-        // Debe tener 3 archivos + 1 directorio (test.txt, test.md, config.json, subdir)
+        let result = list_files_inner(dir.path()).unwrap();
         assert_eq!(result.len(), 4);
-
-        // Directorios primero
         assert!(result[0].is_dir);
         assert_eq!(result[0].name, "subdir");
-
-        // Archivos ordenados alfabéticamente
         assert_eq!(result[1].name, "config.json");
         assert_eq!(result[2].name, "test.md");
         assert_eq!(result[3].name, "test.txt");
     }
 
     #[test]
-    fn list_files_filtra_archivos_ocultos() {
+    fn list_files_filtra_ocultos() {
         let dir = setup_test_dir();
-        let result = list_files(dir.path().to_string_lossy().to_string()).unwrap();
-
-        // .hidden no debe aparecer
+        let result = list_files_inner(dir.path()).unwrap();
         assert!(!result.iter().any(|f| f.name == ".hidden"));
     }
 
     #[test]
-    fn list_files_filtra_directorios_excluidos() {
+    fn list_files_filtra_excluidos() {
         let dir = setup_test_dir();
         fs::create_dir(dir.path().join("node_modules")).unwrap();
         fs::create_dir(dir.path().join(".git")).unwrap();
         fs::create_dir(dir.path().join("target")).unwrap();
-
-        let result = list_files(dir.path().to_string_lossy().to_string()).unwrap();
-
+        let result = list_files_inner(dir.path()).unwrap();
         assert!(!result.iter().any(|f| f.name == "node_modules"));
         assert!(!result.iter().any(|f| f.name == ".git"));
         assert!(!result.iter().any(|f| f.name == "target"));
@@ -234,9 +218,7 @@ mod tests {
     #[test]
     fn list_files_retorna_paths_relativos() {
         let dir = setup_test_dir();
-        let result = list_files(dir.path().to_string_lossy().to_string()).unwrap();
-
-        // Los paths no deben empezar con / ni con el path completo
+        let result = list_files_inner(dir.path()).unwrap();
         for file in &result {
             assert!(!file.path.starts_with('/'));
             assert!(!file.path.contains(dir.path().to_string_lossy().as_ref()));
@@ -244,66 +226,68 @@ mod tests {
     }
 
     #[test]
-    fn list_files_retorna_error_para_directorio_inexistente() {
-        let result = list_files("/no/existe/carpeta".to_string());
+    fn list_files_error_si_no_existe() {
+        let dir = TempDir::new().unwrap();
+        let result = list_files_inner(&dir.path().join("nope"));
         assert!(result.is_err());
     }
 
     #[test]
-    fn read_file_retorna_contenido() {
+    fn read_file_inner_retorna_contenido() {
         let dir = setup_test_dir();
-        let path = dir.path().join("test.txt").to_string_lossy().to_string();
-        let content = read_file(path).unwrap();
+        let content = read_file_inner(&dir.path().join("test.txt")).unwrap();
         assert_eq!(content, "hello world");
     }
 
     #[test]
-    fn read_file_retorna_error_para_archivo_inexistente() {
-        let result = read_file("/no/existe/archivo.txt".to_string());
+    fn read_file_inner_error_si_no_existe() {
+        let result = read_file_inner(Path::new("/no/existe/archivo.txt"));
         assert!(result.is_err());
     }
 
     #[test]
-    fn read_file_retorna_error_para_directorio() {
+    fn read_file_inner_error_si_es_directorio() {
         let dir = setup_test_dir();
-        let result = read_file(dir.path().to_string_lossy().to_string());
+        let result = read_file_inner(dir.path());
         assert!(result.is_err());
     }
 
     #[test]
-    fn write_file_crea_archivo() {
+    fn write_file_inner_crea_archivo() {
         let dir = TempDir::new().unwrap();
-        let path = dir.path().join("nuevo.txt").to_string_lossy().to_string();
-
-        write_file(path.clone(), "contenido nuevo".to_string()).unwrap();
-
-        let content = fs::read_to_string(path).unwrap();
-        assert_eq!(content, "contenido nuevo");
+        let path = dir.path().join("nuevo.txt");
+        write_file_inner(&path, "contenido nuevo").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "contenido nuevo");
     }
 
     #[test]
-    fn write_file_sobrescribe_archivo_existente() {
+    fn write_file_inner_sobrescribe() {
+        let dir = setup_test_dir();
+        let path = dir.path().join("test.txt");
+        write_file_inner(&path, "nuevo contenido").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "nuevo contenido");
+    }
+
+    #[test]
+    fn write_file_inner_crea_dirs_padre() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("a/b/c/archivo.txt");
+        write_file_inner(&path, "contenido").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "contenido");
+    }
+
+    #[test]
+    fn confine_path_acepta_ruta_dentro_del_root() {
         let dir = setup_test_dir();
         let path = dir.path().join("test.txt").to_string_lossy().to_string();
-
-        write_file(path.clone(), "nuevo contenido".to_string()).unwrap();
-
-        let content = fs::read_to_string(path).unwrap();
-        assert_eq!(content, "nuevo contenido");
+        assert!(confine_path(&path, dir.path()).is_ok());
     }
 
     #[test]
-    fn write_file_crea_directorios_padre() {
-        let dir = TempDir::new().unwrap();
-        let path = dir
-            .path()
-            .join("a/b/c/archivo.txt")
-            .to_string_lossy()
-            .to_string();
-
-        write_file(path.clone(), "contenido".to_string()).unwrap();
-
-        let content = fs::read_to_string(path).unwrap();
-        assert_eq!(content, "contenido");
+    fn confine_path_rechaza_ruta_fuera_del_root() {
+        let dir = setup_test_dir();
+        let outside = "/tmp";
+        let path = outside.to_string();
+        assert!(confine_path(&path, dir.path()).is_err());
     }
 }
