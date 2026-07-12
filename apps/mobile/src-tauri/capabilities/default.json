@@ -1,0 +1,9 @@
+{
+  "identifier": "default",
+  "description": "Permisos mínimos para xi mobile (todo va por WS)",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open"
+  ]
+}
