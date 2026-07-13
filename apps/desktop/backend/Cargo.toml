@@ -26,5 +26,11 @@ tempfile = "3"
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
 
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+strip = true
+
 [dependencies]
 log = "0.4.33"
