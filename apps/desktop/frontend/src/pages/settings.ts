@@ -688,8 +688,6 @@ function renderSessionSection(scope: Scope): HTMLElement {
   });
 }
 
-/** Inyectado por Vite define desde package.json en tiempo de build. */
-declare const __APP_VERSION__: string;
 
 function renderAboutSection(scope: Scope): HTMLElement {
   // El row muestra "xi v0.1.0 — pi v0.79.3" (o "pi desconocida" si
