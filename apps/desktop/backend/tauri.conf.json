@@ -3,8 +3,8 @@
   "version": "0.3.6",
   "identifier": "com.xi.app",
   "build": {
-    "beforeDevCommand": "cd apps/desktop/frontend && npm run dev",
-    "beforeBuildCommand": "cd apps/desktop/frontend && npm run build",
+    "beforeDevCommand": "npm run dev --prefix ../frontend",
+    "beforeBuildCommand": "echo \"frontend already built\"",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../frontend/dist"
   },

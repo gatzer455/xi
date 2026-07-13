@@ -1,4 +1,6 @@
 import { defineConfig } from 'vite';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
 
 /**
  * Vite config — Vanilla TypeScript, sin frameworks.
@@ -9,8 +11,13 @@ import { defineConfig } from 'vite';
  * Tauri carga el dev server en desarrollo y los assets estáticos en producción.
  */
 
+const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf-8'));
+
 export default defineConfig({
   root: '.',
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   publicDir: 'public',
   build: {
     outDir: 'dist',

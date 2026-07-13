@@ -688,8 +688,6 @@ function renderSessionSection(scope: Scope): HTMLElement {
   });
 }
 
-/** Versión de xi. Debe coincidir con backend/Cargo.toml. */
-const APP_VERSION = '0.1.5';
 
 function renderAboutSection(scope: Scope): HTMLElement {
   // El row muestra "xi v0.1.0 — pi v0.79.3" (o "pi desconocida" si
@@ -701,7 +699,7 @@ function renderAboutSection(scope: Scope): HTMLElement {
   const paint = (): void => {
     const pi = appState.piVersion.value;
     const piText = pi === 'unknown' ? 'desconocida' : `v${pi}`;
-    versionValue.textContent = `xi v${APP_VERSION} — pi ${piText}`;
+    versionValue.textContent = `xi v${__APP_VERSION__} — pi ${piText}`;
   };
 
   paint();
