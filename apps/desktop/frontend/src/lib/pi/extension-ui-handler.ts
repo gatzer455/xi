@@ -16,7 +16,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { ExtensionUIRequest } from './types.ts';
+import type { ExtensionUIRequest } from 'xi-ui/lib/pi/types.ts';
 
 // ─── Renderer ─────────────────────────────────────────────────────────────────
 
@@ -64,9 +64,15 @@ export function initExtensionUIHandler(): void {
   listen<ExtensionUIRequest>('extension-ui-request', async (event) => {
     const request = event.payload;
 
-    // notify es fire-and-forget — no necesita respuesta
+    // notify y setStatus son fire-and-forget — no necesitan respuesta.
+    // setStatus no está en el union de ExtensionUIRequest (xi-ui/lib/pi/types.ts)
+    // — cast puntual para leer su `message` sin ampliar el tipo compartido acá.
     if (request.method === 'notify') {
       handleNotify(request);
+      return;
+    }
+    if ((request as { method: string }).method === 'setStatus') {
+      console.log(`[extension-ui] status: ${(request as unknown as { message?: string }).message ?? ''}`);
       return;
     }
 

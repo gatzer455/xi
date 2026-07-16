@@ -6,14 +6,14 @@
  * import { vi } from 'vitest';
  * import { mockSignal, createMockAppState } from '../mocks/state.ts';
  *
- * vi.mock('../../src/lib/state.ts', () => ({
+ * vi.mock('xi-ui/lib/state.ts', () => ({
  *   appState: createMockAppState({ hasAnyProvider: false }),
  * }));
  * ```
  */
 
-import type { Signal } from "../../src/lib/signal.ts";
-import type { AppState } from "../../src/lib/state.ts";
+import type { Signal } from "xi-ui/lib/signal.ts";
+import type { AppState } from "xi-ui/lib/state.ts";
 
 /**
  * Crea una Signal<T> mockeada con valor inicial controlable.

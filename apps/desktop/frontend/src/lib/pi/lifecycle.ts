@@ -17,9 +17,9 @@
  * conoce el state.
  */
 
-import { getPiStatus, startPi } from './tauri-commands.ts';
-import { appState } from '../state.ts';
-import { addEntry } from '../debug-panel.ts';
+import { getPiStatus, startPi } from 'xi-ui/lib/pi/tauri-commands.ts';
+import { appState } from 'xi-ui/lib/state.ts';
+import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 
 /**
  * Asegura que pi esté corriendo. Si no lo está, lo arranca con el

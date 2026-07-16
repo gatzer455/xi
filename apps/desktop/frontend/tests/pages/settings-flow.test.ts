@@ -101,15 +101,15 @@ const mock = vi.hoisted(() => {
 
 // ─── vi.mock: factories que usan lo definido arriba ──────────────────────
 
-vi.mock("../../src/lib/state.ts", () => ({
+vi.mock("xi-ui/lib/state.ts", () => ({
   appState: mock.createMockAppState(),
 }));
 
-vi.mock("../../src/lib/nav.ts", () => ({
+vi.mock("xi-ui/lib/nav.ts", () => ({
   navigate: vi.fn(),
 }));
 
-vi.mock("../../src/lib/pi/tauri-commands.ts", () => ({
+vi.mock("xi-ui/lib/pi/tauri-commands.ts", () => ({
   setModel: vi.fn(),
   setThinkingLevel: vi.fn(),
   getAvailableModels: mock.track("getAvailableModels"),

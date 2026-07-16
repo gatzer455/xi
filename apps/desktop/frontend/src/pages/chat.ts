@@ -20,22 +20,22 @@
  *   4. Suscripción al ChatStore del activeTab → renderMessages
  */
 
-import { appState, type ExtensionDialogState } from '../lib/state.ts';
-import { createScope, type Page } from '../lib/scope.ts';
-import { ChatBubble, type ChatBubbleHandle } from '../components/chat-bubble.ts';
-import { getStore, type ChatStore } from '../lib/chat/stores.ts';
-import type { ChatMessage } from '../lib/chat/types.ts';
+import { appState, type ExtensionDialogState } from 'xi-ui/lib/state.ts';
+import { createScope, type Page } from 'xi-ui/lib/scope.ts';
+import { ChatBubble, type ChatBubbleHandle } from 'xi-ui/components/chat-bubble.ts';
+import { getStore, type ChatStore } from 'xi-ui/lib/chat/stores.ts';
+import type { ChatMessage } from 'xi-ui/lib/chat/types.ts';
 import {
   renderSelectDialog,
   renderConfirmDialog,
   renderInputDialog,
   renderEditorDialog,
-} from '../components/extension-ui-dialog.ts';
+} from 'xi-ui/components/extension-ui-dialog.ts';
 import {
   setDialogRenderer,
   clearDialogRenderer,
 } from '../lib/pi/extension-ui-handler.ts';
-import { navigate } from '../lib/nav.ts';
+import { navigate } from 'xi-ui/lib/nav.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 

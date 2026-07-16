@@ -20,7 +20,7 @@ import {
   renamingPath,
   resetSessionsState,
 } from '../src/pages/sessions.ts';
-import type { SessionInfo } from '../src/lib/pi/types.ts';
+import type { SessionInfo } from 'xi-ui/lib/pi/types.ts';
 
 describe('resetSessionsState', () => {
   beforeEach(() => {

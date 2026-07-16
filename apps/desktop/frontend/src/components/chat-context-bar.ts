@@ -19,10 +19,10 @@
  * la parte baja del viewport.
  */
 
-import { appState, type ThinkingLevel } from '../lib/state.ts';
-import { getStore } from '../lib/chat/stores.ts';
+import { appState, type ThinkingLevel } from 'xi-ui/lib/state.ts';
+import { getStore } from 'xi-ui/lib/chat/stores.ts';
 import { ModelPicker } from './model-picker.ts';
-import { setThinkingLevel } from '../lib/pi/tauri-commands.ts';
+import { setThinkingLevel } from 'xi-ui/lib/pi/tauri-commands.ts';
 
 // ─── Braille spinner (mismo ciclo que ChatFooter) ─────────
 

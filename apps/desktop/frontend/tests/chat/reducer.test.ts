@@ -14,8 +14,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { reduce, initialChatState, mergeToolCallStates, type ChatEvent } from '../../src/lib/chat/reducer.ts';
-import type { ChatState, ChatMessage, Part, ChatSession } from '../../src/lib/chat/types.ts';
+import { reduce, initialChatState, mergeToolCallStates, type ChatEvent } from 'xi-ui/lib/chat/reducer.ts';
+import type { ChatState, ChatMessage, Part, ChatSession } from 'xi-ui/lib/chat/types.ts';
 
 // ─── Helpers ──────────────────────────────────────────────
 

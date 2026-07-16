@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { signal } from '../src/lib/signal.ts';
+import { signal } from 'xi-ui/lib/signal.ts';
 
 describe('signal', () => {
   // ─── Valor inicial ────────────────────────────────────────

@@ -20,7 +20,7 @@
  * vacío. main.ts lo appenda al slot #update-banner del shell y listo.
  */
 
-import { appState } from '../lib/state.ts';
+import { appState } from 'xi-ui/lib/state.ts';
 import {
   installAndRelaunch,
   dismissBanner,

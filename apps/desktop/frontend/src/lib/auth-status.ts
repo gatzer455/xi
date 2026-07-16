@@ -16,8 +16,8 @@
  * estado vive en signals hasta que algo explícitamente lo refresca.
  */
 
-import { appState } from './state.ts';
-import { getAuthStatus } from './pi/tauri-commands.ts';
+import { appState } from 'xi-ui/lib/state.ts';
+import { getAuthStatus } from 'xi-ui/lib/pi/tauri-commands.ts';
 
 /** Contador monotónico para descartar respuestas stale de loadAuthStatus
  *  cuando se superponen múltiples llamadas (e.g., mount de settings

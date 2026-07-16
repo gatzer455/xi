@@ -11,8 +11,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { createChatStore } from '../../src/lib/chat/store.ts';
-import type { ChatMessage, ChatSession, Part } from '../../src/lib/chat/types.ts';
+import { createChatStore } from 'xi-ui/lib/chat/store.ts';
+import type { ChatMessage, ChatSession, Part } from 'xi-ui/lib/chat/types.ts';
 
 const session: ChatSession = { id: 's1', file: '/p.jsonl', name: 'test', messageCount: 0 };
 

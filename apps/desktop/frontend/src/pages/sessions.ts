@@ -9,9 +9,9 @@
  * de rename abierto (no pisamos lo que el usuario está escribiendo).
  */
 
-import { signal } from "../lib/signal.ts";
-import { createScope, type Page } from "../lib/scope.ts";
-import { appState } from "../lib/state.ts";
+import { signal } from "xi-ui/lib/signal.ts";
+import { createScope, type Page } from "xi-ui/lib/scope.ts";
+import { appState } from "xi-ui/lib/state.ts";
 import {
   listSessions,
   deleteSession,
@@ -27,11 +27,11 @@ import type {
   ListSessionsResult,
   SessionInfo,
   SkippedInfo,
-} from "../lib/pi/types.ts";
-import { icon } from "../lib/icons.ts";
-import { navigate } from "../lib/nav.ts";
-import { setActiveTab, type Session } from "../lib/state.ts";
-import { dropStore } from "../lib/chat/stores.ts";
+} from "xi-ui/lib/pi/types.ts";
+import { icon } from "xi-ui/lib/icons.ts";
+import { navigate } from "xi-ui/lib/nav.ts";
+import { setActiveTab, type Session } from "xi-ui/lib/state.ts";
+import { dropStore } from "xi-ui/lib/chat/stores.ts";
 import { ensurePiRunning } from "../lib/pi/lifecycle.ts";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -159,10 +159,10 @@ async function loadSessions(): Promise<void> {
  *   (ej. botón de cerrar).
  */
 function createSignalBanner<T>(
-  sig: import("../lib/signal.ts").Signal<T>,
+  sig: import("xi-ui/lib/signal.ts").Signal<T>,
   className: string,
   format: (value: T) => string | null,
-  scope: import("../lib/scope.ts").Scope,
+  scope: import("xi-ui/lib/scope.ts").Scope,
   extras?: (banner: HTMLElement) => void,
 ): HTMLElement {
   const banner = document.createElement("div");
@@ -231,7 +231,7 @@ function renderHeader(): HTMLElement {
 }
 
 function renderSkipWarning(
-  scope: import("../lib/scope.ts").Scope,
+  scope: import("xi-ui/lib/scope.ts").Scope,
 ): HTMLElement {
   return createSignalBanner(
     skipped,
@@ -250,7 +250,7 @@ function renderSkipWarning(
 }
 
 function renderErrorBanner(
-  scope: import("../lib/scope.ts").Scope,
+  scope: import("xi-ui/lib/scope.ts").Scope,
 ): HTMLElement {
   return createSignalBanner(
     error,
@@ -268,7 +268,7 @@ function renderErrorBanner(
   );
 }
 
-function renderList(scope: import("../lib/scope.ts").Scope): HTMLElement {
+function renderList(scope: import("xi-ui/lib/scope.ts").Scope): HTMLElement {
   const list = document.createElement("div");
   list.className = "sessions-list";
 

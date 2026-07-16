@@ -16,10 +16,10 @@
  * - Logging: errores de RPC se propagan (logged via loggedInvoke).
  */
 
-import { appState, type ThemeMode, type FontSize, type ThinkingLevel } from '../lib/state.ts';
-import { signal } from '../lib/signal.ts';
-import { createScope, type Scope, type Page } from '../lib/scope.ts';
-import { navigate } from '../lib/nav.ts';
+import { appState, type ThemeMode, type FontSize, type ThinkingLevel } from 'xi-ui/lib/state.ts';
+import { signal } from 'xi-ui/lib/signal.ts';
+import { createScope, type Scope, type Page } from 'xi-ui/lib/scope.ts';
+import { navigate } from 'xi-ui/lib/nav.ts';
 import {
   setModel,
   setThinkingLevel,
@@ -31,7 +31,7 @@ import {
 
   deleteApiKey,
   type ProviderInfo,
-} from '../lib/pi/tauri-commands.ts';
+} from 'xi-ui/lib/pi/tauri-commands.ts';
 import {
   getExaConfig,
   getExaApiKey,
@@ -42,7 +42,7 @@ import {
   setApproveRules,
   type ExaConfigStatus,
   type ApproveRules,
-} from '../lib/pi/tauri-commands.ts';
+} from 'xi-ui/lib/pi/tauri-commands.ts';
 import { ensurePiRunning } from '../lib/pi/index.ts';
 import { loadAuthStatus } from '../lib/auth-status.ts';
 import {

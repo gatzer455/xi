@@ -6,10 +6,10 @@
  * Click en directorio → navegar dentro.
  */
 
-import { appState, type FileEntry } from '../lib/state.ts';
-import type { Scope } from '../lib/scope.ts';
-import { listFiles, readFile } from '../lib/pi/tauri-commands.ts';
-import { icon, getFileIconName } from '../lib/icons.ts';
+import { appState, type FileEntry } from 'xi-ui/lib/state.ts';
+import type { Scope } from 'xi-ui/lib/scope.ts';
+import { listFiles, readFile } from 'xi-ui/lib/pi/tauri-commands.ts';
+import { icon, getFileIconName } from 'xi-ui/lib/icons.ts';
 
 export function FileList(scope: Scope): HTMLElement {
   const container = document.createElement('div');

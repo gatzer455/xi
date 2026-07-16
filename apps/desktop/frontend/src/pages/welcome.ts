@@ -4,36 +4,23 @@
  * Es la ruta default del router (reemplaza a `#/chat`). Se muestra
  * cuando xi arranca sin workingDir, o cuando el usuario hace click en
  * "Cambiar de proyecto" desde la sidebar.
- *
- * El sidebar está oculto en esta vista — la welcome ocupa toda la
- * pantalla. La sidebar se vuelve a mostrar cuando el usuario abre un
- * proyecto y navega a `#/chat`.
- *
- * Etapa 9 (onboarding): se agregaron 3 cosas:
- * 1. Párrafo "¿Qué es xi?" debajo del header (texto estático).
- * 2. Banderita de "no auth" condicional, alimentada por
- *    loadAuthStatus() al mount.
- * 3. Link "¿Necesitas ayuda?" al pie.
  */
 
-import { signal, type Signal } from "../lib/signal.ts";
-import { createScope, type Scope, type Page } from "../lib/scope.ts";
-import { appState } from "../lib/state.ts";
+import { signal, type Signal } from "xi-ui/lib/signal.ts";
+import { createScope, type Scope, type Page } from "xi-ui/lib/scope.ts";
+import { appState } from "xi-ui/lib/state.ts";
 import { pickAndOpenProject, openProject } from "../lib/workdir.ts";
-import { navigate } from "../lib/nav.ts";
+import { navigate } from "xi-ui/lib/nav.ts";
 import { getRecents } from "../lib/pi/index.ts";
 import type { Recent } from "../lib/pi/index.ts";
 import { loadAuthStatus } from "../lib/auth-status.ts";
-import { icon } from "../lib/icons.ts";
+import { icon } from "xi-ui/lib/icons.ts";
 
 export function WelcomePage(): Page {
   const root = document.createElement("div");
   root.className = "welcome-page";
   const scope = createScope();
 
-  // Signal local por instancia: cada mount tiene su propio estado de
-  // error. Sin esto, un error de un mount anterior persiste al
-  // remontar la página y la UI muestra un banner fantasma.
   const error = signal<string | null>(null);
 
   root.append(renderErrorBanner(scope, error));
@@ -43,23 +30,8 @@ export function WelcomePage(): Page {
   root.append(renderRecentsSection(scope, error));
   root.append(renderHelpLink());
 
-  // Cargar el estado de providers al mount. Fire-and-forget — el
-  // render no espera; el banner se actualiza cuando la promesa
-  // resuelve. La banderita arranca con visibility:hidden para evitar
-  // flash de "no auth" cuando sí hay providers (el user apenas
-  // vuelve de settings, por ejemplo).
   void loadAuthStatus();
 
-  // Auto-cerrar la welcome cuando se setea un workingDir. Esto pasa
-  // cuando el usuario hace click en un card (openProject setea
-  // workingDir) o cuando el flujo externo setea workingDir mientras
-  // la welcome está montada. Redirigimos a #/sessions para que el
-  // usuario cree o elija una sesión antes de chatear.
-  //
-  // El flag `initialDir` captura el valor de workingDir al mount.
-  // Si workingDir ya estaba seteado (ej: el usuario volvió a welcome
-  // desde sessions), NO navegamos — solo navegamos cuando workingDir
-  // CAMBIA de null a un valor (el usuario eligió un proyecto).
   const initialDir = appState.workingDir.value;
   scope.add(
     appState.workingDir.subscribe((dir) => {
@@ -99,11 +71,11 @@ function renderHeader(): HTMLElement {
   const header = document.createElement("div");
   header.className = "welcome-header";
 
-  const icon = document.createElement("img");
-  icon.className = "welcome-icon";
-  icon.src = "xi-icon.svg";
-  icon.alt = "Xi";
-  header.append(icon);
+  const iconImg = document.createElement("img");
+  iconImg.className = "welcome-icon";
+  iconImg.src = "xi-icon.svg";
+  iconImg.alt = "Xi";
+  header.append(iconImg);
 
   const subtitle = document.createElement("p");
   subtitle.className = "welcome-subtitle";
@@ -115,17 +87,9 @@ function renderHeader(): HTMLElement {
   return header;
 }
 
-/** Banderita de "no auth" — solo se muestra si configuredProviders
- *  está vacío Y la carga inicial terminó. Mientras loadAuthStatus
- *  corre, la banderita está oculta (no debe haber flash de "no auth"
- *  cuando sí hay providers). visibility:hidden reserva el espacio
- *  para evitar layout shift. */
 function renderAuthBanner(scope: Scope): HTMLElement {
   const banner = document.createElement("div");
   banner.className = "welcome-auth-banner";
-
-  // Estado inicial: mientras no sepamos si hay providers, escondemos
-  // la banderita. La suscripción a hasAnyProvider la actualiza.
   banner.style.visibility = "hidden";
 
   const message = document.createElement("span");
@@ -139,9 +103,6 @@ function renderAuthBanner(scope: Scope): HTMLElement {
   button.addEventListener("click", () => navigate("settings"));
   banner.append(button);
 
-  // Suscripción: aparece solo si NO hay providers. Si hay 1+, se
-  // esconde. La banderita se actualiza también si el user vuelve
-  // de settings (loadAuthStatus se re-ejecuta al mount).
   scope.add(
     appState.hasAnyProvider.subscribe((hasAny) => {
       banner.style.visibility = hasAny ? "hidden" : "visible";
@@ -151,10 +112,6 @@ function renderAuthBanner(scope: Scope): HTMLElement {
   return banner;
 }
 
-/** Link al pie: "¿Necesitas ayuda?" — abre la doc de pi en una
- *  nueva pestaña. Por ahora apunta a pi.dev/docs, que es la doc
- *  oficial del sidecar. Cuando tengamos docs propias de xi, las
- *  ponemos primero. */
 function renderHelpLink(): HTMLElement {
   const link = document.createElement("a");
   link.className = "welcome-help-link";
@@ -172,10 +129,6 @@ function renderCta(error: Signal<string | null>): HTMLElement {
   const btnIcon = icon("folder-open", { size: 20 });
   button.append(btnIcon, " Selecciona una carpeta primero");
 
-  // El handler captura el error y lo muestra en el banner. No
-  // navegamos a #/chat — eso pasa solo si `openProject` setea
-  // `appState.workingDir`, lo cual es detectado por la suscripción
-  // en `WelcomePage`.
   button.addEventListener("click", async () => {
     try {
       await pickAndOpenProject();
@@ -209,10 +162,6 @@ function renderRecentsSection(scope: Scope, error: Signal<string | null>): HTMLE
     grid.replaceChildren(...recents.map((r) => renderRecentCard(r, error)));
   };
 
-  // Render inicial. Si la signal está vacía (caso primera vez),
-  // intentamos cargar — esto es un fallback por si `main.ts` no
-  // populó la signal antes del primer render (no debería pasar,
-  // pero defense in depth).
   const initial = appState.recents.value;
   if (initial.length === 0) {
     getRecents()
@@ -220,8 +169,6 @@ function renderRecentsSection(scope: Scope, error: Signal<string | null>): HTMLE
         appState.recents.value = recents;
       })
       .catch((err) => {
-        // Si falla la carga, no rompemos la welcome. La sección
-        // queda oculta (sin recientes).
         console.error("Failed to load recents in welcome:", err);
       });
   }
@@ -232,10 +179,6 @@ function renderRecentsSection(scope: Scope, error: Signal<string | null>): HTMLE
   section.append(grid);
   return section;
 }
-
-// ───────────────────────────────────────────────────────
-// renderRecentCard — extraído para no anidar el map dentro de 4 niveles
-// ───────────────────────────────────────────────────────
 
 function renderRecentCard(recent: Recent, error: Signal<string | null>): HTMLElement {
   const card = document.createElement("button");
@@ -261,8 +204,6 @@ function renderRecentCard(recent: Recent, error: Signal<string | null>): HTMLEle
   card.addEventListener("click", async () => {
     try {
       await openProject(recent.path);
-      // La navegación a #/chat la dispara la suscripción a
-      // workingDir cuando openProject setea el cwd.
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err);
     }
@@ -272,14 +213,9 @@ function renderRecentCard(recent: Recent, error: Signal<string | null>): HTMLEle
 }
 
 // ───────────────────────────────────────────────────────
-// Helpers puros — testeables, sin DOM
+// Helpers puros
 // ───────────────────────────────────────────────────────
 
-/**
- * Formatea un timestamp Unix (ms) como texto relativo en español:
- * "hace 2 días", "hace 3 sem", "hace 1 mes". Granularidad decreciente:
- * minutos → horas → días → semanas → meses.
- */
 function formatRelativeTime(ts: number): string {
   const diffMs = Date.now() - ts;
   const minutes = Math.floor(diffMs / 60_000);
@@ -300,11 +236,6 @@ function formatRelativeTime(ts: number): string {
   return `hace ${months} mes${months > 1 ? "es" : ""}`;
 }
 
-/**
- * Trunca un path absoluto para mostrarlo en una card. Si el path es
- * más largo que `maxLen`, retorna los últimos `maxLen` caracteres con
- * `…` al inicio. Si entra entero, lo retorna igual.
- */
 function truncatePath(fullPath: string, maxLen = 40): string {
   if (fullPath.length <= maxLen) return fullPath;
   return "…" + fullPath.slice(-(maxLen - 1));

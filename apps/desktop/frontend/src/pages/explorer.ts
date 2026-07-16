@@ -8,11 +8,11 @@
  * Por defecto muestra solo lectura. Botón "Editar" activa modo edición.
  */
 
-import { signal } from '../lib/signal.ts';
-import { createScope, type Scope, type Page } from '../lib/scope.ts';
-import { appState, type FileEntry } from '../lib/state.ts';
-import { navigate } from '../lib/nav.ts';
-import { listFiles, readFile, writeFile } from '../lib/pi/tauri-commands.ts';
+import { signal } from 'xi-ui/lib/signal.ts';
+import { createScope, type Scope, type Page } from 'xi-ui/lib/scope.ts';
+import { appState, type FileEntry } from 'xi-ui/lib/state.ts';
+import { navigate } from 'xi-ui/lib/nav.ts';
+import { listFiles, readFile, writeFile } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { FileList } from '../components/file-list.ts';
 import { FilePreview } from '../components/file-preview.ts';
 

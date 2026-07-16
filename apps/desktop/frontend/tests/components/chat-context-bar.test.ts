@@ -58,11 +58,11 @@ const mockState = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../src/lib/state.ts', () => ({
+vi.mock('xi-ui/lib/state.ts', () => ({
   appState: mockState.createMockAppState(),
 }));
 
-vi.mock('../../src/lib/debug-panel.ts', () => ({
+vi.mock('xi-ui/lib/debug-panel.ts', () => ({
   addEntry: vi.fn(),
 }));
 

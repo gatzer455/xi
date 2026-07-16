@@ -1,0 +1,210 @@
+/**
+ * layout.css — Layout del app shell mobile (apilado, single-screen).
+ *
+ * "Un solo diseño, dos layouts" (docs/mobile/04): la identidad visual
+ * (tokens/theme/markdown/components) viene de packages/xi-ui/src/styles.
+ * Acá solo lo que difiere de desktop: shell full-height apilado en vez
+ * de browser-shaped con tabs, sin sidebar.
+ */
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ═══ Connection chip ═══ */
+
+.conn-chip {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+  text-align: center;
+  color: var(--color-text-dim);
+}
+.conn-chip[data-state="connected"] { color: var(--color-success, #4caf50); }
+.conn-chip[data-state="reconnecting"] { color: var(--color-warning, #e0a800); }
+.conn-chip[data-state="offline"] { color: var(--color-error, #e05555); }
+
+/* ═══ Screen (output-board) ═══ */
+
+#screen {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.output-board {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ═══ Connect / Projects / Sessions: formularios y listas simples ═══ */
+
+.connect-page,
+.projects-page,
+.sessions-page,
+.explorer-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.connect-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.connect-input {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-base);
+}
+.connect-error { color: var(--color-error, #e05555); font-size: var(--text-sm); }
+.connect-submit,
+.sessions-new,
+.project-item,
+.session-item,
+.explorer-item {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+.connect-submit { background: var(--color-accent); color: var(--color-accent-fg); border: none; text-align: center; }
+.connect-submit:disabled { opacity: 0.6; }
+
+.sessions-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.sessions-header h1 { flex: 1; font-size: var(--text-lg); margin: 0; }
+
+.projects-list,
+.sessions-list,
+.explorer-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.session-item-name { font-weight: 600; }
+.session-item-preview { color: var(--color-text-dim); font-size: var(--text-sm); margin-top: var(--space-1); }
+
+.explorer-header { display: flex; align-items: center; gap: var(--space-2); }
+.explorer-path { color: var(--color-text-dim); font-size: var(--text-sm); }
+.explorer-preview {
+  white-space: pre-wrap;
+  overflow-x: auto;
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-sm);
+}
+
+/* ═══ Chat ═══ */
+
+.chat-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+}
+.chat-messages > .message + .message { margin-top: var(--space-4); }
+.chat-messages-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.chat-end-sentinel { height: 0; flex-shrink: 0; }
+
+/* ═══ Input bar ═══ */
+
+.input-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.input-bar textarea {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  resize: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  color: var(--color-text);
+  max-height: 200px;
+}
+.input-bar textarea:disabled { opacity: 0.5; }
+.input-send-btn {
+  flex-shrink: 0;
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-lg);
+  min-width: 44px;
+  min-height: 44px;
+}
+.input-send-btn:disabled { opacity: 0.4; }
+.input-btn-icon { display: none; }
+.input-send-btn--send .input-btn-icon--send { display: inline-block; }
+.input-send-btn--stop .input-btn-icon--stop { display: inline-block; }
+
+/* ═══ Approve/ask bottom sheet ═══
+   La interacción móvil por excelencia (docs/mobile/04 § Adaptaciones):
+   fijo abajo, botones grandes, en vez del inline de desktop. */
+
+.extension-dialog-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  padding: var(--space-4);
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+}
+.extension-dialog-sheet button {
+  min-height: 44px;
+  font-size: var(--text-base);
+}

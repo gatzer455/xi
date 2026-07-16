@@ -51,20 +51,20 @@ const mockState = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../src/lib/state.ts', () => ({
+vi.mock('xi-ui/lib/state.ts', () => ({
   appState: mockState.createMockAppState(),
 }));
 
-vi.mock('../../src/lib/pi/tauri-commands.ts', () => ({
+vi.mock('xi-ui/lib/pi/tauri-commands.ts', () => ({
   setModel: vi.fn(),
 }));
 
-vi.mock('../../src/lib/debug-panel.ts', () => ({
+vi.mock('xi-ui/lib/debug-panel.ts', () => ({
   addEntry: vi.fn(),
 }));
 
 import { ModelPicker } from '../../src/components/model-picker.ts';
-import { setModel } from '../../src/lib/pi/tauri-commands.ts';
+import { setModel } from 'xi-ui/lib/pi/tauri-commands.ts';
 
 const { availableModels, currentModel } = mockState;
 

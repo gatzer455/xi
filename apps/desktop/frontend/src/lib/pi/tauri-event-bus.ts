@@ -11,7 +11,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import type { PiEventBus } from './transport.ts';
+import type { PiEventBus } from 'xi-ui/lib/pi/transport.ts';
 
 export class TauriEventBus implements PiEventBus {
   private handler: ((line: string) => void) | null = null;
@@ -27,6 +27,10 @@ export class TauriEventBus implements PiEventBus {
 
   async sendCommand(json: string): Promise<void> {
     await invoke('send_pi_command', { json });
+  }
+
+  async invoke<T>(method: string, params?: unknown): Promise<T> {
+    return invoke<T>(method, params as Record<string, unknown> | undefined);
   }
 
   setEventHandler(handler: (line: string) => void): void {

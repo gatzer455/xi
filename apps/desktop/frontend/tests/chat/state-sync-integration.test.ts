@@ -86,17 +86,17 @@ const mockState = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../src/lib/state.ts', () => ({
+vi.mock('xi-ui/lib/state.ts', () => ({
   appState: mockState.createMockAppState(),
 }));
 
-vi.mock('../../src/lib/debug-panel.ts', () => ({
+vi.mock('xi-ui/lib/debug-panel.ts', () => ({
   addEntry: vi.fn(),
 }));
 
 // stores.ts y mapping.ts quedan reales → aislamiento real por id.
-import { applyEvent, beginStreamForSession, endStream } from '../../src/lib/pi/state-sync.ts';
-import { getStore, clearStores } from '../../src/lib/chat/stores.ts';
+import { applyEvent, beginStreamForSession, endStream } from 'xi-ui/lib/pi/state-sync.ts';
+import { getStore, clearStores } from 'xi-ui/lib/chat/stores.ts';
 
 const { activeTabId, isStreaming, currentModel, openTabs } = mockState;
 
