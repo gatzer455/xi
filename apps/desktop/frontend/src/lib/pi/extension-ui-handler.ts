@@ -16,7 +16,7 @@
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { ExtensionUIRequest } from './types.ts';
+import type { ExtensionUIRequest } from 'xi-ui/lib/pi/types.ts';
 
 // ─── Renderer ─────────────────────────────────────────────────────────────────
 
@@ -65,8 +65,8 @@ export function initExtensionUIHandler(): void {
     const request = event.payload;
 
     // notify y setStatus son fire-and-forget — no necesitan respuesta.
-    // setStatus no está en el union de ExtensionUIRequest (types.ts) —
-    // cast puntual para leer su `message` sin ampliar el tipo compartido.
+    // setStatus no está en el union de ExtensionUIRequest (xi-ui/lib/pi/types.ts)
+    // — cast puntual para leer su `message` sin ampliar el tipo compartido acá.
     if (request.method === 'notify') {
       handleNotify(request);
       return;

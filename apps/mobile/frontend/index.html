@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="description" content="xi mobile — cliente remoto de xi-serve" />
+  <title>xi</title>
+  <link rel="stylesheet" href="../../../packages/xi-ui/src/styles/theme.css" />
+  <link rel="stylesheet" href="../../../packages/xi-ui/src/styles/tokens.css" />
+  <link rel="stylesheet" href="/src/styles/layout.css" />
+  <link rel="stylesheet" href="../../../packages/xi-ui/src/styles/components.css" />
+  <link rel="stylesheet" href="../../../packages/xi-ui/src/styles/markdown.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- App shell apilado: pantalla única a la vez + input bar cuando hay chat. -->
+    <div id="conn-chip"></div>
+    <div id="screen"></div>
+    <div id="input-bar"></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

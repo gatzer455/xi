@@ -13,9 +13,9 @@
  * Reemplaza a chat-input.ts — misma lógica, nuevo layout.
  */
 
-import { appState } from '../lib/state.ts';
+import { appState } from 'xi-ui/lib/state.ts';
 import { sendPrompt, abortPi, beginStreamForSession, endStream } from '../lib/pi/index.ts';
-import { navigate } from '../lib/nav.ts';
+import { navigate } from 'xi-ui/lib/nav.ts';
 
 export function InputBar(): HTMLElement {
   const bar = document.createElement('div');

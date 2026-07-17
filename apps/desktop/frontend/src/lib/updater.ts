@@ -15,8 +15,8 @@
 
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { appState } from './state.ts';
-import { addEntry } from './debug-panel.ts';
+import { appState } from 'xi-ui/lib/state.ts';
+import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 
 /** Chequea si hay update disponible. Si hay, dispara download silencioso.
  *  Idempotente: si ya hay un check en curso, retorna sin hacer nada. */

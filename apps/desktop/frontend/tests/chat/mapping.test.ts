@@ -16,9 +16,9 @@ import {
   extractText,
   groupToolCalls,
   actionName,
-} from '../../src/lib/chat/mapping.ts';
-import type { ToolCallPart, ToolGroupSummary } from '../../src/lib/chat/types.ts';
-import type { ChatMessage } from '../../src/lib/chat/types.ts';
+} from 'xi-ui/lib/chat/mapping.ts';
+import type { ToolCallPart, ToolGroupSummary } from 'xi-ui/lib/chat/types.ts';
+import type { ChatMessage } from 'xi-ui/lib/chat/types.ts';
 
 // ─── messageId ────────────────────────────────────────────
 

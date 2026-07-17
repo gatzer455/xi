@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { appState, setActiveTab, getActiveTab, type Session } from '../src/lib/state.ts';
+import { appState, setActiveTab, getActiveTab, type Session } from 'xi-ui/lib/state.ts';
 
 describe('appState', () => {
   beforeEach(() => {

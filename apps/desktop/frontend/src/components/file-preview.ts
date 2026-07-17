@@ -8,11 +8,11 @@
  * Incluye botón "Editar" para activar modo edición.
  */
 
-import { appState } from '../lib/state.ts';
-import type { Scope } from '../lib/scope.ts';
-import { renderMarkdown } from '../lib/markdown.ts';
-import { writeFile, readFile } from '../lib/pi/tauri-commands.ts';
-import { icon } from '../lib/icons.ts';
+import { appState } from 'xi-ui/lib/state.ts';
+import type { Scope } from 'xi-ui/lib/scope.ts';
+import { renderMarkdown } from 'xi-ui/lib/markdown.ts';
+import { writeFile, readFile } from 'xi-ui/lib/pi/tauri-commands.ts';
+import { icon } from 'xi-ui/lib/icons.ts';
 
 export function FilePreview(scope: Scope): HTMLElement {
   const container = document.createElement('div');

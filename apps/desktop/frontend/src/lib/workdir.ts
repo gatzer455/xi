@@ -14,10 +14,10 @@
  */
 
 import { open } from '@tauri-apps/plugin-dialog';
-import { appState } from './state.ts';
+import { appState } from 'xi-ui/lib/state.ts';
 import { stopPi } from './pi/index.ts';
-import { addRecent } from './pi/tauri-commands.ts';
-import { clearStores } from './chat/stores.ts';
+import { addRecent } from 'xi-ui/lib/pi/tauri-commands.ts';
+import { clearStores } from 'xi-ui/lib/chat/stores.ts';
 
 /**
  * Abre un proyecto en un path dado. Mata pi, setea el state, arranca

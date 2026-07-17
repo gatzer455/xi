@@ -17,8 +17,8 @@
  *   4. dispose() remueve del DOM y limpia suscripciones
  */
 
-import { appState, type PiModel } from '../lib/state.ts';
-import { setModel } from '../lib/pi/tauri-commands.ts';
+import { appState, type PiModel } from 'xi-ui/lib/state.ts';
+import { setModel } from 'xi-ui/lib/pi/tauri-commands.ts';
 
 export interface ModelPickerHandle {
   readonly root: HTMLElement;

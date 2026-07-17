@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getStore, dropStore, clearStores, activeSessionIds } from '../../src/lib/chat/stores.ts';
+import { getStore, dropStore, clearStores, activeSessionIds } from 'xi-ui/lib/chat/stores.ts';
 
 describe('stores registry — getStore', () => {
   beforeEach(() => {

@@ -4,46 +4,39 @@
  * Crea un PiEventBus (TauriEventBus por defecto para desktop),
  * registra los handlers que parsean eventos y alimentan el state-sync,
  * y expone initPiConnection/destroyPiConnection para el ciclo de vida.
- *
- * Para mobile, se llamaría initPiConnection(new WsEventBus(url)) en vez
- * del TauriEventBus por defecto.
  */
 
-import type { PiEventBus } from './transport.ts';
+import type { PiEventBus } from 'xi-ui/lib/pi/transport.ts';
 import { TauriEventBus } from './tauri-event-bus.ts';
-import { WsEventBus } from './ws-event-bus.ts';
-import { appState } from '../state.ts';
-import { addEntry } from '../debug-panel.ts';
-import { parsePiEvent } from './event-parser.ts';
-import { applyEvent, endStream } from './state-sync.ts';
+import { setCommandBus } from 'xi-ui/lib/pi/tauri-commands.ts';
+import { appState } from 'xi-ui/lib/state.ts';
+import { addEntry } from 'xi-ui/lib/debug-panel.ts';
+import { parsePiEvent } from 'xi-ui/lib/pi/event-parser.ts';
+import { applyEvent, endStream } from 'xi-ui/lib/pi/state-sync.ts';
 import { initExtensionUIHandler } from './extension-ui-handler.ts';
-
-declare const __XI_SERVE_URL__: string | undefined;
 
 let bus: PiEventBus | null = null;
 
 /**
- * Inicializa la conexión con pi. Opcionalmente recibe un PiEventBus;
- * si no se pasa, detecta automáticamente:
- *   - Si window.__XI_SERVE_URL__ está definido → WsEventBus (mobile)
- *   - Si no → TauriEventBus (desktop)
+ * Inicializa la conexión con pi. Opcionalmente recibe un PiEventBus
+ * custom (tests); si no se pasa, usa TauriEventBus.
  */
 export async function initPiConnection(customBus?: PiEventBus): Promise<void> {
   destroyPiConnection();
 
-  if (customBus) {
-    bus = customBus;
-  } else if (typeof __XI_SERVE_URL__ !== 'undefined' && __XI_SERVE_URL__) {
-    bus = new WsEventBus(__XI_SERVE_URL__);
-    try {
-      await bus.connect();
-    } catch (e) {
-      addEntry('system', `Error conectando a xi-serve: ${e}`);
-      throw e;
-    }
-  } else {
-    bus = new TauriEventBus();
+  bus = customBus ?? new TauriEventBus();
+
+  // Registrar el bus ANTES de conectar, para que el ruteo (isMobile)
+  // esté correcto incluso si la conexión falla. Si no se registra,
+  // comandos como startPi caen a Tauri IPC y fallan con
+  // "command not found" en mobile.
+  setCommandBus(bus, !!customBus);
+
+  try {
     await bus.connect();
+  } catch (e) {
+    addEntry('system', `Error conectando a xi-serve: ${e}`);
+    throw e;
   }
 
   // Iniciar handler de extension UI (select, confirm, input, etc.)
@@ -71,8 +64,6 @@ export async function initPiConnection(customBus?: PiEventBus): Promise<void> {
 export function destroyPiConnection(): void {
   if (bus instanceof TauriEventBus) {
     bus.destroy();
-  } else if (bus instanceof WsEventBus) {
-    bus.disconnect();
   }
   bus = null;
 }

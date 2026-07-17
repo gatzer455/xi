@@ -24,6 +24,9 @@
 export interface PiEventBus {
   connect(): Promise<void>;
   sendCommand(json: string): Promise<void>;
+  /** Invoca un método remoto (implementado por el backend o xi-serve).
+   *  En desktop → Tauri IPC. En mobile → WS request/response. */
+  invoke<T>(method: string, params?: unknown): Promise<T>;
   setEventHandler(handler: (line: string) => void): void;
   setTerminatedHandler(handler: (code: number | null) => void): void;
   setErrorHandler(handler: (line: string) => void): void;

@@ -15,7 +15,7 @@
  *   retornan default ante input inválido (no hay nada que loguear).
  */
 
-import type { ThemeMode, FontSize } from './state.ts';
+import type { ThemeMode, FontSize } from 'xi-ui/lib/state.ts';
 
 // ═══════════════════════════════════════════════════════
 // Constantes

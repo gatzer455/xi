@@ -1,0 +1,7 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.xi_mobile" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Fondo = color-page-bg del tema oscuro de xi-ui (la app fija data-theme dark) -->
+        <item name="android:windowBackground">#1a1814</item>
+    </style>
+</resources>

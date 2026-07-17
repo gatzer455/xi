@@ -20,22 +20,28 @@
  *   4. Suscripción al ChatStore del activeTab → renderMessages
  */
 
-import { appState, type ExtensionDialogState } from '../lib/state.ts';
-import { createScope, type Page } from '../lib/scope.ts';
-import { ChatBubble, type ChatBubbleHandle } from '../components/chat-bubble.ts';
-import { getStore, type ChatStore } from '../lib/chat/stores.ts';
-import type { ChatMessage } from '../lib/chat/types.ts';
+import { appState, type ExtensionDialogState } from 'xi-ui/lib/state.ts';
+import { createScope, type Page } from 'xi-ui/lib/scope.ts';
+import type { ChatBubbleHandle } from 'xi-ui/components/chat-bubble.ts';
+import { getStore, type ChatStore } from 'xi-ui/lib/chat/stores.ts';
+import type { ChatMessage } from 'xi-ui/lib/chat/types.ts';
 import {
   renderSelectDialog,
   renderConfirmDialog,
   renderInputDialog,
   renderEditorDialog,
-} from '../components/extension-ui-dialog.ts';
+} from 'xi-ui/components/extension-ui-dialog.ts';
 import {
   setDialogRenderer,
   clearDialogRenderer,
 } from '../lib/pi/extension-ui-handler.ts';
-import { navigate } from '../lib/nav.ts';
+import { navigate } from 'xi-ui/lib/nav.ts';
+import {
+  createMessagesContainer,
+  createAutoScroll,
+  renderMessagesInto,
+  renderEmptyStateInto,
+} from 'xi-ui/components/chat-messages.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 
@@ -54,18 +60,13 @@ export function ChatPage(): Page {
   root.append(messagesContainer);
 
   // ═══ Auto-scroll ═══
-  const scroll = createAutoScroll({
-    container: messagesContainer,
-    sentinel: endSentinel,
-    inner: messagesInner,
-    scope,
-  });
+  const scroll = createAutoScroll(messagesContainer, endSentinel);
 
   // ═══ Render: bubbleHandles en closure (no module-level) ═══
   const bubbleHandles = new Map<string, ChatBubbleHandle>();
 
   function renderMessages(messages: ChatMessage[]): void {
-    renderMessagesInto(messagesInner, endSentinel, bubbleHandles, messages, scroll.pinToBottom);
+    renderMessagesInto(messagesInner, endSentinel, bubbleHandles, messages, scroll.pinToBottom, renderEmptyState);
   }
 
   // ═══ Bind al ChatStore del activeTab ═══
@@ -78,7 +79,7 @@ export function ChatPage(): Page {
     currentStore = null;
 
     if (!tabId) {
-      renderEmptyStateInto(messagesInner, endSentinel);
+      renderEmptyStateInto(messagesInner, endSentinel, renderEmptyState);
       scroll.pinToBottom();
       return;
     }
@@ -142,131 +143,6 @@ function createAuthBanner(): { banner: HTMLElement; dispose: () => void } {
   });
 
   return { banner, dispose: unsub };
-}
-
-// ═══════════════════════════════════════════════════════════
-// Messages container
-// ═══════════════════════════════════════════════════════════
-
-function createMessagesContainer() {
-  const messagesContainer = document.createElement('div');
-  messagesContainer.className = 'chat-messages';
-
-  const messagesInner = document.createElement('div');
-  messagesInner.className = 'chat-messages-inner';
-
-  const endSentinel = document.createElement('div');
-  endSentinel.className = 'chat-end-sentinel';
-
-  messagesContainer.append(messagesInner);
-  messagesInner.append(endSentinel);
-
-  return { messagesContainer, messagesInner, endSentinel };
-}
-
-// ═══════════════════════════════════════════════════════════
-// Scroll (manual, sin auto-scroll)
-// ═══════════════════════════════════════════════════════════
-
-interface AutoScrollOptions {
-  container: HTMLElement;
-  sentinel: HTMLElement;
-  inner: HTMLElement;
-  scope: ReturnType<typeof createScope>;
-}
-
-function createAutoScroll(opts: AutoScrollOptions) {
-  const { container, sentinel, inner, scope } = opts;
-
-  let hasPinnedOnFirstRender = false;
-
-  function pinToBottom(): void {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        void container.offsetHeight;
-        sentinel.scrollIntoView({ block: 'end', behavior: 'instant' });
-      });
-    });
-  }
-
-  return {
-    pinToBottom: (): void => {
-      if (!hasPinnedOnFirstRender) {
-        hasPinnedOnFirstRender = true;
-        pinToBottom();
-      }
-    },
-  };
-}
-
-// ═══════════════════════════════════════════════════════════
-// Render
-// ═══════════════════════════════════════════════════════════
-
-function renderMessagesInto(
-  messagesInner: HTMLElement,
-  endSentinel: HTMLElement,
-  bubbleHandles: Map<string, ChatBubbleHandle>,
-  messages: ChatMessage[],
-  pinToBottom: () => void,
-): void {
-  if (messages.length === 0) {
-    for (const handle of bubbleHandles.values()) handle.dispose();
-    bubbleHandles.clear();
-    messagesInner.replaceChildren();
-    messagesInner.append(renderEmptyState());
-    messagesInner.append(endSentinel);
-    pinToBottom();
-    return;
-  }
-
-  const emptyState = messagesInner.querySelector('.chat-empty-state');
-  if (emptyState) emptyState.remove();
-
-  const seenIds = new Set<string>();
-  for (const msg of messages) {
-    seenIds.add(msg.id);
-    const existing = bubbleHandles.get(msg.id);
-    if (existing) {
-      existing.update(msg);
-    } else {
-      const handle = ChatBubble(msg);
-      bubbleHandles.set(msg.id, handle);
-    }
-  }
-
-  for (const [id, handle] of bubbleHandles) {
-    if (!seenIds.has(id)) {
-      handle.dispose();
-      handle.root.remove();
-      bubbleHandles.delete(id);
-    }
-  }
-
-  // Re-attach SOLO los nodos que están fuera de orden. Mover un nodo ya
-  // colocado con insertBefore lo desasocia y re-inserta → fuerza repaint.
-  // Hacerlo con TODOS los bubbles en cada emisión de messages$ (~cada 50ms
-  // durante streaming) hacía parpadear el final de cada mensaje —incluido
-  // el anterior ya completo— en sincronía con el que se escribe.
-  // Recorremos en orden inverso posicionando cada nodo antes de `ref`;
-  // en streaming estable (orden sin cambios) no se mueve nada.
-  let ref: ChildNode = endSentinel;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const handle = bubbleHandles.get(messages[i].id);
-    if (!handle) continue;
-    if (handle.root.nextSibling !== ref || handle.root.parentNode !== messagesInner) {
-      messagesInner.insertBefore(handle.root, ref);
-    }
-    ref = handle.root;
-  }
-
-  pinToBottom();
-}
-
-function renderEmptyStateInto(messagesInner: HTMLElement, endSentinel: HTMLElement): void {
-  messagesInner.replaceChildren();
-  messagesInner.append(renderEmptyState());
-  messagesInner.append(endSentinel);
 }
 
 function renderEmptyState(): HTMLElement {

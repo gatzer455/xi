@@ -17,12 +17,12 @@
  * No hay router hash-based.
  */
 
-import { appState, setActiveTab, type Session } from '../lib/state.ts';
-import { navigate } from '../lib/nav.ts';
+import { appState, setActiveTab, type Session } from 'xi-ui/lib/state.ts';
+import { navigate } from 'xi-ui/lib/nav.ts';
 import { pickAndOpenProject } from '../lib/workdir.ts';
-import { dropStore } from '../lib/chat/stores.ts';
+import { dropStore } from 'xi-ui/lib/chat/stores.ts';
 import { abortPi } from '../lib/pi/index.ts';
-import { icon } from '../lib/icons.ts';
+import { icon } from 'xi-ui/lib/icons.ts';
 
 export function Header(): HTMLElement {
   const bar = document.createElement('div');

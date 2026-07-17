@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
+import path from 'path';
 
 /**
  * Vite config — Vanilla TypeScript, sin frameworks.
@@ -13,10 +14,20 @@ import { fileURLToPath } from 'url';
 
 const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf-8'));
 
+// packages/xi-ui es código fuente compartido (sin package.json ni build propio,
+// misma convención que xi-exa/xi-flow) — se consume vía alias, no vía npm workspace.
+const xiUiSrc = fileURLToPath(new URL('../../../packages/xi-ui/src', import.meta.url));
+const monorepoRoot = fileURLToPath(new URL('../../..', import.meta.url));
+
 export default defineConfig({
   root: '.',
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
+  },
+  resolve: {
+    alias: {
+      'xi-ui': xiUiSrc,
+    },
   },
   publicDir: 'public',
   build: {
@@ -39,6 +50,10 @@ export default defineConfig({
     port: 5173,
     host: true,
     strictPort: true,
+    fs: {
+      // packages/xi-ui vive fuera del root de este proyecto Vite.
+      allow: [monorepoRoot],
+    },
   },
   test: {
     globals: true,

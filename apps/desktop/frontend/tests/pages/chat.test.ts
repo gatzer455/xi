@@ -78,7 +78,7 @@ const mock = vi.hoisted(() => {
   return { createMockAppState, hasAnyProvider };
 });
 
-vi.mock("../../src/lib/state.ts", () => ({
+vi.mock("xi-ui/lib/state.ts", () => ({
   appState: mock.createMockAppState(),
 }));
 

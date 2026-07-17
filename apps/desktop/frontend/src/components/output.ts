@@ -16,8 +16,8 @@
  * siempre visible abajo, independiente de la vista activa.
  */
 
-import { appState } from '../lib/state.ts';
-import type { Page } from '../lib/scope.ts';
+import { appState } from 'xi-ui/lib/state.ts';
+import type { Page } from 'xi-ui/lib/scope.ts';
 import { ChatPage } from '../pages/chat.ts';
 import { ExplorerPage } from '../pages/explorer.ts';
 import { SessionsPage } from '../pages/sessions.ts';

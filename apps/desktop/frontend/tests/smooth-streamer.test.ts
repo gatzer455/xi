@@ -4,7 +4,7 @@
  * @vitest-environment jsdom
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SmoothStreamer, reconcileDom } from '../src/lib/smooth-streamer.ts';
+import { SmoothStreamer, reconcileDom } from 'xi-ui/lib/smooth-streamer.ts';
 
 function fadeInSpans(el: HTMLElement): HTMLElement[] {
   return Array.from(el.querySelectorAll('span.fade-in'));

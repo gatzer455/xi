@@ -22,16 +22,15 @@ export {
   getRecents,
   addRecent,
   getAvailableModels,
-} from './tauri-commands.ts';
-export type { PiStatus } from './tauri-commands.ts';
-export type { Recent, SessionInfo } from './types.ts';
+} from 'xi-ui/lib/pi/tauri-commands.ts';
+export type { PiStatus } from 'xi-ui/lib/pi/tauri-commands.ts';
+export type { Recent, SessionInfo } from 'xi-ui/lib/pi/types.ts';
 
 export { initPiConnection, destroyPiConnection } from './init.ts';
-export type { PiEventBus } from './transport.ts';
+export type { PiEventBus } from 'xi-ui/lib/pi/transport.ts';
 export { TauriEventBus } from './tauri-event-bus.ts';
-export { WsEventBus } from './ws-event-bus.ts';
 
-export { parsePiEvent } from './event-parser.ts';
+export { parsePiEvent } from 'xi-ui/lib/pi/event-parser.ts';
 export type {
   PiEvent,
   PiEventType,
@@ -43,8 +42,8 @@ export type {
   PiAgentEvent,
   AssistantMessageEvent,
   AssistantMessageEventType,
-} from './event-parser.ts';
+} from 'xi-ui/lib/pi/event-parser.ts';
 
-export { applyEvent, beginStreamForSession, endStream } from './state-sync.ts';
+export { applyEvent, beginStreamForSession, endStream } from 'xi-ui/lib/pi/state-sync.ts';
 
 export { ensurePiRunning } from './lifecycle.ts';

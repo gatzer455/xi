@@ -189,8 +189,11 @@ export type ThinkingLevel =
   | 'high'
   | 'xhigh';
 
-/** Vistas posibles del output-board (browser-shaped, sin router). */
-export type ViewName = 'welcome' | 'chat' | 'sessions' | 'settings' | 'explorer';
+/** Vistas posibles del output-board (browser-shaped, sin router).
+ *  'connect' y 'projects' son exclusivas de mobile (pantalla de
+ *  conexión y picker de proyecto whitelisteado) — desktop nunca
+ *  navega a ellas, el `default` de su OutputBoard las ignora. */
+export type ViewName = 'welcome' | 'chat' | 'sessions' | 'settings' | 'explorer' | 'connect' | 'projects';
 
 export interface FileEntry {
   name: string;

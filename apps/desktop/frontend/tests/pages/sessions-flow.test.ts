@@ -105,12 +105,12 @@ const mock = vi.hoisted(() => {
 
 // ─── vi.mock: factories que usan lo definido arriba ──────────────────────
 
-vi.mock("../../src/lib/state.ts", () => ({
+vi.mock("xi-ui/lib/state.ts", () => ({
   appState: mock.createMockAppState(),
   setActiveTab: vi.fn(),
 }));
 
-vi.mock("../../src/lib/nav.ts", () => ({
+vi.mock("xi-ui/lib/nav.ts", () => ({
   navigate: vi.fn(),
 }));
 

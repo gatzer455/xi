@@ -14,7 +14,7 @@ import { describe, test, expect } from 'vitest';
 import {
   renderStreamingMarkdown,
   holdIncompleteTable,
-} from '../src/lib/markdown.ts';
+} from 'xi-ui/lib/markdown.ts';
 
 function visibleText(html: string): string {
   const div = document.createElement('div');

@@ -35,7 +35,7 @@ const mock = vi.hoisted(() => {
   };
 });
 
-vi.mock("../../src/lib/state.ts", () => ({
+vi.mock("xi-ui/lib/state.ts", () => ({
   appState: {
     recents: mock.recentProjects,
     workingDir: mock.mockSignal(null),
