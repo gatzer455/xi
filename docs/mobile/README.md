@@ -2,7 +2,7 @@
 
 Diseño del acceso móvil a xi/pi corriendo en un homeserver. El celular **no** ejecuta el agente: es una pantalla remota. El agente, las sesiones, las API keys y el filesystem viven en el servidor.
 
-**Estado:** Fases 1–3 completas — servidor, paquete compartido `xi-ui`, y app Android validada en dispositivo real (APK debug + adb reverse contra xi-serve local: streaming fluido en el WebView). Queda Fase 4 (uso diario) y probar contra el homeserver vía Tailscale. Ver [06-roadmap-mvp.md](06-roadmap-mvp.md). Es un **piloto de un solo usuario** — las decisiones optimizan por eso, no por producto general.
+**Estado:** MVP mergeado a main (PR [#34](https://github.com/gatzer455/xi/pull/34)) — servidor, paquete compartido `xi-ui`, y app Android validada en dispositivo real (APK debug + adb reverse contra xi-serve local: streaming fluido en el WebView). El trabajo pendiente se trackea en [issues](https://github.com/gatzer455/xi/issues) (#36–#42): deploy vía Tailscale, APK firmado, model picker, rename/delete de sesiones, push ntfy, biometría/keystore, fotos. Es un **piloto de un solo usuario** — las decisiones optimizan por eso, no por producto general.
 
 ## El problema en una frase
 
@@ -21,7 +21,6 @@ xi ya está partido en dos mitades — una UI que solo conoce eventos JSONL (det
 | [03-protocolo.md](03-protocolo.md) | Protocolo WS: passthrough + invoke, resync, extension UI |
 | [04-cliente-movil.md](04-cliente-movil.md) | App Tauri 2 + paquete compartido `xi-ui` |
 | [05-conectividad-seguridad.md](05-conectividad-seguridad.md) | Tailscale, token, whitelist, modelo de amenaza |
-| [06-roadmap-mvp.md](06-roadmap-mvp.md) | Fases de implementación |
 
 ## Decisiones tomadas (resumen)
 
@@ -33,3 +32,7 @@ xi ya está partido en dos mitades — una UI que solo conoce eventos JSONL (det
 6. **Alcance del piloto:** chat con streaming + sesiones + approve/ask + explorador read-only. Sin push (ntfy después).
 7. **Red:** Tailscale como capa de conectividad. El daemon nunca se expone a internet.
 8. **Desktop:** intocado funcionalmente. Se limpia el código mobile que se le filtró (`WsEventBus`, `mobile.ts`, `__XI_SERVE_URL__` migran a `apps/mobile` / `packages/xi-ui`).
+
+## Ideas en estudio (sin issue — abrir uno si alguna madura)
+
+Replay con secuencias (solo si el resync total duele — medir antes), pairing QR + device tokens (cuando importe distinguir dispositivos), xi desktop como cliente de xi-serve (merece diseño propio), multi-cliente simultáneo sobre la misma sesión, log de auditoría de comandos/approvals.
