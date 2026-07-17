@@ -66,10 +66,28 @@ html, body {
   gap: var(--space-4);
 }
 
+/* Connect: formulario centrado verticalmente, ancho contenido */
+.connect-page {
+  justify-content: center;
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.connect-page h1 {
+  font-size: var(--text-xl, 1.4rem);
+  margin: 0 0 var(--space-2);
+  text-align: center;
+}
+
 .connect-field {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+.connect-field > span {
+  font-size: var(--text-sm);
+  color: var(--color-text-dim);
 }
 .connect-input {
   padding: var(--space-2) var(--space-3);
@@ -94,8 +112,19 @@ html, body {
   font-size: var(--text-base);
   cursor: pointer;
 }
-.connect-submit { background: var(--color-accent); color: var(--color-accent-fg); border: none; text-align: center; }
+.connect-submit { background: var(--color-accent); color: var(--color-accent-fg); border: none; text-align: center; font-weight: 600; min-height: 48px; }
 .connect-submit:disabled { opacity: 0.6; }
+
+/* Botón "← volver" de headers (sessions/explorer) */
+.back-btn {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
 
 .sessions-header {
   display: flex;
@@ -103,7 +132,8 @@ html, body {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
-.sessions-header h1 { flex: 1; font-size: var(--text-lg); margin: 0; }
+.sessions-header h1 { flex: 1 1 100%; font-size: var(--text-lg); margin: 0; }
+.projects-page h1 { font-size: var(--text-lg); margin: 0; }
 
 .projects-list,
 .sessions-list,

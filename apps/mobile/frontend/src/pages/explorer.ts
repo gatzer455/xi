@@ -18,6 +18,7 @@ export function ExplorerPage(): Page {
   const header = document.createElement('header');
   header.className = 'explorer-header';
   const backBtn = document.createElement('button');
+  backBtn.className = 'back-btn';
   backBtn.textContent = '← Volver';
   backBtn.addEventListener('click', () => navigate('chat'));
   header.append(backBtn);

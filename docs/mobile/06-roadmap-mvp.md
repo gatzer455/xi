@@ -28,7 +28,7 @@ Dos ajustes sobre el plan original, decididos durante la implementación:
 
 **Gate — verificado:** `tsc --noEmit` limpio, 271/271 tests de vitest en verde, `vite build` produce un bundle único sin errores de resolución (JS vía alias, CSS vía paths relativos a `packages/xi-ui/src/styles/`), dev server sirve los archivos de `xi-ui` con 200 (`server.fs.allow`), welcome page renderiza contenido correcto en preview de browser. **Pendiente de verificar por el usuario:** streaming/sesiones/approve end-to-end en la app Tauri real (el preview de browser no tiene IPC de Tauri, así que esos flujos no se probaron interactivamente) — correr `npm run dev` desde la raíz.
 
-## Fase 3 — App móvil 🚧 (vertical slice hecho, falta build Android real)
+## Fase 3 — App móvil ✅
 
 `apps/mobile/frontend` con entry point y build propios sobre `xi-ui` — ver `apps/mobile/CLAUDE.md` y `apps/mobile/frontend/CLAUDE.md` para el detalle completo.
 
@@ -45,7 +45,11 @@ Dos ajustes sobre el plan original, decididos durante la implementación:
 
 **Bugs reales encontrados durante la prueba (fuera del alcance de este scaffold, delegados por separado):** `setStatus` (método fire-and-forget de xi-flow, igual que `notify`) no estaba contemplado ni en mobile ni en desktop — se corrigió acá; desktop tiene el mismo bug pendiente. El comando passthrough `get_models` que usa `getAvailableModels()` es rechazado por la versión actual de pi ("Unknown command") — probablemente un nombre de RPC desactualizado, afecta a ambas apps por igual, pendiente de investigar.
 
-**Pendiente:** build Android real (`apps/mobile/src-tauri/gen/android`) contra el homeserver real, validar streaming en Android System WebView (riesgo señalado en [04](04-cliente-movil.md); plan B: bajar el throttle de eventos para el cliente móvil), rename/delete de sesiones (deliberadamente fuera del MVP).
+**Gate final — validado en dispositivo real:** APK debug (aarch64, Tauri `android build`) instalado por adb en un teléfono físico, conectado a un xi-serve local vía `adb reverse tcp:9876` (sin red): login, proyectos, sesiones reales, chat con streaming fluido en Android System WebView — el riesgo de rendimiento señalado en [04](04-cliente-movil.md) no se materializó, no hizo falta el plan B del throttle.
+
+Ajustes que salieron de la prueba en dispositivo: el WebView de Android no recibe `env(safe-area-inset-*)`, así que `MainActivity.kt` aplica los insets del sistema (+ IME) como padding del content view — sin eso el contenido quedaba debajo de la barra de estado y el teclado tapaba el input. `windowBackground` en `themes.xml` = `#1a1814` (dark de xi-ui). Botones "← volver" sin `className` (estilo nativo del browser) → clase `.back-btn`; connect centrado; título de sesiones = basename del proyecto.
+
+**Pendiente (post-MVP):** rename/delete de sesiones, APK release firmado, probar contra el homeserver real vía Tailscale (hasta ahora validado por USB).
 
 ## Fase 4 — Uso real y cierre
 

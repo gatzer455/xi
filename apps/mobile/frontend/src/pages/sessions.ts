@@ -27,10 +27,13 @@ export function SessionsPage(): Page {
   const header = document.createElement('header');
   header.className = 'sessions-header';
   const title = document.createElement('h1');
-  title.textContent = appState.workingDir.value ?? 'Sesiones';
+  // Solo el nombre del proyecto; el path completo no aporta en una pantalla chica.
+  const wd = appState.workingDir.value;
+  title.textContent = wd ? (wd.split('/').filter(Boolean).pop() ?? wd) : 'Sesiones';
   header.append(title);
 
   const backBtn = document.createElement('button');
+  backBtn.className = 'back-btn';
   backBtn.textContent = '← Proyectos';
   backBtn.addEventListener('click', () => navigate('projects'));
   header.append(backBtn);

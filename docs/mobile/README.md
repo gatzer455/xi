@@ -2,7 +2,7 @@
 
 Diseño del acceso móvil a xi/pi corriendo en un homeserver. El celular **no** ejecuta el agente: es una pantalla remota. El agente, las sesiones, las API keys y el filesystem viven en el servidor.
 
-**Estado:** Fase 1 (servidor) y Fase 2 (paquete compartido `xi-ui`) completas; Fase 3 (app móvil) con vertical slice funcional (conectar → proyectos → sesiones → chat con streaming real, verificado a mano contra un xi-serve real) — falta el build Android real. Ver [06-roadmap-mvp.md](06-roadmap-mvp.md). Es un **piloto de un solo usuario** — las decisiones optimizan por eso, no por producto general.
+**Estado:** Fases 1–3 completas — servidor, paquete compartido `xi-ui`, y app Android validada en dispositivo real (APK debug + adb reverse contra xi-serve local: streaming fluido en el WebView). Queda Fase 4 (uso diario) y probar contra el homeserver vía Tailscale. Ver [06-roadmap-mvp.md](06-roadmap-mvp.md). Es un **piloto de un solo usuario** — las decisiones optimizan por eso, no por producto general.
 
 ## El problema en una frase
 
