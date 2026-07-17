@@ -149,6 +149,16 @@ impl PiProcess {
                             let id = val["id"].as_str().unwrap_or("").to_string();
                             eprintln!("[extension-ui] intercepted request id={id}");
 
+                            // Métodos fire-and-forget (notify, setStatus): pi no
+                            // espera respuesta, así que no se crea pending — solo
+                            // se emite al frontend. Sin esto, cada notify dejaba
+                            // un oneshot + task esperando para siempre.
+                            let method = val["method"].as_str().unwrap_or("");
+                            if method == "notify" || method == "setStatus" {
+                                let _ = app_clone.emit("extension-ui-request", val);
+                                continue;
+                            }
+
                             let (tx, rx) = oneshot::channel();
                             pending_requests.lock().unwrap().insert(id.clone(), tx);
 
