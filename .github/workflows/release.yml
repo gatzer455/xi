@@ -84,6 +84,9 @@ jobs:
       - name: Install root deps
         run: npm ci
 
+      - name: Install xi-ui deps
+        run: cd packages/xi-ui && npm ci
+
       - name: Install frontend deps
         run: cd apps/desktop/frontend && npm ci
 

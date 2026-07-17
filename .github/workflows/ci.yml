@@ -92,15 +92,27 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop/frontend/package-lock.json
 
+      - name: Install xi-ui deps
+        run: cd packages/xi-ui && npm ci
+
       - name: Install frontend deps
         run: cd apps/desktop/frontend && npm ci
+
+      - name: Install mobile frontend deps
+        run: cd apps/mobile/frontend && npm ci
 
       - name: Build frontend
         run: cd apps/desktop/frontend && npm run build
 
+      - name: Build mobile frontend
+        run: cd apps/mobile/frontend && npm run build
+
       # ── Lint checks ──
       - name: TypeScript type-check
         run: cd apps/desktop/frontend && npm run typecheck
+
+      - name: TypeScript type-check (mobile)
+        run: cd apps/mobile/frontend && npm run typecheck
 
       - name: cargo fmt
         run: cargo fmt --all --manifest-path apps/desktop/backend/Cargo.toml -- --check
@@ -111,6 +123,9 @@ jobs:
       # ── Unit tests ──
       - name: Frontend tests
         run: cd apps/desktop/frontend && npm run test:run
+
+      - name: Mobile frontend tests
+        run: cd apps/mobile/frontend && npm run test:run
 
       - name: Backend tests
         run: cd apps/desktop/backend && cargo test
@@ -187,6 +202,9 @@ jobs:
 
       - name: Install root deps
         run: npm ci
+
+      - name: Install xi-ui deps
+        run: cd packages/xi-ui && npm ci
 
       - name: Install frontend deps
         run: cd apps/desktop/frontend && npm ci
