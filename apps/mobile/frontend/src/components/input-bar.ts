@@ -20,11 +20,6 @@ export function InputBar(): HTMLElement {
   textarea.placeholder = 'Selecciona un proyecto primero';
   textarea.disabled = true;
 
-  textarea.addEventListener('input', () => {
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
-  });
-
   textarea.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -80,7 +75,11 @@ export function InputBar(): HTMLElement {
     }
   };
 
-  textarea.addEventListener('input', updateState);
+  textarea.addEventListener('input', () => {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+    updateState();
+  });
   updateState();
 
   appState.activeTabId.subscribe(updateState);

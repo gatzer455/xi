@@ -31,10 +31,6 @@ export function saveServerConfig(config: ServerConfig): void {
   localStorage.setItem(KEY, JSON.stringify(config));
 }
 
-export function clearServerConfig(): void {
-  localStorage.removeItem(KEY);
-}
-
 /** Arma la URL de conexión `ws(s)://host/ws?token=...` a partir de lo
  *  que el usuario tipeó (acepta con o sin esquema/path — normaliza). */
 export function buildWsUrl(config: ServerConfig): string {

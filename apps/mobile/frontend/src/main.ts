@@ -7,7 +7,6 @@
  * si hay ServerConfig persistido, ProjectsPage muestra su propio
  * "conectando…" mientras `connectToServer` resuelve en background.
  */
-import { appState } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 import { loadServerConfig, buildWsUrl } from './lib/connection-storage.ts';
@@ -40,9 +39,5 @@ async function main(): Promise<void> {
     navigate('connect');
   }
 }
-
-const w = window as unknown as Record<string, unknown>;
-w.__XI_APP_STATE = appState;
-w.__XI_NAVIGATE = navigate;
 
 void main();

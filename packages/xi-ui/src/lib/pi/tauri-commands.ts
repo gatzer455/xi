@@ -44,8 +44,7 @@ async function sendPiCommand(json: string): Promise<void> {
 // falla, loguea el error en el panel antes de propagar la excepción.
 async function loggedInvoke<T>(label: string, fn: () => Promise<T>): Promise<T> {
   try {
-    const result = await fn();
-    return result;
+    return await fn();
   } catch (err) {
     addEntry('system', `[${label}] FAILED: ${err instanceof Error ? err.message : String(err)}`);
     throw err;
