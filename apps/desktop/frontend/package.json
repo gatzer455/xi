@@ -22,7 +22,7 @@
   "dependencies": {
     "@fontsource/adwaita-mono": "^5.2.1",
     "@fontsource/adwaita-sans": "^5.2.1",
-    "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-process": "^2.0.0",
     "@tauri-apps/plugin-updater": "^2.0.0"
