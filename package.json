@@ -14,7 +14,7 @@
     "test:e2e:install": "cd e2e && bun install"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.80.8",
+    "@earendil-works/pi-coding-agent": "0.80.10",
     "@tauri-apps/cli": "^2.11.4",
     "execa": "^9.6.1"
   }
