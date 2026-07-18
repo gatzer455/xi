@@ -7,7 +7,7 @@
  * Uso: node scripts/build-pi.mjs [--target linux|windows|macos|macos-intel]
  */
 import { execaSync } from "execa";
-import { chmodSync, copyFileSync, cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from "fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync, readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { tmpdir } from "os";
 import { fileURLToPath } from "url";
@@ -51,10 +51,10 @@ try {
     "require('./node_modules/@earendil-works/pi-coding-agent/dist/cli.js');\n",
   );
 
-  // Copiar node_modules de pi
-  const nmDir = resolve(BUILD_DIR, "node_modules", "@earendil-works");
-  mkdirSync(nmDir, { recursive: true });
-  cpSync(PI_PKG, resolve(nmDir, "pi-coding-agent"), { recursive: true });
+  // Symlink al node_modules del proyecto: desde 0.80.10 pi ya no bundlea
+  // sus dependencias en dist/, así que bun build necesita resolverlas.
+  // "junction" para Windows (no requiere privilegios); ignorado en unix.
+  symlinkSync(resolve(PROJECT_DIR, "node_modules"), resolve(BUILD_DIR, "node_modules"), "junction");
 
   // Compilar
   console.log(`Compilando pi con bun (target: ${bun})...`);
