@@ -46,7 +46,7 @@ jobs:
     name: Lint & Test
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -141,7 +141,7 @@ jobs:
     outputs:
       frontend_e2e: ${{ steps.filter.outputs.frontend_e2e }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # necesario para comparar contra base
           persist-credentials: false
@@ -172,7 +172,7 @@ jobs:
     # Si algún test falla, se reintenta 1 vez (config en wdio.conf.ts).
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
