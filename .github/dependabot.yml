@@ -1,0 +1,8 @@
+# Mantiene actualizados los SHAs pineados de los actions en los
+# workflows — sin esto, pinear por SHA congela versiones para siempre.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
