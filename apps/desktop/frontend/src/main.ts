@@ -13,7 +13,7 @@
  * 4. Decidir vista inicial (welcome o chat según si pi está corriendo)
  */
 
-import '@fontsource/adwaita-sans';
+import '@fontsource/adwaita-sans/index.css';
 import '@fontsource/adwaita-mono/400.css';
 import '@fontsource/adwaita-mono/700.css';
 import './styles/temml.css';
