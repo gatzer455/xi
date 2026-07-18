@@ -55,7 +55,7 @@ jobs:
         run: bunx tauri build --bundles nsis --target x86_64-pc-windows-msvc
 
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: xi-windows-installer
           path: apps/desktop/backend/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
