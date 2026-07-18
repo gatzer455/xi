@@ -6,3 +6,12 @@ updates:
     directory: /
     schedule:
       interval: monthly
+  - package-ecosystem: bun
+    directories:
+      - /
+      - /apps/desktop/frontend
+      - /apps/mobile/frontend
+      - /packages/xi-ui
+      - /e2e
+    schedule:
+      interval: monthly

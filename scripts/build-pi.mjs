@@ -22,7 +22,7 @@ const PI_PKG = resolve(PROJECT_DIR, "node_modules", "@earendil-works", "pi-codin
 // ── Guard ──────────────────────────────────────────────────────────
 if (!existsSync(resolve(PI_PKG, "package.json"))) {
   console.error("❌ @earendil-works/pi-coding-agent no encontrado en node_modules/");
-  console.error("   Corre 'npm install' primero.");
+  console.error("   Corre 'bun install' primero.");
   process.exit(1);
 }
 
