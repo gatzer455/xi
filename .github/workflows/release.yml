@@ -107,6 +107,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          # Dos tauri.conf.json en el monorepo (desktop y mobile):
+          # sin projectPath la auto-detección puede elegir el equivocado.
+          projectPath: apps/desktop/backend
           tagName: v__VERSION__
           releaseName: "xi v__VERSION__"
           releaseBody: "## Cambios\n\nVer commits desde el último release."
