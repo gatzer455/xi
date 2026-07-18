@@ -2,7 +2,7 @@
  * ensure-sidecars.mjs — Build sidecars solo si faltan (cross-platform).
  *
  * Reemplaza a ensure-sidecars.sh para funcionar en Windows sin bash.
- * Corre desde npm run dev. Si los sidecars ya existen, es rápido.
+ * Corre desde bun run dev. Si los sidecars ya existen, es rápido.
  * Si faltan, llama a los scripts .mjs de build con detección automática
  * de plataforma + arquitectura.
  *
@@ -25,7 +25,7 @@ const SESSIONS_BIN = resolve(BINARIES_DIR, `pi-sessions-${TRIPLE}${EXT}`);
 
 function runScript(name, target) {
   const script = resolve(__dirname, name);
-  execaSync("node", [script, "--target", target], {
+  execaSync(process.execPath, [script, "--target", target], {
     stdio: "inherit",
     cwd: PROJECT_DIR,
   });

@@ -15,11 +15,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
@@ -34,15 +29,15 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       - name: Install root deps
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Install frontend deps
         working-directory: apps/desktop/frontend
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Build frontend
         working-directory: apps/desktop/frontend
-        run: npm run build
+        run: bun run build
 
       - name: Build pi sidecar
         shell: bash
@@ -57,7 +52,7 @@ jobs:
           TAURI_DIR: apps/desktop/backend
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: npx tauri build --bundles nsis --target x86_64-pc-windows-msvc
+        run: bunx tauri build --bundles nsis --target x86_64-pc-windows-msvc
 
       - name: Upload installer
         uses: actions/upload-artifact@v4

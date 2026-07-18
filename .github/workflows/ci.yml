@@ -72,7 +72,7 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       - name: Install root deps
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Cache pi binaries
         id: cache-pi
@@ -92,34 +92,27 @@ jobs:
       - name: Check xi-tools (compile check)
         run: cargo check --manifest-path packages/xi-tools/Cargo.toml
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: npm
-          cache-dependency-path: apps/desktop/frontend/package-lock.json
-
       - name: Install xi-ui deps
-        run: cd packages/xi-ui && npm ci
+        run: cd packages/xi-ui && bun install --frozen-lockfile
 
       - name: Install frontend deps
-        run: cd apps/desktop/frontend && npm ci
+        run: cd apps/desktop/frontend && bun install --frozen-lockfile
 
       - name: Install mobile frontend deps
-        run: cd apps/mobile/frontend && npm ci
+        run: cd apps/mobile/frontend && bun install --frozen-lockfile
 
       - name: Build frontend
-        run: cd apps/desktop/frontend && npm run build
+        run: cd apps/desktop/frontend && bun run build
 
       - name: Build mobile frontend
-        run: cd apps/mobile/frontend && npm run build
+        run: cd apps/mobile/frontend && bun run build
 
       # ── Lint checks ──
       - name: TypeScript type-check
-        run: cd apps/desktop/frontend && npm run typecheck
+        run: cd apps/desktop/frontend && bun run typecheck
 
       - name: TypeScript type-check (mobile)
-        run: cd apps/mobile/frontend && npm run typecheck
+        run: cd apps/mobile/frontend && bun run typecheck
 
       - name: cargo fmt
         run: cargo fmt --all --manifest-path apps/desktop/backend/Cargo.toml -- --check
@@ -129,10 +122,10 @@ jobs:
 
       # ── Unit tests ──
       - name: Frontend tests
-        run: cd apps/desktop/frontend && npm run test:run
+        run: cd apps/desktop/frontend && bun run test:run
 
       - name: Mobile frontend tests
-        run: cd apps/mobile/frontend && npm run test:run
+        run: cd apps/mobile/frontend && bun run test:run
 
       - name: Backend tests
         run: cd apps/desktop/backend && cargo test
@@ -183,15 +176,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: npm
-          cache-dependency-path: |
-            apps/desktop/frontend/package-lock.json
-            e2e/package-lock.json
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
         with:
@@ -213,16 +197,16 @@ jobs:
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
 
       - name: Install root deps
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Install xi-ui deps
-        run: cd packages/xi-ui && npm ci
+        run: cd packages/xi-ui && bun install --frozen-lockfile
 
       - name: Install frontend deps
-        run: cd apps/desktop/frontend && npm ci
+        run: cd apps/desktop/frontend && bun install --frozen-lockfile
 
       - name: Install E2E deps
-        run: cd e2e && npm ci
+        run: cd e2e && bun install --frozen-lockfile
 
       - name: Cache pi binaries
         id: cache-pi
@@ -240,7 +224,7 @@ jobs:
         run: node ./scripts/build-pi-sessions.mjs --target linux
 
       - name: Build frontend (needed for Tauri dev mode)
-        run: cd apps/desktop/frontend && npm run build
+        run: cd apps/desktop/frontend && bun run build
 
       - name: Cache tauri-driver
         id: cache-tauri-driver
@@ -259,4 +243,4 @@ jobs:
           # Sin esto, xvfb + WebKit falla con dmabuf errors en
           # runners de GitHub Ubuntu 22.04.
           WEBKIT_DISABLE_DMABUF_RENDERER: 1
-        run: xvfb-run --auto-servernum npm run test:e2e
+        run: xvfb-run --auto-servernum bun run test:e2e
