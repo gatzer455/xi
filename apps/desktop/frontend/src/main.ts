@@ -13,6 +13,21 @@
  * 4. Decidir vista inicial (welcome o chat según si pi está corriendo)
  */
 
+// ── Estilos (orden del cascade = orden de estos imports) ──
+// Antes estaban como <link> en index.html, pero los paths relativos a
+// packages/xi-ui escapan del root de Vite y caen al SPA fallback en
+// dev (Vite devuelve index.html en vez del CSS). Importarlos desde acá
+// vía el alias 'xi-ui' los sirve correcto en dev y build, y preserva el
+// orden del cascade (los <link> del HTML y los imports de JS se inyectan
+// en puntos distintos del <head>; juntar todo acá lo hace determinista).
+import 'xi-ui/styles/theme.css';
+import 'xi-ui/styles/tokens.css';
+import './styles/base.css';
+import './styles/layout.css';
+import 'xi-ui/styles/components.css';
+import './styles/pages.css';
+import 'xi-ui/styles/markdown.css';
+
 import '@fontsource/adwaita-sans/index.css';
 import '@fontsource/adwaita-mono/400.css';
 import '@fontsource/adwaita-mono/700.css';

@@ -7,6 +7,16 @@
  * si hay ServerConfig persistido, ProjectsPage muestra su propio
  * "conectando…" mientras `connectToServer` resuelve en background.
  */
+// ── Estilos (orden del cascade = orden de estos imports) ──
+// Ver apps/desktop/frontend/src/main.ts: mismo bug de dev server. Los
+// <link> relativos a packages/xi-ui escapan del root de Vite y caen al
+// SPA fallback; importarlos acá los sirve correcto en dev y build.
+import 'xi-ui/styles/theme.css';
+import 'xi-ui/styles/tokens.css';
+import './styles/layout.css';
+import 'xi-ui/styles/components.css';
+import 'xi-ui/styles/markdown.css';
+
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 import { loadServerConfig, buildWsUrl } from './lib/connection-storage.ts';
