@@ -106,6 +106,12 @@ export function InputBar(): HTMLElement {
 
   bar.append(textarea, sendBtn);
 
+  // Guard sincrónico contra doble-dispatch de slash commands:
+  // dispatchSlashCommand es async y no setea isStreaming hasta que
+  // resuelve, así que un doble Enter/click rápido re-entraría a send()
+  // y dispararía dos veces comandos no idempotentes (/bash, /new, /clone).
+  let dispatchInFlight = false;
+
   function send(): void {
     const text = textarea.value.trim();
     if (!text || !appState.workingDir.value || appState.isStreaming.value) return;
@@ -115,7 +121,10 @@ export function InputBar(): HTMLElement {
       // traduce builtins a RPC, valida extensión/skill/prompt contra
       // get_commands, o muestra feedback local. Devuelve 'prompt' si
       // hay que mandarlo como prompt común (pi lo expande).
+      if (dispatchInFlight) return;
+      dispatchInFlight = true;
       dispatchSlashCommand(text).then((outcome) => {
+        dispatchInFlight = false;
         if (outcome.kind === 'unknown') return;          // no limpiar, no enviar
         if (outcome.kind === 'handled') {
           textarea.value = '';
@@ -126,6 +135,7 @@ export function InputBar(): HTMLElement {
         // outcome.kind === 'prompt': caer a envío normal
         doSend(text);
       }).catch((err) => {
+        dispatchInFlight = false;
         console.error('Error dispatching slash command:', err);
       });
       return;

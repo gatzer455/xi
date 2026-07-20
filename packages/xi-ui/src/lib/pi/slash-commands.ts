@@ -55,10 +55,18 @@ export const BUILTIN_SLASH_COMMANDS: readonly BuiltinSlashCommand[] = [
  *  `state-sync.ts`). Vacío hasta que pi responde al fetch del init. */
 const extensionCommandNames = new Set<string>();
 
+/** true una vez que llegó la respuesta de `get_commands` (aunque esté
+ *  vacía). Distingue el race del init (todavía no respondió → lenientes)
+ *  del estado “cargó, no hay comandos” (validar estricto, rechazar
+ *  unknowns). Sin esto, un cache vacío-real desactivaría la validación
+ *  para toda la sesión. */
+let extensionCommandsLoaded = false;
+
 /** Llamado por state-sync cuando llega la respuesta de `get_commands`. */
 export function setKnownExtensionCommands(commands: { name: string }[]): void {
   extensionCommandNames.clear();
   for (const c of commands) extensionCommandNames.add(c.name);
+  extensionCommandsLoaded = true;
 }
 
 /** Envía `get_commands` para poblar el cache. Fire-and-forget. */
@@ -122,8 +130,10 @@ export async function dispatchSlashCommand(text: string): Promise<SlashOutcome> 
     default:
       // No es builtin. Validar contra get_commands antes de mandar al LLM.
       // Si el cache aún no respondió (race del init), somos lenientes y
-      // dejamos pasar como prompt: pi expande si existe.
-      if (extensionCommandNames.size > 0 && !extensionCommandNames.has(name)) {
+      // dejamos pasar como prompt: pi expande si existe. Una vez cargado
+      // (aunque esté vacío), validamos estricto y rechazamos unknowns.
+      if (!extensionCommandsLoaded) return { kind: 'prompt' };
+      if (!extensionCommandNames.has(name)) {
         showLocalMessage(
           `Comando desconocido: \`/${name}\`. Escribí \`/help\` para ver los comandos disponibles.`,
         );

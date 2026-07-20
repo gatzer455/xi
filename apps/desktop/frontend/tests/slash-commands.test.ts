@@ -63,7 +63,9 @@ beforeEach(() => {
   navigate.mockReset();
   dispatch.mockReset();
   sendPiCommand.mockResolvedValue(undefined);
-  // Cache vacío por defecto → modo leniente (race del init).
+  // Baseline determinístico: cache cargado y vacío. Los tests de
+  // builtins no tocan el default branch; los de cache lo sobreescriben.
+  // El race real (loaded=false) se prueba aparte con vi.resetModules.
   setKnownExtensionCommands([]);
 });
 
@@ -169,9 +171,19 @@ describe('dispatchSlashCommand — extensión/skill/prompt', () => {
     // El caller (input.ts) lo manda como prompt común.
   });
 
-  test('cache vacío (race) → leniente, outcome prompt', async () => {
+  test('cache cargado pero vacío → estricto: unknown (no mandar al LLM)', async () => {
     setKnownExtensionCommands([]);
     const out = await dispatchSlashCommand('/cualquiera arg');
+    expect(out).toEqual({ kind: 'unknown', name: 'cualquiera' });
+    expect(sendPiCommand).not.toHaveBeenCalled();
+  });
+
+  test('cache no cargado todavía (race del init) → leniente: prompt', async () => {
+    // El race real es “get_commands nunca respondió” (loaded=false),
+    // distinto de “cargó vacío”. Reimportamos el módulo para estado fresco.
+    vi.resetModules();
+    const mod = await import('xi-ui/lib/pi/slash-commands.ts');
+    const out = await mod.dispatchSlashCommand('/cualquiera arg');
     expect(out.kind).toBe('prompt');
   });
 

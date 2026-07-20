@@ -33,7 +33,14 @@ import { requestExtensionCommands } from 'xi-ui/lib/pi/slash-commands.ts';
 export async function ensurePiRunning(): Promise<void> {
   try {
     const status = await getPiStatus();
-    if (status.running) return;
+    if (status.running) {
+      // pi ya corre (ej. reconectar tras reload de xi): poblar el cache
+      // de slash commands de extensión/skill/prompt. Sin esto, el cache
+      // queda descargado para toda la sesión y la validación de unknown
+      // queda desactivada (ver slash-commands.ts).
+      requestExtensionCommands();
+      return;
+    }
   } catch (err) {
     addEntry(
       'system',
