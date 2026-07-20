@@ -172,7 +172,6 @@ export function InputBar(): HTMLElement {
     // incluye espacio → la condición de la línea 43 cierra el menú).
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
   }
-  }
 
   // ── Send/Stop guards ────────────────────────────────────────
   // dispatchSlashCommand es async y no setea isStreaming hasta que
