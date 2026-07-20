@@ -44,7 +44,7 @@ export function SlashMenu(onSelect: (item: SlashMenuItem) => void): SlashMenuHan
       ? items.filter(i => i.name.toLowerCase().includes(q))
       : [...items];
 
-    el.innerHTML = '';
+    el.replaceChildren();
     if (filtered.length === 0) {
       el.hidden = true;
       return;

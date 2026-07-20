@@ -99,7 +99,7 @@ export function ChatPage(): Page {
   // ═══ Extension UI Dialog ═══
   setupExtensionDialogs({
     messagesInner,
-    endSentinel,
+    root,
     scope,
     getStore_: () => currentStore,
     bubbleHandles,
@@ -175,7 +175,7 @@ function renderEmptyState(): HTMLElement {
 
 interface DialogSetupOptions {
   messagesInner: HTMLElement;
-  endSentinel: HTMLElement;
+  root: HTMLElement;
   scope: ReturnType<typeof createScope>;
   getStore_: () => ChatStore | null;
   bubbleHandles: Map<string, ChatBubbleHandle>;
@@ -183,7 +183,7 @@ interface DialogSetupOptions {
 }
 
 function setupExtensionDialogs(opts: DialogSetupOptions) {
-  const { messagesInner, endSentinel, scope, getStore_, bubbleHandles, scroll } = opts;
+  const { messagesInner, root, scope, getStore_, bubbleHandles, scroll } = opts;
 
   let activeDialogContainer: HTMLElement | null = null;
   let dialogKeydownCleanup: (() => void) | null = null;
@@ -229,7 +229,9 @@ function setupExtensionDialogs(opts: DialogSetupOptions) {
     }
 
     activeDialogContainer.appendChild(dialogElement);
-    messagesInner.insertBefore(activeDialogContainer, endSentinel);
+    // Insertar en root (chat-area), fuera del scroll de mensajes,
+    // para que el diálogo quede anclado al borde inferior de la vista.
+    root.append(activeDialogContainer);
 
     requestAnimationFrame(() => {
       activeDialogContainer?.scrollIntoView({ block: 'end', behavior: 'smooth' });

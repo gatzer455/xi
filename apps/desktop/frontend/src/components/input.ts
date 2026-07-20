@@ -34,9 +34,11 @@ export function InputBar(): HTMLElement {
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
 
-    // Slash menu: mostrar/filtrar/ocultar según el texto
-    const text = textarea.value.trim();
-    if (text.startsWith('/') && !text.includes(' ')) {
+    // Slash menu: mostrar/filtrar/ocultar según el texto.
+    // trimStart (no trim) para no borrar el espacio después del nombre
+    // del comando — ese espacio indica "ya terminé, vienen los args".
+    const text = textarea.value.trimStart();
+    if (text.startsWith('/') && text.indexOf(' ') === -1) {
       // Solo mostramos mientras el usuario escribe el nombre del comando
       // (antes del primer espacio). Después del espacio es el argumento.
       const items = getAllSlashCommands();
@@ -151,12 +153,25 @@ export function InputBar(): HTMLElement {
   const slashMenu = SlashMenu(onSlashSelect);
   bar.append(slashMenu.el);
 
+  // Cerrar el menú al hacer click fuera (textarea o menú).
+  // No usamos blur del textarea porque colisiona con el mousedown
+  // del menú (el preventDefault del item no evita el blur).
+  document.addEventListener('click', (e) => {
+    if (!slashMenu.visible) return;
+    const target = e.target as Node;
+    if (!slashMenu.el.contains(target) && target !== textarea) {
+      slashMenu.close();
+    }
+  });
+
   function onSlashSelect(item: SlashMenuItem): void {
     textarea.value = `/${item.name} `;
     textarea.focus();
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
-    slashMenu.close();
+    // Disparar 'input' para que el listener existente auto-expanda,
+    // actualice el send button, y cierre el menú (el valor ahora
+    // incluye espacio → la condición de la línea 43 cierra el menú).
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+  }
   }
 
   // ── Send/Stop guards ────────────────────────────────────────

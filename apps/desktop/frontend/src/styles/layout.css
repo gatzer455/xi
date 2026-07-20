@@ -284,6 +284,16 @@
   min-width: 0;
 }
 
+/* ── Extension dialog: anclado al borde inferior de chat-area,
+   fuera del scroll de mensajes. Con borde superior para separarlo
+   visualmente del contenido. */
+.extension-dialog-wrapper {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-3);
+  background: var(--color-bg);
+}
+
 /* ── Context bar: [spinner] [tokens ██░░] [modelo ↕] ──
    Barra fija entre los mensajes y el input, fuera del scroll de
    output-board. Siempre visible en la parte baja del viewport.
