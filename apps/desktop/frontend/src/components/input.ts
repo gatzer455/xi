@@ -51,10 +51,14 @@ export function InputBar(): HTMLElement {
   });
 
   // Enter / Esc — con menú de autocomplete y abort por Esc
+  //
+  // El textarea se deshabilita durante streaming (updateState), así que
+  // keydown no llega cuando más necesitamos Esc. Por eso el handler de
+  // Esc para abortar va en document; el textarea solo maneja el menú.
   textarea.addEventListener('keydown', (e) => {
     // Slash menu visible: navegar o seleccionar
     if (slashMenu.visible) {
-      if (e.key === 'Escape') { slashMenu.close(); e.preventDefault(); return; }
+      if (e.key === 'Escape') { slashMenu.close(); e.preventDefault(); e.stopPropagation(); return; }
       if (e.key === 'ArrowDown') { slashMenu.moveDown(); e.preventDefault(); return; }
       if (e.key === 'ArrowUp') { slashMenu.moveUp(); e.preventDefault(); return; }
       if (e.key === 'Enter') { e.preventDefault(); slashMenu.selectHighlighted(); return; }
@@ -63,19 +67,21 @@ export function InputBar(): HTMLElement {
       return;
     }
 
-    // Esc sin menú: abortar si está streameando
-    if (e.key === 'Escape') {
-      if (appState.isStreaming.value) {
-        abort();
-      }
-      return;
-    }
-
     // Enter para enviar
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (appState.isStreaming.value) return;
       send();
+    }
+  });
+
+  // Global Esc: el textarea está disabled durante streaming, así que
+  // el keydown no burbujea desde él. Escuchamos en document para que
+  // Esc funcione siempre. El stopPropagation del menú evita que un
+  // mismo Esc cierre el menú Y aborte.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && appState.isStreaming.value) {
+      abort();
     }
   });
 
