@@ -20,6 +20,7 @@
 import { getPiStatus, startPi } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { appState } from 'xi-ui/lib/state.ts';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
+import { requestExtensionCommands } from 'xi-ui/lib/pi/slash-commands.ts';
 
 /**
  * Asegura que pi esté corriendo. Si no lo está, lo arranca con el
@@ -48,4 +49,8 @@ export async function ensurePiRunning(): Promise<void> {
 
   addEntry('system', 'ensurePiRunning: arrancando pi (no estaba corriendo)');
   await startPi(cwd);
+  // Poblar el cache de slash commands de extensión/skill/prompt ahora
+  // que pi acaba de iniciar. Fire-and-forget: la respuesta llega por
+  // state-sync (case 'get_commands').
+  requestExtensionCommands();
 }

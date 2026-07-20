@@ -14,7 +14,7 @@
  */
 
 import { appState } from 'xi-ui/lib/state.ts';
-import { sendPrompt, abortPi, beginStreamForSession, endStream } from '../lib/pi/index.ts';
+import { sendPrompt, abortPi, beginStreamForSession, endStream, dispatchSlashCommand } from '../lib/pi/index.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 
 export function InputBar(): HTMLElement {
@@ -110,6 +110,31 @@ export function InputBar(): HTMLElement {
     const text = textarea.value.trim();
     if (!text || !appState.workingDir.value || appState.isStreaming.value) return;
 
+    if (text.startsWith('/')) {
+      // Slash command: despachar antes de enviar. El dispatcher
+      // traduce builtins a RPC, valida extensión/skill/prompt contra
+      // get_commands, o muestra feedback local. Devuelve 'prompt' si
+      // hay que mandarlo como prompt común (pi lo expande).
+      dispatchSlashCommand(text).then((outcome) => {
+        if (outcome.kind === 'unknown') return;          // no limpiar, no enviar
+        if (outcome.kind === 'handled') {
+          textarea.value = '';
+          textarea.style.height = 'auto';
+          updateState();
+          return;
+        }
+        // outcome.kind === 'prompt': caer a envío normal
+        doSend(text);
+      }).catch((err) => {
+        console.error('Error dispatching slash command:', err);
+      });
+      return;
+    }
+
+    doSend(text);
+  }
+
+  function doSend(text: string): void {
     const tabId = appState.activeTabId.value;
     if (!tabId) return;
 
