@@ -214,6 +214,8 @@
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .input-bar textarea {

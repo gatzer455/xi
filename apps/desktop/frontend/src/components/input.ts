@@ -16,6 +16,9 @@
 import { appState } from 'xi-ui/lib/state.ts';
 import { sendPrompt, abortPi, beginStreamForSession, endStream, dispatchSlashCommand } from '../lib/pi/index.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
+import { SlashMenu } from 'xi-ui/components/slash-menu.ts';
+import type { SlashMenuItem } from 'xi-ui/components/slash-menu.ts';
+import { getAllSlashCommands } from 'xi-ui/lib/pi/slash-commands.ts';
 
 export function InputBar(): HTMLElement {
   const bar = document.createElement('div');
@@ -26,21 +29,52 @@ export function InputBar(): HTMLElement {
   textarea.placeholder = 'Selecciona un proyecto primero';
   textarea.disabled = true;
 
-  // Auto-expand
+  // Auto-expand + slash menu filter
   textarea.addEventListener('input', () => {
     textarea.style.height = 'auto';
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+
+    // Slash menu: mostrar/filtrar/ocultar según el texto
+    const text = textarea.value.trim();
+    if (text.startsWith('/') && !text.includes(' ')) {
+      // Solo mostramos mientras el usuario escribe el nombre del comando
+      // (antes del primer espacio). Después del espacio es el argumento.
+      const items = getAllSlashCommands();
+      if (slashMenu.visible) {
+        slashMenu.update(items, text.slice(1));
+      } else {
+        slashMenu.open(items, text.slice(1));
+      }
+    } else {
+      slashMenu.close();
+    }
   });
 
-  // Enter to send, Shift+Enter for newline
+  // Enter / Esc — con menú de autocomplete y abort por Esc
   textarea.addEventListener('keydown', (e) => {
+    // Slash menu visible: navegar o seleccionar
+    if (slashMenu.visible) {
+      if (e.key === 'Escape') { slashMenu.close(); e.preventDefault(); return; }
+      if (e.key === 'ArrowDown') { slashMenu.moveDown(); e.preventDefault(); return; }
+      if (e.key === 'ArrowUp') { slashMenu.moveUp(); e.preventDefault(); return; }
+      if (e.key === 'Enter') { e.preventDefault(); slashMenu.selectHighlighted(); return; }
+      if (e.key === 'Tab') { e.preventDefault(); slashMenu.selectHighlighted(); return; }
+      // Cualquier otra tecla: dejar pasar para filtrar.
+      return;
+    }
+
+    // Esc sin menú: abortar si está streameando
+    if (e.key === 'Escape') {
+      if (appState.isStreaming.value) {
+        abort();
+      }
+      return;
+    }
+
+    // Enter para enviar
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (appState.isStreaming.value) {
-        // En teoría no debería pasar porque el botón se transforma, pero
-        // por si el usuario presiona Enter mientras streamea, no enviamos.
-        return;
-      }
+      if (appState.isStreaming.value) return;
       send();
     }
   });
@@ -106,7 +140,20 @@ export function InputBar(): HTMLElement {
 
   bar.append(textarea, sendBtn);
 
-  // Guard sincrónico contra doble-dispatch de slash commands:
+  // ── Slash menu (autocomplete dropdown) ────────────────────────
+
+  const slashMenu = SlashMenu(onSlashSelect);
+  bar.append(slashMenu.el);
+
+  function onSlashSelect(item: SlashMenuItem): void {
+    textarea.value = `/${item.name} `;
+    textarea.focus();
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+    slashMenu.close();
+  }
+
+  // ── Send/Stop guards ────────────────────────────────────────
   // dispatchSlashCommand es async y no setea isStreaming hasta que
   // resuelve, así que un doble Enter/click rápido re-entraría a send()
   // y dispararía dos veces comandos no idempotentes (/bash, /new, /clone).
