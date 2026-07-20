@@ -53,7 +53,7 @@ export const BUILTIN_SLASH_COMMANDS: readonly BuiltinSlashCommand[] = [
 /** Nombres de comandos (sin `/`) provistos por extensiones, skills y
  *  prompts. Se popula desde la respuesta RPC `get_commands` (ver
  *  `state-sync.ts`). Vacío hasta que pi responde al fetch del init. */
-const extensionCommandNames = new Set<string>();
+const extensionCommands = new Map<string, { description?: string }>();
 
 /** true una vez que llegó la respuesta de `get_commands` (aunque esté
  *  vacía). Distingue el race del init (todavía no respondió → lenientes)
@@ -63,10 +63,20 @@ const extensionCommandNames = new Set<string>();
 let extensionCommandsLoaded = false;
 
 /** Llamado por state-sync cuando llega la respuesta de `get_commands`. */
-export function setKnownExtensionCommands(commands: { name: string }[]): void {
-  extensionCommandNames.clear();
-  for (const c of commands) extensionCommandNames.add(c.name);
+export function setKnownExtensionCommands(commands: { name: string; description?: string }[]): void {
+  extensionCommands.clear();
+  for (const c of commands) extensionCommands.set(c.name, { description: c.description });
   extensionCommandsLoaded = true;
+}
+
+/** Devuelve la lista completa de comandos (builtins + extensión/skill/prompt
+ *  cacheados) para el menú de autocomplete. Los builtins van primero. */
+export function getAllSlashCommands(): BuiltinSlashCommand[] {
+  const cmds: BuiltinSlashCommand[] = [...BUILTIN_SLASH_COMMANDS];
+  for (const [name, info] of extensionCommands) {
+    cmds.push({ name, description: info.description || 'Extensión / Skill / Prompt' });
+  }
+  return cmds;
 }
 
 /** Envía `get_commands` para poblar el cache. Fire-and-forget. */
@@ -133,7 +143,7 @@ export async function dispatchSlashCommand(text: string): Promise<SlashOutcome> 
       // dejamos pasar como prompt: pi expande si existe. Una vez cargado
       // (aunque esté vacío), validamos estricto y rechazamos unknowns.
       if (!extensionCommandsLoaded) return { kind: 'prompt' };
-      if (!extensionCommandNames.has(name)) {
+      if (!extensionCommands.has(name)) {
         showLocalMessage(
           `Comando desconocido: \`/${name}\`. Escribí \`/help\` para ver los comandos disponibles.`,
         );

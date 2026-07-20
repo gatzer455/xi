@@ -501,3 +501,64 @@ details[open] > .thinking-summary::before { content: '▾'; }
   flex-shrink: 0;
   text-align: right;
 }
+
+/* ═══ SLASH MENU ═══
+   Dropdown de autocomplete para / slash commands. Se posiciona
+   absolute dentro de .input-bar (position: relative). */
+
+.slash-menu {
+  position: absolute;
+  left: var(--space-8);
+  right: var(--space-8);
+  bottom: calc(100% + var(--space-1));
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+  z-index: 10;
+  padding: var(--space-1) 0;
+}
+
+.slash-menu-item {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.slash-menu-item--highlighted {
+  background: var(--color-surface);
+}
+
+.slash-menu-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0;
+}
+
+.slash-menu-slash {
+  color: var(--color-text-dim);
+  font-weight: 500;
+}
+
+.slash-menu-name {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.slash-menu-arg {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-dim);
+  margin-left: 2px;
+}
+
+.slash-menu-desc {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-text-dim);
+  margin-top: 2px;
+}

@@ -151,7 +151,7 @@ function handleResponse(response: PiResponseEvent): void {
     case 'set_thinking_level':
       return;
     case 'get_commands': {
-      const cmds = response.data as { commands?: { name: string }[] } | undefined;
+      const cmds = response.data as { commands?: { name: string; description?: string }[] } | undefined;
       if (cmds?.commands) setKnownExtensionCommands(cmds.commands);
       return;
     }

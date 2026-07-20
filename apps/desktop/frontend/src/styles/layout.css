@@ -214,6 +214,8 @@
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .input-bar textarea {
@@ -280,6 +282,16 @@
   flex-direction: column;
   min-height: 100%;
   min-width: 0;
+}
+
+/* ── Extension dialog: anclado al borde inferior de chat-area,
+   fuera del scroll de mensajes. Con borde superior para separarlo
+   visualmente del contenido. */
+.extension-dialog-wrapper {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-3);
+  background: var(--color-bg);
 }
 
 /* ── Context bar: [spinner] [tokens ██░░] [modelo ↕] ──
