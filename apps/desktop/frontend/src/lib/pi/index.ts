@@ -46,4 +46,7 @@ export type {
 
 export { applyEvent, beginStreamForSession, endStream } from 'xi-ui/lib/pi/state-sync.ts';
 
+export { dispatchSlashCommand, requestExtensionCommands } from 'xi-ui/lib/pi/slash-commands.ts';
+export type { SlashOutcome } from 'xi-ui/lib/pi/slash-commands.ts';
+
 export { ensurePiRunning } from './lifecycle.ts';

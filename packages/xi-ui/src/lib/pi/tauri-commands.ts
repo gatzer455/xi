@@ -32,7 +32,7 @@ export function setCommandBus(bus: { sendCommand(json: string): Promise<void>;
   isMobile = mobile;
 }
 
-async function sendPiCommand(json: string): Promise<void> {
+export async function sendPiCommand(json: string): Promise<void> {
   if (commandBus) {
     await commandBus.sendCommand(json);
   } else {

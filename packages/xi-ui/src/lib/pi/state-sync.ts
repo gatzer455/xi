@@ -27,6 +27,7 @@
 import { appState, type PiModel, type ThinkingLevel, type Session } from '../state.ts';
 import { addEntry } from '../debug-panel.ts';
 import { getStore } from '../chat/stores.ts';
+import { setKnownExtensionCommands } from './slash-commands.ts';
 import { mapAgentMessage } from '../chat/mapping.ts';
 import type { ChatEvent } from '../chat/reducer.ts';
 import type { ChatMessage } from '../chat/types.ts';
@@ -149,6 +150,11 @@ function handleResponse(response: PiResponseEvent): void {
       return;
     case 'set_thinking_level':
       return;
+    case 'get_commands': {
+      const cmds = response.data as { commands?: { name: string }[] } | undefined;
+      if (cmds?.commands) setKnownExtensionCommands(cmds.commands);
+      return;
+    }
     default:
       return;
   }
