@@ -1,7 +1,7 @@
 /**
  * ChatContextBar.tsx — Barra de contexto del chat: spinner, tokens, modelo.
  */
-import { createSignal, createEffect, onCleanup, Show } from 'solid-js';
+import { createSignal, createEffect, createMemo, onCleanup, Show } from 'solid-js';
 import { appState } from 'xi-ui/lib/state.ts';
 import { getStore } from 'xi-ui/lib/chat/stores.ts';
 import { ModelPicker } from './model-picker.ts';
@@ -62,6 +62,17 @@ export function ChatContextBar() {
 
 function TokenBar() {
   const [tokens, setTokens] = createSignal(0);
+  const [model, setModel] = createSignal(appState.currentModel.value);
+  onCleanup(appState.currentModel.subscribe(setModel));
+
+  const ctxWin = createMemo(() => {
+    const m = model();
+    if (m?.contextWindow && m.contextWindow > 0) return m.contextWindow;
+    if (!m?.id) return DEFAULT_MAX;
+    if (CTX[m.id]) return CTX[m.id];
+    for (const [k, v] of Object.entries(CTX)) { if (m.id.startsWith(k)) return v; }
+    return DEFAULT_MAX;
+  });
 
   function update() {
     const tabId = appState.activeTabId.value;
@@ -85,19 +96,22 @@ function TokenBar() {
   return (
     <span class="context-tokens">
       <span class="context-token-bar" style={{
-        width: `${Math.min((tokens() / ctxWindow()) * 100, 100)}%`
+        width: `${Math.min((tokens() / ctxWin()) * 100, 100)}%`
       }} />
       <span class="context-token-text">
-        {fmt(tokens())} / {fmt(ctxWindow())} ctx
+        {fmt(tokens())} / {fmt(ctxWin())} ctx
       </span>
     </span>
   );
 }
 
 function ModelSelector() {
+  const [model, setModel] = createSignal(appState.currentModel.value);
+  onCleanup(appState.currentModel.subscribe(setModel));
+
   return (
     <span class="context-model" onClick={() => ModelPicker()}>
-      {appState.currentModel.value?.name ?? 'Modelo'}
+      {model()?.name ?? 'Modelo'}
     </span>
   );
 }
