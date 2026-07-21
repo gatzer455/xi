@@ -23,6 +23,7 @@ import {
   nextPane,
   syncChatTab,
   openExplorerTab,
+  openSessionTab,
   nextTab,
   prevTab,
 } from '../lib/panel-manager.ts';
@@ -78,7 +79,7 @@ function onKeyDown(e: KeyboardEvent): void {
 
   if (ctrl && e.shiftKey && e.key === 'T') {
     e.preventDefault();
-    navigate('sessions');
+    openSessionTab();
     return;
   }
   // Ctrl+W — cerrar tab activa (o tile si hay múltiples)
@@ -198,7 +199,7 @@ export function Header() {
         </For>
         {/* Botón "+" al lado de la última tab — abre historial de sesiones */}
         <button class="top-bar-plus-btn"
-                onClick={() => navigate('sessions')}
+                onClick={() => openSessionTab()}
                 title="Nueva conversación / Historial (Ctrl+Shift+T)"
                 aria-label="Historial de conversaciones">+</button>
       </div>

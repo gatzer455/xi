@@ -4,6 +4,6 @@
  */
 import { SessionsPage } from './SessionsPage.tsx';
 
-export function SessionsPane() {
-  return <SessionsPage />;
+export function SessionsPane(props: { tabId?: string; paneId?: string }) {
+  return <SessionsPage tabId={props.tabId} paneId={props.paneId} />;
 }

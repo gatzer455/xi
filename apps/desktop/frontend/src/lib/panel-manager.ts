@@ -169,7 +169,16 @@ export function closeTab(tabId: string): void {
   const idx = tabs.findIndex(t => t.id === tabId);
   if (idx === -1) return;
   const wasActive = activeTabId() === tabId;
+  const isLastTab = tabs.length === 1;
+
   setTabs(produce((draft) => { draft.splice(idx, 1); }));
+
+  // Si era la ultima tab, auto-crear SessionsPicker
+  if (isLastTab) {
+    openSessionTab();
+    return;
+  }
+
   if (wasActive) {
     if (tabs.length > 0) {
       const next = tabs[idx] ?? tabs[idx - 1] ?? null;
@@ -217,7 +226,47 @@ export function addPane(tabId: string, paneType?: PaneType): void {
   }));
 }
 
-/** Elimina el último panel de la tab. Mín 1. */
+/** Cambia el tipo de un panel existente (sessions → chat, sessions → explorer, etc.). */
+export function setPaneType(tabId: string, paneId: string, type: PaneType, sessionId?: string): void {
+  setTabs(produce((draft) => {
+    const tab = draft.find(t => t.id === tabId);
+    if (!tab) return;
+    const pane = tab.panes.find(p => p.id === paneId);
+    if (!pane) return;
+    pane.type = type;
+    if (type === 'chat' && sessionId) {
+      pane.sessionId = sessionId;
+      pane.label = sessionId.split('/').pop() || 'Chat';
+      tab.type = 'chat';
+      tab.label = pane.label;
+      tab.sessionId = sessionId;
+    } else if (type === 'explorer') {
+      pane.sessionId = undefined;
+      pane.label = 'Explorador';
+      tab.type = 'explorer';
+      tab.label = 'Explorador';
+    } else if (type === 'sessions') {
+      pane.sessionId = undefined;
+      pane.label = 'Historial';
+      tab.type = 'sessions';
+      tab.label = 'Historial';
+    }
+  }));
+  // Sincronizar estado global
+  const tab = tabs.find(t => t.id === tabId);
+  if (!tab) return;
+  const pane = tab.panes.find(p => p.id === paneId);
+  if (pane?.type === 'chat' && pane.sessionId) {
+    setAppActiveTab(pane.sessionId);
+    navigate('chat');
+  } else if (pane?.type === 'explorer') {
+    navigate('explorer');
+  } else if (pane?.type === 'sessions') {
+    navigate('sessions');
+  }
+}
+
+/** Elimina el ultimo panel de la tab. Min 1. */
 export function removeLastPane(tabId: string): void {
   setTabs(produce((draft) => {
     const tab = draft.find(t => t.id === tabId);

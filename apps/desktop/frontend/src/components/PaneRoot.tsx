@@ -24,7 +24,8 @@ export function PaneRoot(props: { tabId: string }) {
     <div class="pane-root" data-panes={count()} data-multi={count() > 1 ? '' : undefined}>
       <For each={panes()}>
         {(pane) => (
-          <PaneView pane={pane}
+          <PaneView tabId={props.tabId}
+                    pane={pane}
                     focused={pane.id === focus()}
                     onFocus={(paneId) => setFocus(props.tabId, paneId)} />
         )}
