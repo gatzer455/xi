@@ -39,6 +39,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['katex'],
+    exclude: ['solid-markdown'],
     esbuildOptions: {
       target: 'es2022',
     },
