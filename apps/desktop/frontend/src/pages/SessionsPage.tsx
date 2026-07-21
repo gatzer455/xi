@@ -9,7 +9,7 @@ import { getStore } from 'xi-ui/lib/chat/stores.ts';
 import { dropStore } from 'xi-ui/lib/chat/stores.ts';
 import { icon } from 'xi-ui/lib/icons.ts';
 import { ensurePiRunning } from '../lib/pi/lifecycle.ts';
-import { openExplorerTab } from '../lib/tab-manager.ts';
+import { openExplorerTab } from '../lib/panel-manager.ts';
 import {
   listSessions, deleteSession, renameSession, startPi, stopPi,
   getPiMessages, newPiSession, getPiState, getAvailableModels,

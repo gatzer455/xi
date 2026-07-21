@@ -43,6 +43,9 @@ import { ChatContextBar } from './components/ChatContextBar.tsx';
 import { InputBar } from './components/InputBar.tsx';
 import { render } from 'solid-js/web';
 import { UpdateBanner } from './components/UpdateBanner.tsx';
+import { registerPaneType } from './components/PaneView.tsx';
+import { ChatPage } from './pages/ChatPage.tsx';
+import { ExplorerPane } from './pages/ExplorerPane.tsx';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 import { loadTheme, loadFontSize, applyThemeToDOM, applyFontToDOM } from './lib/settings-storage.ts';
 import { getAvailableModels, getPiUpstreamVersion } from 'xi-ui/lib/pi/tauri-commands.ts';
@@ -109,6 +112,10 @@ async function initDesktop(): Promise<void> {
 }
 
 function mountShell(): void {
+  // Registrar tipos de panel para el sistema de paneles
+  registerPaneType('chat', ChatPage);
+  registerPaneType('explorer', ExplorerPane);
+
   // Montar Header con SolidJS
   render(() => <Header />, document.getElementById('top-bar')!);
   // Montar UpdateBanner con SolidJS — reemplaza el contenido de #update-banner
@@ -119,8 +126,8 @@ function mountShell(): void {
   // Montar ChatContextBar con SolidJS
   const ctxBarEl = document.createElement('div');
   ctxBarEl.id = 'context-bar';
-  const inputBar = document.getElementById('input-bar')!;
-  inputBar.parentNode!.insertBefore(ctxBarEl, inputBar);
+  const outputBoard = document.getElementById('output-board')!;
+  outputBoard.parentNode!.insertBefore(ctxBarEl, outputBoard.nextSibling);
   render(() => <ChatContextBar />, ctxBarEl);
   // Montar InputBar con SolidJS
   render(() => <InputBar />, document.getElementById('input-bar')!);
