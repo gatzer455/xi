@@ -25,6 +25,7 @@ import { createScope, type Page } from 'xi-ui/lib/scope.ts';
 import type { ChatBubbleHandle } from 'xi-ui/components/chat-bubble.ts';
 import { getStore, type ChatStore } from 'xi-ui/lib/chat/stores.ts';
 import type { ChatMessage } from 'xi-ui/lib/chat/types.ts';
+import { icon } from 'xi-ui/lib/icons.ts';
 import {
   renderSelectDialog,
   renderConfirmDialog,
@@ -42,6 +43,7 @@ import {
   renderMessagesInto,
   renderEmptyStateInto,
 } from 'xi-ui/components/chat-messages.ts';
+import { mountExplorer } from './explorer.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 
@@ -54,10 +56,61 @@ export function ChatPage(): Page {
   const { banner: authBanner, dispose: disposeAuthBanner } = createAuthBanner();
   root.append(authBanner);
 
+  // ═══ Content row: chat + panel lateral (split view) ═══
+  const contentRow = document.createElement('div');
+  contentRow.className = 'chat-content-row';
+  root.append(contentRow);
+
   // ═══ Messages container ═══
   const { messagesContainer, messagesInner, endSentinel } =
     createMessagesContainer();
-  root.append(messagesContainer);
+  contentRow.append(messagesContainer);
+
+  // ═══ Explorer side panel ═══
+  let explorerPanelEl: HTMLElement | null = null;
+  let explorerScope: ReturnType<typeof createScope> | null = null;
+
+  const unsubPanel = appState.explorerPanelOpen.subscribe((open) => {
+    if (open && !explorerPanelEl) {
+      explorerPanelEl = document.createElement('div');
+      explorerPanelEl.className = 'explorer-panel';
+      explorerScope = createScope();
+      mountExplorer(explorerPanelEl, explorerScope);
+      contentRow.append(explorerPanelEl);
+      root.classList.add('chat-area--panel-open');
+    } else if (!open && explorerPanelEl) {
+      explorerPanelEl.remove();
+      explorerScope?.dispose();
+      explorerPanelEl = null;
+      explorerScope = null;
+      root.classList.remove('chat-area--panel-open');
+    }
+  });
+  scope.add(unsubPanel);
+  scope.add(() => {
+    explorerPanelEl?.remove();
+    explorerScope?.dispose();
+    explorerPanelEl = null;
+    explorerScope = null;
+  });
+
+  // ═══ Explorer toggle (bubble button, esquina inferior derecha) ═══
+  const explorerToggle = document.createElement('button');
+  explorerToggle.className = 'explorer-toggle';
+  explorerToggle.title = 'Explorador de archivos';
+  explorerToggle.append(icon('folder', { size: 20 }));
+  explorerToggle.addEventListener('click', () => {
+    appState.explorerPanelOpen.value = !appState.explorerPanelOpen.value;
+  });
+  // Append al #output-board (no a .chat-area) para que el position: absolute
+  // sea relativo al contenedor fijo y el botón no scrollee con los mensajes.
+  document.getElementById('output-board')?.append(explorerToggle);
+
+  const unsubToggleState = appState.explorerPanelOpen.subscribe((open) => {
+    explorerToggle.classList.toggle('active', open);
+  });
+  scope.add(unsubToggleState);
+  scope.add(() => explorerToggle.remove());
 
   // ═══ Auto-scroll ═══
   const scroll = createAutoScroll(messagesContainer, endSentinel);

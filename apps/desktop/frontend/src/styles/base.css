@@ -47,6 +47,6 @@ code, pre { font-family: var(--font-mono); }
 
 #top-bar { flex: 0 0 auto; }
 #update-banner { flex: 0 0 auto; }
-#output-board { flex: 1; min-height: 0; overflow-y: auto; }
+#output-board { flex: 1; min-height: 0; overflow-y: auto; position: relative; }
 #context-bar { flex: 0 0 auto; }
 #input-bar { flex: 0 0 auto; }

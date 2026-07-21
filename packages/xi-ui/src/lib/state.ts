@@ -93,6 +93,8 @@ export const appState = {
   fileContent: signal<string | null>(null),
   /** Modo edición activo. */
   isEditing: signal<boolean>(false),
+  /** Panel del explorador abierto en el chat (split view). */
+  explorerPanelOpen: signal<boolean>(false),
 
   /** Sesiones abiertas como tabs en el top bar (browser-shaped).
    *  Cada tab es una sesión que el usuario está viendo. `activeTabId`

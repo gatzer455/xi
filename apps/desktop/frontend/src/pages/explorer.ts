@@ -11,7 +11,6 @@
 import { signal } from 'xi-ui/lib/signal.ts';
 import { createScope, type Scope, type Page } from 'xi-ui/lib/scope.ts';
 import { appState, type FileEntry } from 'xi-ui/lib/state.ts';
-import { navigate } from 'xi-ui/lib/nav.ts';
 import { listFiles, readFile, writeFile } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { FileList } from '../components/file-list.ts';
 import { FilePreview } from '../components/file-preview.ts';
@@ -45,26 +44,80 @@ export function ExplorerPage(): Page {
   root.className = 'explorer-page';
   const scope = createScope();
 
-  // Layout de dos paneles
-  const sidebar = document.createElement('div');
-  sidebar.className = 'explorer-sidebar';
-  sidebar.append(FileList(scope));
+  mountExplorer(root, scope);
 
-  const content = document.createElement('div');
-  content.className = 'explorer-content';
-  content.append(FilePreview(scope));
+  scope.add(() => {
+    loading.value = false;
+    error.value = null;
+  });
 
-  root.append(sidebar, content);
+  return { root, dispose: () => scope.dispose() };
+}
 
-  // Cargar archivos iniciales
+/**
+ * Monta el explorador con navegación single-view:
+ * - Vista inicial: FileList (árbol de archivos)
+ * - Al seleccionar un archivo: FilePreview con barra "← Volver"
+ * - Al seleccionar un directorio: nueva FileList (push)
+ * - "Volver" regresa a FileList
+ *
+ * En el panel lateral del chat (estrecho), este comportamiento
+ * de push/pop es más usable que dos paneles simultáneos.
+ */
+export function mountExplorer(container: HTMLElement, scope: Scope): void {
+  // Vista actual: 'list' | 'preview'
+  let view: 'list' | 'preview' = 'list';
+
+  const listContainer = document.createElement('div');
+  listContainer.className = 'explorer-list';
+  listContainer.append(FileList(scope));
+
+  const previewContainer = document.createElement('div');
+  previewContainer.className = 'explorer-preview';
+
+  // Barra de navegación para volver de preview a lista
+  const previewNav = document.createElement('div');
+  previewNav.className = 'explorer-preview-nav';
+  const backBtn = document.createElement('button');
+  backBtn.className = 'explorer-preview-back';
+  backBtn.textContent = '← Volver';
+  backBtn.addEventListener('click', () => {
+    appState.selectedFile.value = null;
+    appState.fileContent.value = null;
+    appState.isEditing.value = false;
+    showList();
+  });
+  previewNav.append(backBtn);
+  previewContainer.append(previewNav, FilePreview(scope));
+
+  function showList(): void {
+    view = 'list';
+    container.replaceChildren(listContainer);
+  }
+
+  function showPreview(): void {
+    view = 'preview';
+    container.replaceChildren(previewContainer);
+  }
+
+  // Cambiar vista cuando se selecciona/deselecciona un archivo
+  scope.add(appState.selectedFile.subscribe((file) => {
+    if (file && !file.is_dir) {
+      showPreview();
+    } else if (!file && view === 'preview') {
+      showList();
+    }
+  }));
+
+  // Estado inicial: lista de archivos
+  showList();
+
   const cwd = appState.workingDir.value;
   if (cwd) {
     void loadFiles(cwd);
 
-    // Restaurar último archivo abierto
     const saved = loadExplorerState();
     if (saved.lastFile) {
-      // Seleccionar archivo después de cargar la lista
       scope.add(appState.files.subscribe((files) => {
         if (files.length > 0 && !appState.selectedFile.value) {
           const file = files.find(f => f.path === saved.lastFile);
@@ -75,19 +128,11 @@ export function ExplorerPage(): Page {
       }));
     }
   }
-
-  // Cleanup
-  scope.add(() => {
-    loading.value = false;
-    error.value = null;
-  });
-
-  return { root, dispose: () => scope.dispose() };
 }
 
 // ─── Carga de archivos ─────────────────────────────────────────
 
-async function loadFiles(dirPath: string): Promise<void> {
+export async function loadFiles(dirPath: string): Promise<void> {
   loading.value = true;
   error.value = null;
 
@@ -104,7 +149,7 @@ async function loadFiles(dirPath: string): Promise<void> {
 
 // ─── Selección de archivo ──────────────────────────────────────
 
-async function selectFile(file: FileEntry): Promise<void> {
+export async function selectFile(file: FileEntry): Promise<void> {
   if (file.is_dir) {
     // Navegar al subdirectorio
     const cwd = appState.workingDir.value;
