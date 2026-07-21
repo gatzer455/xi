@@ -4,7 +4,7 @@
 import { createSignal, createEffect, onCleanup, Show } from 'solid-js';
 import { appState } from 'xi-ui/lib/state.ts';
 import { getStore } from 'xi-ui/lib/chat/stores.ts';
-import { ModelPicker } from './model-picker.ts';
+import { ModelPicker } from './ModelPicker.tsx';
 
 const BRAILLE = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const CTX: Record<string, number> = {
@@ -34,6 +34,7 @@ function fmt(n: number): string {
 export function ChatContextBar() {
   const [streaming, setStreaming] = createSignal(appState.isStreaming.value);
   const [spinnerIdx, setSpinnerIdx] = createSignal(0);
+  const [pickerOpen, setPickerOpen] = createSignal(false);
 
   onCleanup(appState.isStreaming.subscribe(setStreaming));
 
@@ -55,7 +56,8 @@ export function ChatContextBar() {
         <span class="context-spinner">{BRAILLE[spinnerIdx()]}</span>
       </Show>
       <TokenBar />
-      <ModelSelector />
+      <ModelSelector onClick={() => setPickerOpen(true)} />
+      <Show when={pickerOpen()}><ModelPicker onClose={() => setPickerOpen(false)} /></Show>
     </div>
   );
 }
@@ -94,9 +96,9 @@ function TokenBar() {
   );
 }
 
-function ModelSelector() {
+function ModelSelector(props: { onClick: () => void }) {
   return (
-    <span class="context-model" onClick={() => ModelPicker()}>
+    <span class="context-model" onClick={props.onClick}>
       {appState.currentModel.value?.name ?? 'Modelo'}
     </span>
   );
