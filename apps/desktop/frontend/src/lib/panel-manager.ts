@@ -169,9 +169,18 @@ export function closeTab(tabId: string): void {
   const idx = tabs.findIndex(t => t.id === tabId);
   if (idx === -1) return;
   const wasActive = activeTabId() === tabId;
+  const tab = tabs.find(t => t.id === tabId);
   const isLastTab = tabs.length === 1;
 
   setTabs(produce((draft) => { draft.splice(idx, 1); }));
+
+  // Limpiar openTabs de las sesiones de esta tab
+  const tabSessions = tab?.panes.filter(p => p.sessionId).map(p => p.sessionId!) ?? [];
+  if (tabSessions.length > 0) {
+    appState.openTabs.value = appState.openTabs.value.filter(
+      (t) => !tabSessions.includes(t.id)
+    );
+  }
 
   // Si era la ultima tab, auto-crear SessionsPicker
   if (isLastTab) {
