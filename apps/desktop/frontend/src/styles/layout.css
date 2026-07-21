@@ -622,13 +622,20 @@
   gap: 0;
 }
 
-/* Constrain the messages wrapper so .chat-messages scrolls independently */
+/* Scroll container de los mensajes (ChatMessages renderiza
+   .chat-messages-inner directamente adentro; no existe .chat-messages) */
 #messages-inner {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  scroll-padding-bottom: var(--space-8);
+}
+
+#messages-inner > .chat-messages-inner {
+  align-self: center;
+  flex-shrink: 0;
 }
 
 /* Spacing entre mensajes normales */
