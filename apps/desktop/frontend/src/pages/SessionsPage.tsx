@@ -9,6 +9,7 @@ import { getStore } from 'xi-ui/lib/chat/stores.ts';
 import { dropStore } from 'xi-ui/lib/chat/stores.ts';
 import { icon } from 'xi-ui/lib/icons.ts';
 import { ensurePiRunning } from '../lib/pi/lifecycle.ts';
+import { openExplorerTab } from '../lib/tab-manager.ts';
 import {
   listSessions, deleteSession, renameSession, startPi, stopPi,
   getPiMessages, newPiSession, getPiState, getAvailableModels,
@@ -133,6 +134,7 @@ export function SessionsPage() {
       <header class="sessions-header">
         <h1>Sesiones</h1>
         <button class="sessions-new" onClick={createNew}>+ Nueva conversación</button>
+        <button class="sessions-explorer" onClick={() => openExplorerTab()}>📁 Archivos</button>
         <button class="sessions-back" onClick={() => navigate(appState.activeTabId.value ? 'chat' : 'welcome')}>
           ← Volver
         </button>
