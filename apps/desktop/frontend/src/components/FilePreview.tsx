@@ -38,7 +38,7 @@ export function FilePreview() {
 
   return (
     <div class="file-preview">
-      <Show when={!file()}
+      <Show when={file()}
             fallback={
               <div class="file-preview-empty">
                 <div class="file-preview-empty-text">Selecciona un archivo para verlo</div>
