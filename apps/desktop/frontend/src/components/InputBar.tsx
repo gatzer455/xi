@@ -9,19 +9,26 @@ import { SlashMenu } from 'xi-ui/components/slash-menu.ts';
 import type { SlashMenuItem } from 'xi-ui/components/slash-menu.ts';
 import { getAllSlashCommands } from 'xi-ui/lib/pi/slash-commands.ts';
 
-export function InputBar() {
+export function InputBar(props?: { sessionId?: string }) {
   let textareaRef: HTMLTextAreaElement | undefined;
   let sendBtnRef: HTMLButtonElement | undefined;
   let barRef: HTMLDivElement | undefined;
   let slashMenu: ReturnType<typeof SlashMenu> | undefined;
   let dispatchInFlight = false;
 
+  // Prop fijo para modo panel (no escucha cambios de activeTabId global)
+  const fixedSessionId = () => props?.sessionId;
+
   // Estado reactivo desde signals vanilla
-  const [hasSession, setHasSession] = createSignal(appState.activeTabId.value !== null);
+  const [hasSession, setHasSession] = createSignal(
+    fixedSessionId() !== undefined || appState.activeTabId.value !== null
+  );
   const [streaming, setStreaming] = createSignal(appState.isStreaming.value);
   const [hasWd, setHasWd] = createSignal(!!appState.workingDir.value);
 
-  onCleanup(appState.activeTabId.subscribe((v) => setHasSession(v !== null)));
+  if (fixedSessionId() === undefined) {
+    onCleanup(appState.activeTabId.subscribe((v) => setHasSession(v !== null)));
+  }
   onCleanup(appState.isStreaming.subscribe(setStreaming));
   onCleanup(appState.workingDir.subscribe((v) => setHasWd(!!v)));
 
@@ -101,7 +108,7 @@ export function InputBar() {
   }
 
   function doSend(text: string) {
-    const tabId = appState.activeTabId.value;
+    const tabId = fixedSessionId() ?? appState.activeTabId.value;
     if (!tabId) return;
     if (appState.currentView.value !== 'chat') navigate('chat');
     beginStreamForSession(tabId);

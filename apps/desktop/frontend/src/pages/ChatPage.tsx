@@ -12,10 +12,12 @@ import { setDialogRenderer, clearDialogRenderer } from '../lib/pi/extension-ui-h
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { ChatMessages } from 'xi-ui/components/ChatMessages.tsx';
 import { mountExplorer } from './ExplorerPage.tsx';
+import { InputBar } from '../components/InputBar.tsx';
+import { ChatContextBar } from '../components/ChatContextBar.tsx';
 
 export function ChatPage(props?: { sessionId?: string }) {
   // ═══ Auth banner ═══
-  const sessionId = () => props?.sessionId ?? appState.activeTabId.value;
+  const sessionId = () => props?.sessionId ?? appState.activeTabId.value ?? undefined;
 
   // ═══ Auth banner (solo en tab principal) ═══
   const [hasProvider, setHasProvider] = createSignal(appState.hasAnyProvider.value);
@@ -38,7 +40,7 @@ export function ChatPage(props?: { sessionId?: string }) {
   let unsubMsgs: (() => void) | null = null;
   let unsubStream: (() => void) | null = null;
 
-  function bindTab(id: string | null) {
+  function bindTab(id: string | undefined) {
     unsubMsgs?.(); unsubStream?.();
     if (!id) { _setMessages([]); _setStreaming(false); return; }
     const store = getStore(id);
@@ -51,7 +53,7 @@ export function ChatPage(props?: { sessionId?: string }) {
   }
 
   bindTab(sessionId());
-  if (!props?.sessionId) onCleanup(appState.activeTabId.subscribe((id) => bindTab(id)));
+  if (!props?.sessionId) onCleanup(appState.activeTabId.subscribe((id) => bindTab(id ?? undefined)));
   onCleanup(() => { unsubMsgs?.(); unsubStream?.(); });
 
   // ═══ Extension dialog setup (imperativo) ═══
@@ -179,6 +181,9 @@ export function ChatPage(props?: { sessionId?: string }) {
           </svg>
         </button>
       </Show>
+
+      <ChatContextBar sessionId={sessionId()} />
+      <InputBar sessionId={sessionId()} />
     </div>
   );
 }

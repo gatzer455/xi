@@ -26,7 +26,11 @@ function fmt(n: number): string {
 /** Capitaliza primera letra */
 function cap(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-export function ChatContextBar() {
+export function ChatContextBar(props?: { sessionId?: string }) {
+  // Si hay props.sessionId, usar esa sesión fija (modo panel)
+  // Sino, escuchar activeTabId global (modo full-page)
+  const fixedSessionId = () => props?.sessionId;
+
   const [streaming, setStreaming] = createSignal(appState.isStreaming.value);
   const [view, setView] = createSignal(appState.currentView.value);
   const [spinnerIdx, setSpinnerIdx] = createSignal(0);
@@ -49,7 +53,7 @@ export function ChatContextBar() {
 
   // Actualizar tokens cuando cambia tab o llegan nuevos mensajes
   function updateTokens() {
-    const tabId = appState.activeTabId.value;
+    const tabId = fixedSessionId() ?? appState.activeTabId.value;
     if (!tabId) { setTokens(0); return; }
     const store = getStore(tabId);
     if (!store) { setTokens(0); return; }
@@ -68,14 +72,21 @@ export function ChatContextBar() {
 
   let unsubMessages: (() => void) | null = null;
 
-  onCleanup(appState.activeTabId.subscribe((tabId) => {
-    unsubMessages?.();
-    unsubMessages = null;
-    if (!tabId) { setTokens(0); return; }
-    const store = getStore(tabId);
+  // Suscribirse a cambios de tab activa solo si no estamos en modo panel (sessionId fijo)
+  if (fixedSessionId() === undefined) {
+    onCleanup(appState.activeTabId.subscribe((tabId) => {
+      unsubMessages?.();
+      unsubMessages = null;
+      if (!tabId) { setTokens(0); return; }
+      const store = getStore(tabId);
+      if (store) { unsubMessages = store.messages$.subscribe(() => updateTokens()); }
+      updateTokens();
+    }));
+  } else {
+    // En modo panel, suscribirse directamente al store fijo
+    const store = getStore(fixedSessionId()!);
     if (store) { unsubMessages = store.messages$.subscribe(() => updateTokens()); }
-    updateTokens();
-  }));
+  }
   onCleanup(() => unsubMessages?.());
   // También refrescar cuando cambia el streaming (terminó de generar)
   onCleanup(appState.isStreaming.subscribe(() => updateTokens()));
