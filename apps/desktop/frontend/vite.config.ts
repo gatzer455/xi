@@ -2,9 +2,10 @@ import { defineConfig } from 'vite';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import solidPlugin from 'vite-plugin-solid';
 
 /**
- * Vite config — Vanilla TypeScript, sin frameworks.
+ * Vite config — Vanilla TypeScript + SolidJS.
  *
  * En desarrollo: dev server con HMR en localhost:5173.
  * En producción: `vite build` genera bundle optimizado en dist/.
@@ -29,18 +30,17 @@ export default defineConfig({
       'xi-ui': xiUiSrc,
     },
   },
+  plugins: [solidPlugin()],
   publicDir: 'public',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    // Target moderno para soportar top-level await (temml).
+    // Target moderno para soportar top-level await.
     target: 'es2022',
   },
-  // esbuild target para dev server (top-level await).
   esbuild: {
     target: 'es2022',
   },
-  // Optimización de dependencias: esbuild target para dev server.
   optimizeDeps: {
     esbuildOptions: {
       target: 'es2022',
