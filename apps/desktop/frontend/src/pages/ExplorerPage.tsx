@@ -5,6 +5,7 @@ import { createScope } from 'xi-ui/lib/scope.ts';
 import type { Page } from 'xi-ui/lib/scope.ts';
 import { appState, type FileEntry } from 'xi-ui/lib/state.ts';
 import { listFiles, readFile } from 'xi-ui/lib/pi/tauri-commands.ts';
+import { render } from 'solid-js/web';
 import { FileList } from '../components/FileList.tsx';
 import { FilePreview } from '../components/FilePreview.tsx';
 
@@ -45,26 +46,41 @@ export function explorerPageFactory(): Page {
   const cwd = appState.workingDir.value;
   if (cwd) void loadFiles(cwd);
   // En full-page mode, montamos ambos paneles side by side
-  const listDiv = document.createElement('div'); listDiv.className = 'explorer-list'; listDiv.id = 'explorer-list';
-  const previewDiv = document.createElement('div'); previewDiv.className = 'explorer-preview'; previewDiv.id = 'explorer-preview';
+  const listDiv = document.createElement('div'); listDiv.className = 'explorer-list';
+  const previewDiv = document.createElement('div'); previewDiv.className = 'explorer-preview';
   root.append(listDiv, previewDiv);
+  const dl = render(() => <FileList />, listDiv);
+  const dp = render(() => <FilePreview />, previewDiv);
+  scope.add(dl); scope.add(dp);
   return { root, dispose: () => scope.dispose() };
 }
 
-export function mountExplorer(container: HTMLElement, _scope: unknown): void {
-  // Bridge: vanilla mountExplorer API → renderizar componente SolidJS
-  // Usamos un div simple y montamos el componente inline.
-  // La limpieza depende del llamador (chat.ts maneja su propio scope).
+export function mountExplorer(container: HTMLElement, scope: any): void {
   let view: 'list' | 'preview' = 'list';
   const listDiv = document.createElement('div'); listDiv.className = 'explorer-list';
   const previewDiv = document.createElement('div'); previewDiv.className = 'explorer-preview';
   const backBtn = document.createElement('button'); backBtn.className = 'explorer-preview-back';
   backBtn.textContent = '← Volver';
   backBtn.onclick = () => { appState.selectedFile.value = null; appState.fileContent.value = null; appState.isEditing.value = false; showList(); };
+
+  let disposePreview: (() => void) | null = null;
+  const disposeList = render(() => <FileList />, listDiv);
+  if (scope?.add) scope.add(disposeList);
+
   previewDiv.append(backBtn);
 
-  function showList() { view = 'list'; container.replaceChildren(listDiv); listDiv.replaceChildren(); /* FileList vanilla mount handled by caller */ }
-  function showPreview() { view = 'preview'; container.replaceChildren(previewDiv); }
+  function showList() { view = 'list'; container.replaceChildren(listDiv); }
+  function showPreview() {
+    view = 'preview';
+    disposePreview?.();
+    previewDiv.querySelector('.explorer-preview-content')?.remove();
+    const contentArea = document.createElement('div');
+    contentArea.className = 'explorer-preview-content';
+    previewDiv.append(contentArea);
+    disposePreview = render(() => <FilePreview />, contentArea);
+    if (scope?.add) scope.add(disposePreview);
+    container.replaceChildren(previewDiv);
+  }
 
   appState.selectedFile.subscribe((f) => {
     if (f && !f.is_dir) showPreview();
