@@ -1,7 +1,7 @@
 /**
  * WelcomePage.tsx — Pantalla de bienvenida y proyectos recientes.
  */
-import { createSignal, createEffect, For, Show, onCleanup } from 'solid-js';
+import { createSignal, For, Show, onCleanup } from 'solid-js';
 import { appState } from 'xi-ui/lib/state.ts';
 import { pickAndOpenProject, openProject } from '../lib/workdir.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
@@ -15,10 +15,9 @@ export function WelcomePage() {
 
   // Navegar a sessions cuando cambia workingDir
   const initialDir = appState.workingDir.value;
-  createEffect(() => {
-    const dir = appState.workingDir.value;
+  onCleanup(appState.workingDir.subscribe((dir) => {
     if (dir && dir !== initialDir) navigate('sessions');
-  });
+  }));
 
   return (
     <div class="welcome-page">
@@ -47,7 +46,7 @@ export function WelcomePage() {
 
 function AuthBanner() {
   const [hidden, setHidden] = createSignal(appState.hasAnyProvider.value);
-  createEffect(() => setHidden(appState.hasAnyProvider.value));
+  onCleanup(appState.hasAnyProvider.subscribe((v) => setHidden(v)));
 
   return (
     <div class="welcome-auth-banner" style={{ visibility: hidden() ? 'hidden' : 'visible' }}>
