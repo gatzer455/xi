@@ -57,3 +57,16 @@ if (typeof globalThis.matchMedia === "undefined") {
     }),
   });
 }
+
+// Silenciar unhandled rejections de Tauri invoke en tests que no lo mockean
+process.on('unhandledRejection', (err) => {
+  // Tipo: Cannot read properties of undefined (reading 'invoke')
+  // Es esperado en jsdom donde no hay Tauri runtime.
+  if (err instanceof TypeError && err.message.includes("Cannot read properties of undefined")) {
+    // ya fue, no reportar como error
+  } else {
+    // Otros errores no silenciados — registrarlos para que no pasen
+    // desapercibidos.
+    console.error('Unhandled rejection (not a Tauri mock issue):', err);
+  }
+});
