@@ -1,19 +1,20 @@
 /**
  * Header.tsx — Top bar del app shell.
  */
-import { createSignal, createEffect, For, Show, onCleanup } from 'solid-js';
+import { createSignal, createEffect, For, Show, onCleanup, onMount } from 'solid-js';
 import { appState, setActiveTab, type Session } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { icon } from 'xi-ui/lib/icons.ts';
-
-/** Helper: icono Phosphor como HTML string para innerHTML en JSX */
-function iconHTML(name: string, size = 16): string {
-  const el = icon(name, { size });
-  return el.outerHTML;
-}
 import { pickAndOpenProject } from '../lib/workdir.ts';
 import { dropStore } from 'xi-ui/lib/chat/stores.ts';
 import { abortPi } from '../lib/pi/index.ts';
+
+/** Componente que renderiza un icono Phosphor como SVG inline. */
+function IconEl(props: { name: string; size?: number }) {
+  let ref: HTMLSpanElement | undefined;
+  onMount(() => { if (ref) ref.append(icon(props.name, { size: props.size ?? 16 })); });
+  return <span ref={ref} />;
+}
 
 export function Header() {
   return (
@@ -63,7 +64,7 @@ function Tabs() {
         <Show when={wd()}>
           <button class="top-bar-new-btn" title="Explorador de archivos"
                   onClick={() => navigate('explorer')}>
-            {iconHTML('folder-tree', 16)}<span style="margin-left:4px">Archivos</span>
+            <IconEl name="folder-tree" size={16} /><span style="margin-left:4px">Archivos</span>
           </button>
         </Show>
       </Show>
@@ -123,7 +124,7 @@ function SettingsBtn() {
   return (
     <button classList={{ 'top-bar-settings': true, 'top-bar-settings--active': isActive() }}
             onClick={() => navigate('settings')}>
-      <span innerHTML={iconHTML('settings', 16)} /><span style="margin-left:4px">Settings</span>
+      <IconEl name="settings" size={16} /><span style="margin-left:4px">Settings</span>
     </button>
   );
 }
