@@ -313,11 +313,12 @@
   max-width: 100%;
 }
 
-/* ── Explorer toggle: botón bubble en la esquina inferior derecha
-   del área de chat, justo encima de la context bar. */
+/* ── Explorer toggle: botón bubble fijo en la esquina inferior
+   derecha del output board, justo encima de la context bar.
+   position: fixed respecto al viewport para que nunca scrollee. */
 .explorer-toggle {
-  position: absolute;
-  bottom: var(--space-3);
+  position: fixed;
+  bottom: calc(var(--space-3) + 84px); /* encima de context + input */
   right: var(--space-3);
   width: 36px;
   height: 36px;
