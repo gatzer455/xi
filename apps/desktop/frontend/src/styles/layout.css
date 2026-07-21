@@ -386,9 +386,15 @@
 
 /* ═══ OUTPUT BOARD + CHAT AREA ═══
    Contenido central. El chat usa todo el espacio disponible. */
-.output-content {
+.output-board {
   height: 100%;
-  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.output-content {
+  flex: 1;
+  min-height: 0;
 }
 
 .chat-area {
