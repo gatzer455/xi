@@ -387,8 +387,7 @@
 /* ═══ OUTPUT BOARD + CHAT AREA ═══
    Contenido central. El chat usa todo el espacio disponible. */
 .output-content {
-  width: 100%;
-  min-height: 100%;
+  height: 100%;
   box-sizing: border-box;
 }
 
@@ -841,7 +840,7 @@
 
 .pane-root[data-panes="1"] { grid-template: 1fr / 1fr; }
 .pane-root[data-panes="2"] { grid-template: 1fr / 1fr 1fr; }
-.pane-root[data-panes="3"] { grid-template: 1fr 1fr / 2fr 1fr; }
+.pane-root[data-panes="3"] { grid-template: 1fr 1fr / 1fr 1fr; }
 .pane-root[data-panes="3"] > .pane:first-child {
   grid-row: 1 / 3;
 }

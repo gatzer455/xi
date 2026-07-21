@@ -37,7 +37,8 @@ code, pre { font-family: var(--font-mono); }
 
 /* ─── App shell ───
    #app es flex-column. 3 hijos: #top-bar (header), #output-board
-   (contenido flexible), #input-bar (barra de input). */
+   (contenido flexible). InputBar y ContextBar viven dentro de
+   ChatPage (no globales). */
 #app {
   display: flex;
   flex-direction: column;
@@ -47,6 +48,4 @@ code, pre { font-family: var(--font-mono); }
 
 #top-bar { flex: 0 0 auto; }
 #update-banner { flex: 0 0 auto; }
-#output-board { flex: 1; min-height: 0; overflow-y: auto; position: relative; }
-#context-bar { flex: 0 0 auto; }
-#input-bar { flex: 0 0 auto; }
+#output-board { flex: 1; min-height: 0; overflow: hidden; position: relative; }
