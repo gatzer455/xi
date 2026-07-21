@@ -22,7 +22,6 @@
 
 import { appState, type ExtensionDialogState } from 'xi-ui/lib/state.ts';
 import { createScope, type Page } from 'xi-ui/lib/scope.ts';
-import type { ChatBubbleHandle } from 'xi-ui/components/chat-bubble.ts';
 import { getStore, type ChatStore } from 'xi-ui/lib/chat/stores.ts';
 import type { ChatMessage } from 'xi-ui/lib/chat/types.ts';
 import { icon } from 'xi-ui/lib/icons.ts';
@@ -39,10 +38,10 @@ import {
 import { navigate } from 'xi-ui/lib/nav.ts';
 import {
   createMessagesContainer,
-  createAutoScroll,
-  renderMessagesInto,
-  renderEmptyStateInto,
 } from 'xi-ui/components/chat-messages.ts';
+import { ChatMessages, createWrappedSignal } from 'xi-ui/components/ChatMessages.tsx';
+import { render } from 'solid-js/web';
+import { createComponent } from 'solid-js';
 import { mountExplorer } from './explorer.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
@@ -62,7 +61,7 @@ export function ChatPage(): Page {
   root.append(contentRow);
 
   // ═══ Messages container ═══
-  const { messagesContainer, messagesInner, endSentinel } =
+  const { messagesContainer, messagesInner } =
     createMessagesContainer();
   contentRow.append(messagesContainer);
 
@@ -112,41 +111,51 @@ export function ChatPage(): Page {
   scope.add(unsubToggleState);
   scope.add(() => explorerToggle.remove());
 
-  // ═══ Auto-scroll ═══
-  const scroll = createAutoScroll(messagesContainer, endSentinel);
 
-  // ═══ Render: bubbleHandles en closure (no module-level) ═══
-  const bubbleHandles = new Map<string, ChatBubbleHandle>();
-
-  function renderMessages(messages: ChatMessage[]): void {
-    renderMessagesInto(messagesInner, endSentinel, bubbleHandles, messages, scroll.pinToBottom, renderEmptyState);
-  }
-
-  // ═══ Bind al ChatStore del activeTab ═══
+  // ═══ Bind al ChatStore del activeTab + render SolidJS ═══
   let currentStore: ChatStore | null = null;
   let unsubMessages: (() => void) | null = null;
+  let solidDispose: (() => void) | null = null;
 
   function bindActiveTab(tabId: string | null): void {
     unsubMessages?.();
     unsubMessages = null;
     currentStore = null;
+    solidDispose?.();
+    solidDispose = null;
 
+    // Empty state (mensajes vacíos o sin tab activa)
+    messagesInner.replaceChildren();
     if (!tabId) {
-      renderEmptyStateInto(messagesInner, endSentinel, renderEmptyState);
-      scroll.pinToBottom();
       return;
     }
 
     const store = getStore(tabId);
     currentStore = store;
-    unsubMessages = store.messages$.subscribe(renderMessages);
+
+    // Bridge: signal legacy → SolidJS reactive
+    const [messagesSig, unsubMsgs] = createWrappedSignal(store.messages$);
+    const [streamingSig, unsubStream] = createWrappedSignal(store.isStreaming$);
+
+    // Montar ChatMessages SolidJS dentro de messagesInner
+    solidDispose = render(
+      () => createComponent(ChatMessages, { messages: messagesSig, streaming: streamingSig }),
+      messagesInner,
+    );
+
+    // Combinar cleanup: dispose del render + unsubscribe de las señales
+    const prevDispose = solidDispose;
+    solidDispose = () => {
+      prevDispose?.();
+      unsubMsgs();
+      unsubStream();
+    };
   }
 
   scope.add(appState.activeTabId.subscribe(bindActiveTab));
   scope.add(() => {
     unsubMessages?.();
-    for (const h of bubbleHandles.values()) h.dispose();
-    bubbleHandles.clear();
+    solidDispose?.();
   });
 
   // ═══ Extension UI Dialog ═══
@@ -155,8 +164,6 @@ export function ChatPage(): Page {
     root,
     scope,
     getStore_: () => currentStore,
-    bubbleHandles,
-    scroll,
   });
 
   return {
@@ -231,12 +238,10 @@ interface DialogSetupOptions {
   root: HTMLElement;
   scope: ReturnType<typeof createScope>;
   getStore_: () => ChatStore | null;
-  bubbleHandles: Map<string, ChatBubbleHandle>;
-  scroll: { pinToBottom: () => void };
 }
 
 function setupExtensionDialogs(opts: DialogSetupOptions) {
-  const { messagesInner, root, scope, getStore_, bubbleHandles, scroll } = opts;
+  const { messagesInner, root, scope, getStore_ } = opts;
 
   let activeDialogContainer: HTMLElement | null = null;
   let dialogKeydownCleanup: (() => void) | null = null;
@@ -353,7 +358,6 @@ function setupExtensionDialogs(opts: DialogSetupOptions) {
         if (askResponses.length > 0) {
           addAskResult(askResponses, getStore_);
           askResponses = [];
-          scroll.pinToBottom();
         }
       }
     }),

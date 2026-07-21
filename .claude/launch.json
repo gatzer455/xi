@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "xi-frontend-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite"],
+      "cwd": "apps/desktop/frontend",
+      "port": 5173
+    },
+    {
+      "name": "xi-mobile-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite"],
+      "cwd": "apps/mobile/frontend",
+      "port": 5174
+    }
+  ]
+}

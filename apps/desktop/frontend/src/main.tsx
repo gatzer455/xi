@@ -32,6 +32,7 @@ import '@fontsource/adwaita-sans/index.css';
 import '@fontsource/adwaita-mono/400.css';
 import '@fontsource/adwaita-mono/700.css';
 import './styles/temml.css';
+import 'katex/dist/katex.min.css';
 
 import { appState } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';

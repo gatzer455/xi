@@ -38,6 +38,7 @@ export default defineConfig({
     target: 'es2022',
   },
   optimizeDeps: {
+    include: ['katex', 'micromark', 'unified'],
     esbuildOptions: {
       target: 'es2022',
     },
