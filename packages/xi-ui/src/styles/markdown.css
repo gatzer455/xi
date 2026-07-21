@@ -146,3 +146,14 @@
 }
 
 
+
+/* ─── Streaming cursor (reemplaza el viejo fade-in de reconcileDom) ─── */
+.message-text--streaming .md-root:last-child::after {
+  content: '▊';
+  animation: cursor-blink 1s step-end infinite;
+  margin-left: 2px;
+  color: var(--color-text);
+}
+@keyframes cursor-blink {
+  50% { opacity: 0; }
+}
