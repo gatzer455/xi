@@ -58,8 +58,8 @@ tile-manager.
 ```
 
 **Dependencias que se eliminan:**
-- `markdown-it` + `markdown-it-math` (reemplazado por `solid-markdown` con remark plugins)
-- `temml` (opcional: solid-markdown usa KaTeX; evaluar si temml es necesario)
+- `markdown-it` + `markdown-it-math` (reemplazado por `solid-markdown` con remark plugins + KaTeX)
+- `temml` (reemplazado por KaTeX, default de solid-markdown)
 
 ---
 
@@ -98,8 +98,9 @@ pi stdout → state-sync (throttle 50ms)  ← SIN CAMBIOS
 - Fade-in, typewriter, cursor CSS
 - ~2KB gzipped
 
-**Recomendación:** Empezar con `solid-markdown` (más simple, reemplazo directo).
-Evaluar `@incremark/solid` en PR futuro si hace falta typewriter.
+**Recomendación:** Usar `solid-markdown` con `renderingStrategy: "reconcile"`.
+Es el reemplazo directo de nuestro reconcileDom y markdown-it.
+Math: KaTeX (default de solid-markdown).
 
 ### Qué desaparece
 
