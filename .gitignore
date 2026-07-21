@@ -77,3 +77,4 @@ apps/mobile/src-tauri/target/
 apps/mobile/node_modules/
 apps/mobile/dist/
 .claude/
+PLAN.md
