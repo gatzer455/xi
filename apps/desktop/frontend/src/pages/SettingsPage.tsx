@@ -202,7 +202,8 @@ function ProviderSection() {
   });
 
   return (
-    <div class="settings-provider-control">
+    <Section title="Proveedor" desc="Tu modelo de lenguaje. Pega la API key del provider que quieras usar.">
+      <div class="settings-provider-control">
       <div class="settings-segmented" role="group">
         <For each={PROVIDERS}>{(p) => (
           <button type="button" classList={{ 'settings-segmented-btn': true, 'settings-segmented-btn--active': current() === p.id, 'settings-segmented-btn--configured': configured().some((c) => c.id === p.id) }}
@@ -227,6 +228,7 @@ function ProviderSection() {
         }} />
       </Show>
     </div>
+    </Section>
   );
 }
 
@@ -261,14 +263,16 @@ function AppearanceSection() {
   onCleanup(appState.fontSize.subscribe(setFontSize));
 
   return (
-    <div class="settings-appearance-controls">
-      <div class="settings-sublabel">Tema</div>
-      <Segmented options={[{ value: 'dark' as const, label: 'Oscuro' }, { value: 'light' as const, label: 'Claro' }, { value: 'system' as const, label: 'Sistema' }]}
-                 current={theme()} onChange={(t) => { appState.theme.value = t; applyThemeToDOM(t); saveTheme(t); }} />
-      <div class="settings-sublabel">Fuente</div>
-      <Segmented options={[{ value: 'small' as const, label: 'Pequeña' }, { value: 'medium' as const, label: 'Mediana' }, { value: 'large' as const, label: 'Grande' }]}
-                 current={fontSize()} onChange={(s) => { appState.fontSize.value = s; applyFontToDOM(s); saveFontSize(s); }} />
-    </div>
+    <Section title="Apariencia" desc="Tema y tamaño de la fuente.">
+      <div class="settings-appearance-controls">
+        <div class="settings-sublabel">Tema</div>
+        <Segmented options={[{ value: 'dark' as const, label: 'Oscuro' }, { value: 'light' as const, label: 'Claro' }, { value: 'system' as const, label: 'Sistema' }]}
+                   current={theme()} onChange={(t) => { appState.theme.value = t; applyThemeToDOM(t); saveTheme(t); }} />
+        <div class="settings-sublabel">Fuente</div>
+        <Segmented options={[{ value: 'small' as const, label: 'Pequeña' }, { value: 'medium' as const, label: 'Mediana' }, { value: 'large' as const, label: 'Grande' }]}
+                   current={fontSize()} onChange={(s) => { appState.fontSize.value = s; applyFontToDOM(s); saveFontSize(s); }} />
+      </div>
+    </Section>
   );
 }
 
