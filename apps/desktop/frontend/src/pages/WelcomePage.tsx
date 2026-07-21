@@ -1,7 +1,7 @@
 /**
  * WelcomePage.tsx — Pantalla de bienvenida y proyectos recientes.
  */
-import { createSignal, For, Show, onCleanup } from 'solid-js';
+import { createSignal, For, onCleanup } from 'solid-js';
 import { appState } from 'xi-ui/lib/state.ts';
 import { pickAndOpenProject, openProject } from '../lib/workdir.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
@@ -40,6 +40,10 @@ export function WelcomePage() {
       </button>
 
       <RecentsSection />
+
+      <a class="welcome-help-link" href="https://pi.dev/docs" target="_blank" rel="noopener noreferrer">
+        ¿Necesitas ayuda? →
+      </a>
     </div>
   );
 }
@@ -70,16 +74,14 @@ function RecentsSection() {
   }
 
   return (
-    <Show when={recents().length > 0}>
-      <div class="welcome-recents">
-        <h2 class="welcome-recents-title">O abre un proyecto reciente</h2>
-        <div class="recents-grid">
-          <For each={recents()}>
-            {(r) => <RecentCard recent={r} />}
-          </For>
-        </div>
+    <div class="welcome-recents" style={{ display: recents().length > 0 ? 'flex' : 'none' }}>
+      <h2 class="welcome-recents-title">O abre un proyecto reciente</h2>
+      <div class="recents-grid">
+        <For each={recents()}>
+          {(r) => <RecentCard recent={r} />}
+        </For>
       </div>
-    </Show>
+    </div>
   );
 }
 
