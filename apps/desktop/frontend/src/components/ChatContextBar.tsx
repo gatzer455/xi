@@ -23,6 +23,9 @@ function fmt(n: number): string {
   return String(n);
 }
 
+/** Capitaliza primera letra */
+function cap(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
+
 export function ChatContextBar() {
   const [streaming, setStreaming] = createSignal(appState.isStreaming.value);
   const [view, setView] = createSignal(appState.currentView.value);
@@ -128,7 +131,7 @@ export function ChatContextBar() {
         </span>
         <button class="context-bar-think" title="Nivel de razonamiento (click: cicla)"
                 onClick={cycleThinking}>
-          {THINKING_LABELS[thinkLevel()] ?? thinkLevel()}
+          {cap(THINKING_LABELS[thinkLevel()] ?? thinkLevel())}
         </button>
         <span class="context-bar-sep">·</span>
         <button class="context-bar-model" title="Cambiar modelo"
