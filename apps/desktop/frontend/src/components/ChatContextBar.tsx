@@ -66,10 +66,14 @@ export function ChatContextBar() {
     setTokens(total);
   }
 
+  let unsubMessages: (() => void) | null = null;
+
   onCleanup(appState.activeTabId.subscribe((tabId) => {
+    unsubMessages?.();
+    unsubMessages = null;
     if (!tabId) { setTokens(0); return; }
     const store = getStore(tabId);
-    if (store) onCleanup(store.messages$.subscribe(() => updateTokens()));
+    if (store) { unsubMessages = store.messages$.subscribe(() => updateTokens()); }
     updateTokens();
   }));
   // También refrescar cuando cambia el streaming (terminó de generar)
