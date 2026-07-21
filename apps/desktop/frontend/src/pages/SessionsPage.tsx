@@ -9,7 +9,8 @@ import { getStore } from 'xi-ui/lib/chat/stores.ts';
 import { dropStore } from 'xi-ui/lib/chat/stores.ts';
 import { icon } from 'xi-ui/lib/icons.ts';
 import { ensurePiRunning } from '../lib/pi/lifecycle.ts';
-import { openExplorerTab } from '../lib/tab-manager.ts';
+import { setPaneType, getTabs } from '../lib/panel-manager.ts';
+import type { PaneType } from '../lib/panel-manager.ts';
 import {
   listSessions, deleteSession, renameSession, startPi, stopPi,
   getPiMessages, newPiSession, getPiState, getAvailableModels,
@@ -18,7 +19,12 @@ import type { ListSessionsResult, SessionInfo, SkippedInfo } from 'xi-ui/lib/pi/
 
 const POLL_MS = 30_000;
 
-export function SessionsPage() {
+export interface SessionsPageProps {
+  tabId?: string;
+  paneId?: string;
+}
+
+export function SessionsPage(props: SessionsPageProps) {
   const [sessions, setSessions] = createSignal<SessionInfo[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -54,13 +60,9 @@ export function SessionsPage() {
 
   async function createNew() {
     if (!appState.workingDir.value) { setError('Selecciona una carpeta de trabajo primero'); return; }
-    const tabId = crypto.randomUUID();
+    if (!props.tabId || !props.paneId) { setError('No hay un panel activo'); return; }
     const now = new Date();
     const name = now.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const newTab: Session = { id: tabId, name, messageCount: 0 };
-    setActiveTab(tabId);
-    appState.openTabs.value = [...appState.openTabs.value, newTab];
-    navigate('chat');
     try {
       const cwd = appState.workingDir.value;
       if (!cwd) return;
@@ -73,9 +75,7 @@ export function SessionsPage() {
         try { await renameSession(piSession.file, name); piSession.name = name; } catch { /* best-effort */ }
       }
       if (piSession) {
-        appState.openTabs.value = appState.openTabs.value.map((t) =>
-          t.id === tabId ? { ...t, name: piSession.name || t.name, file: piSession.file, messageCount: piSession.messageCount } : t
-        );
+        setPaneType(props.tabId, props.paneId, 'chat', piSession.file);
       }
       void load();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
@@ -84,22 +84,15 @@ export function SessionsPage() {
   async function switchTo(session: SessionInfo) {
     const cwd = appState.workingDir.value;
     if (!cwd) return;
-    const isOpen = appState.openTabs.value.some((t) => t.id === session.id);
-    if (isOpen) { setActiveTab(session.id); navigate('chat'); return; }
-    const prevActiveId = appState.activeTabId.value;
-    const newTab: Session = { id: session.id, name: session.name, file: session.path, messageCount: session.messageCount };
-    setActiveTab(session.id);
-    appState.openTabs.value = [...appState.openTabs.value, newTab];
+    if (!props.tabId || !props.paneId) { setError('No hay un panel activo'); return; }
+    // Arrancar pi primero; si falla, el pane sigue como sessions y el error es visible
     try {
       await startPi(cwd, session.path);
+      setPaneType(props.tabId, props.paneId, 'chat', session.path);
       await getPiState();
       await getPiMessages();
       await getAvailableModels();
-      navigate('chat');
     } catch (err) {
-      // Rollback: restaurar el tab activo anterior
-      appState.activeTabId.value = prevActiveId;
-      appState.openTabs.value = appState.openTabs.value.filter((t) => t.id !== session.id);
       setError(err instanceof Error ? err.message : String(err));
     }
   }
@@ -134,7 +127,9 @@ export function SessionsPage() {
       <header class="sessions-header">
         <h1>Sesiones</h1>
         <button class="sessions-new" onClick={createNew}>+ Nueva conversación</button>
-        <button class="sessions-explorer" onClick={() => openExplorerTab()}>📁 Archivos</button>
+        <button class="sessions-explorer" onClick={() => {
+          if (props.tabId && props.paneId) setPaneType(props.tabId, props.paneId, 'explorer');
+        }}>📁 Archivos</button>
         <button class="sessions-back" onClick={() => navigate(appState.activeTabId.value ? 'chat' : 'welcome')}>
           ← Volver
         </button>

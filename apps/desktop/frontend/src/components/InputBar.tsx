@@ -3,26 +3,41 @@
  */
 import { createSignal, createEffect, onCleanup, onMount } from 'solid-js';
 import { appState } from 'xi-ui/lib/state.ts';
+import { getStore } from 'xi-ui/lib/chat/stores.ts';
 import { sendPrompt, abortPi, beginStreamForSession, endStream, dispatchSlashCommand } from '../lib/pi/index.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { SlashMenu } from 'xi-ui/components/slash-menu.ts';
 import type { SlashMenuItem } from 'xi-ui/components/slash-menu.ts';
 import { getAllSlashCommands } from 'xi-ui/lib/pi/slash-commands.ts';
 
-export function InputBar() {
+export function InputBar(props?: { sessionId?: string }) {
   let textareaRef: HTMLTextAreaElement | undefined;
   let sendBtnRef: HTMLButtonElement | undefined;
   let barRef: HTMLDivElement | undefined;
   let slashMenu: ReturnType<typeof SlashMenu> | undefined;
   let dispatchInFlight = false;
 
+  // Prop fijo para modo panel (no escucha cambios de activeTabId global)
+  const fixedSessionId = () => props?.sessionId;
+
   // Estado reactivo desde signals vanilla
-  const [hasSession, setHasSession] = createSignal(appState.activeTabId.value !== null);
+  const [hasSession, setHasSession] = createSignal(
+    fixedSessionId() !== undefined || appState.activeTabId.value !== null
+  );
   const [streaming, setStreaming] = createSignal(appState.isStreaming.value);
   const [hasWd, setHasWd] = createSignal(!!appState.workingDir.value);
 
-  onCleanup(appState.activeTabId.subscribe((v) => setHasSession(v !== null)));
-  onCleanup(appState.isStreaming.subscribe(setStreaming));
+  if (fixedSessionId() === undefined) {
+    onCleanup(appState.activeTabId.subscribe((v) => setHasSession(v !== null)));
+  }
+  // En modo pane, usar streaming de la store de sesión, no global
+  if (fixedSessionId()) {
+    const store = getStore(fixedSessionId()!);
+    setStreaming(store.isStreaming$.value);
+    onCleanup(store.isStreaming$.subscribe(setStreaming));
+  } else {
+    onCleanup(appState.isStreaming.subscribe(setStreaming));
+  }
   onCleanup(appState.workingDir.subscribe((v) => setHasWd(!!v)));
 
   // Input handler: auto-expand + slash menu
@@ -101,7 +116,7 @@ export function InputBar() {
   }
 
   function doSend(text: string) {
-    const tabId = appState.activeTabId.value;
+    const tabId = fixedSessionId() ?? appState.activeTabId.value;
     if (!tabId) return;
     if (appState.currentView.value !== 'chat') navigate('chat');
     beginStreamForSession(tabId);
@@ -140,12 +155,6 @@ export function InputBar() {
       ta.placeholder = !hs ? 'Selecciona una sesión primero' : 'Escribe un mensaje…';
     }
     updateBtn();
-  });
-
-  // Efecto: mostrar/ocultar barra
-  createEffect(() => {
-    if (!barRef) return;
-    barRef.style.display = hasSession() ? '' : 'none';
   });
 
   // Global Esc para abortar (textarea disabled no captura keydown)

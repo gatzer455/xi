@@ -26,17 +26,32 @@ function fmt(n: number): string {
 /** Capitaliza primera letra */
 function cap(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-export function ChatContextBar() {
-  const [streaming, setStreaming] = createSignal(appState.isStreaming.value);
-  const [view, setView] = createSignal(appState.currentView.value);
+export function ChatContextBar(props?: { sessionId?: string }) {
+  // Si hay props.sessionId, usar esa sesión fija (modo panel)
+  // Sino, escuchar activeTabId global (modo full-page)
+  const fixedSessionId = () => props?.sessionId;
+
+  const [streaming, setStreaming] = createSignal(
+    fixedSessionId() ? (getStore(fixedSessionId()!)?.isStreaming$.value ?? false) : appState.isStreaming.value
+  );
   const [spinnerIdx, setSpinnerIdx] = createSignal(0);
-  const [tokens, setTokens] = createSignal(0);
+  const [tokens, setTokens] = createSignal(
+    fixedSessionId() ? (getStore(fixedSessionId()!)?.messages$.value.length ?? 0) : 0
+  );
   const [model, setModelState] = createSignal(appState.currentModel.value);
   const [thinkLevel, setThinkLevel] = createSignal(appState.thinkingLevel.value);
   const [pickerOpen, setPickerOpen] = createSignal(false);
 
-  onCleanup(appState.isStreaming.subscribe(setStreaming));
-  onCleanup(appState.currentView.subscribe(setView));
+  // Streaming: escopo a sesión en modo pane, global en modo full-page
+  if (fixedSessionId()) {
+    const store = getStore(fixedSessionId()!);
+    setStreaming(store.isStreaming$.value);
+    setTokens(store.messages$.value.length);
+    onCleanup(store.isStreaming$.subscribe(setStreaming));
+    onCleanup(store.messages$.subscribe((msgs) => setTokens(msgs.length)));
+  } else {
+    onCleanup(appState.isStreaming.subscribe(setStreaming));
+  }
   onCleanup(appState.currentModel.subscribe(setModelState));
   onCleanup(appState.thinkingLevel.subscribe(setThinkLevel));
 
@@ -49,7 +64,7 @@ export function ChatContextBar() {
 
   // Actualizar tokens cuando cambia tab o llegan nuevos mensajes
   function updateTokens() {
-    const tabId = appState.activeTabId.value;
+    const tabId = fixedSessionId() ?? appState.activeTabId.value;
     if (!tabId) { setTokens(0); return; }
     const store = getStore(tabId);
     if (!store) { setTokens(0); return; }
@@ -68,14 +83,21 @@ export function ChatContextBar() {
 
   let unsubMessages: (() => void) | null = null;
 
-  onCleanup(appState.activeTabId.subscribe((tabId) => {
-    unsubMessages?.();
-    unsubMessages = null;
-    if (!tabId) { setTokens(0); return; }
-    const store = getStore(tabId);
+  // Suscribirse a cambios de tab activa solo si no estamos en modo panel (sessionId fijo)
+  if (fixedSessionId() === undefined) {
+    onCleanup(appState.activeTabId.subscribe((tabId) => {
+      unsubMessages?.();
+      unsubMessages = null;
+      if (!tabId) { setTokens(0); return; }
+      const store = getStore(tabId);
+      if (store) { unsubMessages = store.messages$.subscribe(() => updateTokens()); }
+      updateTokens();
+    }));
+  } else {
+    // En modo panel, suscribirse directamente al store fijo
+    const store = getStore(fixedSessionId()!);
     if (store) { unsubMessages = store.messages$.subscribe(() => updateTokens()); }
-    updateTokens();
-  }));
+  }
   onCleanup(() => unsubMessages?.());
   // También refrescar cuando cambia el streaming (terminó de generar)
   onCleanup(appState.isStreaming.subscribe(() => updateTokens()));
@@ -101,23 +123,13 @@ export function ChatContextBar() {
     setThinkingLevel(next);
   }
 
-  // Cuando cambia la vista, ocultar/mostrar via DOM directo
-  let divRef: HTMLDivElement | undefined;
-  function setRef(el: HTMLDivElement) {
-    divRef = el;
-    el.style.display = view() === 'chat' ? '' : 'none';
-  }
-  onCleanup(appState.currentView.subscribe((v) => {
-    if (divRef) divRef.style.display = v === 'chat' ? '' : 'none';
-  }));
-
   const pct = createMemo(() => ctxWin() > 0 ? (tokens() / ctxWin()) * 100 : 0);
 
   // Token text: vacío si no hay tokens, o formato "N / M (X%)"
   const tokenText = createMemo(() => tokens() === 0 ? '' : `${fmt(tokens())} / ${fmt(ctxWin())} (${pct().toFixed(1)}%)`);
 
   return (
-    <div id="context-bar" class="context-bar" ref={setRef}>
+    <div id="context-bar" class="context-bar">
       <span class="context-bar-spinner" style={{ visibility: streaming() ? 'visible' : 'hidden' }}>
         {BRAILLE[spinnerIdx()]}
       </span>

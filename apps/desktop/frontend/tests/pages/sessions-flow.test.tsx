@@ -151,7 +151,13 @@ describe("Flujo de sesión nueva — orden de llamadas", () => {
   afterEach(() => cleanup());
 
   test('click en "+ Nueva conversación" arranca pi ANTES de pedir sesión', async () => {
-    render(() => <SessionsPage />);
+    // Necesitamos una tab con sessions pane para que setPaneType funcione
+    const { openSessionTab, getTabs } = await import('../../src/lib/panel-manager.ts');
+    openSessionTab();
+    const tab = getTabs()[0];
+    const paneId = tab.panes[0].id;
+
+    render(() => <SessionsPage tabId={tab.id} paneId={paneId} />);
 
     const newBtn = document.querySelector(".sessions-new") as HTMLButtonElement;
     expect(newBtn).toBeTruthy();

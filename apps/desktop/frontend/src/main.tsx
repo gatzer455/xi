@@ -1,16 +1,12 @@
 /**
  * main.ts — Entry point de xi
  *
- * App shell browser-shaped: 3 filas verticales.
+ * App shell: 2 bloques verticales.
  *   #top-bar      → Header() (logo, proyecto, tabs, settings)
  *   #output-board → OutputBoard() (welcome/chat/sessions/settings)
- *   #context-bar  → ChatContextBar() (spinner + tokens + modelo)
- *   #input-bar    → InputBar() (textarea + enviar)
+ *   #update-banner → UpdateBanner()
  *
- * 1. Inicializar conexión con pi
- * 2. Cargar proyectos recientes
- * 3. Montar los 3 componentes del shell
- * 4. Decidir vista inicial (welcome o chat según si pi está corriendo)
+ * InputBar y ChatContextBar viven dentro de ChatPage (no globales).
  */
 
 // ── Estilos (orden del cascade = orden de estos imports) ──
@@ -39,10 +35,12 @@ import { navigate } from 'xi-ui/lib/nav.ts';
 import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';
 import { Header } from './components/Header.tsx';
 import { OutputBoard } from './components/OutputBoard.tsx';
-import { ChatContextBar } from './components/ChatContextBar.tsx';
-import { InputBar } from './components/InputBar.tsx';
 import { render } from 'solid-js/web';
 import { UpdateBanner } from './components/UpdateBanner.tsx';
+import { registerPaneType } from './components/PaneView.tsx';
+import { ChatPage } from './pages/ChatPage.tsx';
+import { ExplorerPane } from './pages/ExplorerPane.tsx';
+import { SessionsPane } from './pages/SessionsPane.tsx';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 import { loadTheme, loadFontSize, applyThemeToDOM, applyFontToDOM } from './lib/settings-storage.ts';
 import { getAvailableModels, getPiUpstreamVersion } from 'xi-ui/lib/pi/tauri-commands.ts';
@@ -72,7 +70,12 @@ async function main(): Promise<void> {
   mountShell();
 
   if (appState.workingDir.value) {
-    navigate('sessions');
+    // Crear una tab con SessionsPicker al abrir proyecto
+    // (import dinámico para evitar circular deps en entry point)
+    const m = await import('./lib/panel-manager.ts');
+    if (m.getTabs().length === 0) {
+      m.openSessionTab();
+    }
   }
   // Si no hay workingDir, welcome page se muestra por defecto
 }
@@ -109,27 +112,17 @@ async function initDesktop(): Promise<void> {
 }
 
 function mountShell(): void {
+  // Registrar tipos de panel para el sistema de paneles
+  registerPaneType('chat', ChatPage);
+  registerPaneType('explorer', ExplorerPane);
+  registerPaneType('sessions', SessionsPane);
+
   // Montar Header con SolidJS
   render(() => <Header />, document.getElementById('top-bar')!);
   // Montar UpdateBanner con SolidJS — reemplaza el contenido de #update-banner
   render(() => <UpdateBanner />, document.getElementById('update-banner')!);
   // Montar OutputBoard con SolidJS — contiene el routing de páginas
   render(() => <OutputBoard />, document.getElementById('output-board')!);
-
-  // Montar ChatContextBar con SolidJS
-  const ctxBarEl = document.createElement('div');
-  ctxBarEl.id = 'context-bar';
-  const inputBar = document.getElementById('input-bar')!;
-  inputBar.parentNode!.insertBefore(ctxBarEl, inputBar);
-  render(() => <ChatContextBar />, ctxBarEl);
-  // Montar InputBar con SolidJS
-  render(() => <InputBar />, document.getElementById('input-bar')!);
-
-  const inputBarEl = document.getElementById('input-bar')!;
-  inputBarEl.style.display = appState.currentView.value === 'chat' ? '' : 'none';
-  appState.currentView.subscribe((view) => {
-    inputBarEl.style.display = view === 'chat' ? '' : 'none';
-  });
 }
 
 const w = window as unknown as Record<string, unknown>;

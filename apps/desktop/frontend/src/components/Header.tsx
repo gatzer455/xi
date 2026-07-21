@@ -18,14 +18,15 @@ import {
   getActiveTabId,
   activateTab,
   closeTab,
-  closeActiveTile,
-  splitTile,
-  nextTile,
+  addPane,
+  removeLastPane,
+  nextPane,
   syncChatTab,
   openExplorerTab,
+  openSessionTab,
   nextTab,
   prevTab,
-} from '../lib/tab-manager.ts';
+} from '../lib/panel-manager.ts';
 import { abortPi } from '../lib/pi/index.ts';
 
 // ─── Icon helper ─────────────────────────────────────────────
@@ -47,20 +48,20 @@ function closeTabWithCleanup(tabId: string): void {
     return;
   }
 
-  // Si hay múltiples tiles, cerrar solo el tile activo
-  if (tab.tiles.length > 1) {
-    const tile = tab.tiles.find(t => t.id === tab.activeTileId);
-    if (tile?.type === 'chat' && tile.sessionId) {
-      if (tile.sessionId === appState.activeTabId.value && appState.isStreaming.value) {
+  // Si hay múltiples paneles, cerrar solo el último (como en la progresión)
+  if (tab.panes.length > 1) {
+    const pane = tab.panes.find(p => p.id === tab.focus);
+    if (pane?.type === 'chat' && pane.sessionId) {
+      if (pane.sessionId === appState.activeTabId.value && appState.isStreaming.value) {
         abortPi().catch(() => {});
       }
-      dropStore(tile.sessionId);
+      dropStore(pane.sessionId);
     }
-    closeActiveTile();
+    removeLastPane(tabId);
     return;
   }
 
-  // Un solo tile — cerrar la tab completa
+  // Un solo panel — cerrar la tab completa
   if (tab?.type === 'chat' && tab.sessionId) {
     if (tab.sessionId === appState.activeTabId.value && appState.isStreaming.value) {
       abortPi().catch(() => {});
@@ -70,69 +71,69 @@ function closeTabWithCleanup(tabId: string): void {
   closeTab(tabId);
 }
 
-// ─── Atajos de teclado (window-level) ─────────────────────────
+// ─── Atajos de teclado ─────────────────────────────────────
 
-function useTabShortcuts() {
-  onMount(() => {
-    function handler(e: KeyboardEvent) {
-      if (!e.ctrlKey && !e.metaKey) return;
-      const ctrl = e.ctrlKey || e.metaKey;
+function onKeyDown(e: KeyboardEvent): void {
+  if (!e.ctrlKey && !e.metaKey) return;
+  const ctrl = e.ctrlKey || e.metaKey;
 
-      if (ctrl && e.shiftKey && e.key === 'T') {
-        e.preventDefault();
-        navigate('sessions');
-        return;
-      }
-      // Ctrl+W — cerrar tab activa (o tile si hay múltiples)
-      if (ctrl && e.key === 'w') {
-        e.preventDefault();
-        const id = getActiveTabId();
-        if (id) closeTabWithCleanup(id);
-        return;
-      }
-      // Ctrl+Shift+O — split horizontal (derecha)
-      if (ctrl && e.shiftKey && e.key === 'O') {
-        e.preventDefault();
-        const id = getActiveTabId();
-        if (id) splitTile(id, 'horizontal');
-        return;
-      }
-      // Ctrl+Shift+E — split vertical (abajo)
-      if (ctrl && e.shiftKey && e.key === 'E') {
-        e.preventDefault();
-        const id = getActiveTabId();
-        if (id) splitTile(id, 'vertical');
-        return;
-      }
-      // Ctrl+Tab — navegar tabs
-      if (ctrl && !e.shiftKey && e.key === 'Tab') {
-        e.preventDefault();
-        nextTab();
-        return;
-      }
-      // Ctrl+Shift+Tab — navegar tiles dentro de la tab
-      if (ctrl && e.shiftKey && e.key === 'Tab') {
-        e.preventDefault();
-        nextTile();
-        return;
-      }
-      // Ctrl+PageDown — tab siguiente (backup)
-      if (ctrl && e.key === 'PageDown') {
-        e.preventDefault();
-        nextTab();
-        return;
-      }
-      // Ctrl+PageUp — tab anterior
-      if (ctrl && e.key === 'PageUp') {
-        e.preventDefault();
-        prevTab();
-        return;
+  if (ctrl && e.shiftKey && e.key === 'T') {
+    e.preventDefault();
+    openSessionTab();
+    return;
+  }
+  // Ctrl+W — cerrar tab activa (o tile si hay múltiples)
+  if (ctrl && e.key === 'w') {
+    e.preventDefault();
+    const id = getActiveTabId();
+    if (id) closeTabWithCleanup(id);
+    return;
+  }
+  // Ctrl+Shift+O — agregar panel (progresivo 1→2→3→4)
+  if (ctrl && e.shiftKey && e.key === 'O') {
+    e.preventDefault();
+    const id = getActiveTabId();
+    if (id) addPane(id);
+    return;
+  }
+  // Ctrl+Shift+W — cerrar último panel (4→3→2→1)
+  if (ctrl && e.shiftKey && e.key === 'W') {
+    e.preventDefault();
+    const id = getActiveTabId();
+    if (id) {
+      const tab = getTabs().find(t => t.id === id);
+      if (tab && tab.panes.length > 1) {
+        removeLastPane(id);
+      } else {
+        closeTabWithCleanup(id);
       }
     }
-
-    document.addEventListener('keydown', handler);
-    onCleanup(() => document.removeEventListener('keydown', handler));
-  });
+    return;
+  }
+  // Ctrl+Tab — navegar tabs
+  if (ctrl && !e.shiftKey && e.key === 'Tab') {
+    e.preventDefault();
+    nextTab();
+    return;
+  }
+  // Ctrl+Shift+Tab — navegar paneles
+  if (ctrl && e.shiftKey && e.key === 'Tab') {
+    e.preventDefault();
+    nextPane();
+    return;
+  }
+  // Ctrl+PageDown — tab siguiente (backup)
+  if (ctrl && e.key === 'PageDown') {
+    e.preventDefault();
+    nextTab();
+    return;
+  }
+  // Ctrl+PageUp — tab anterior
+  if (ctrl && e.key === 'PageUp') {
+    e.preventDefault();
+    prevTab();
+    return;
+  }
 }
 
 // ─── Header ──────────────────────────────────────────────────
@@ -160,7 +161,12 @@ export function Header() {
     onCleanup(() => clearInterval(interval));
   });
 
-  useTabShortcuts();
+
+  // Atajos de teclado
+  onMount(() => {
+    window.addEventListener('keydown', onKeyDown);
+    onCleanup(() => window.removeEventListener('keydown', onKeyDown));
+  });
 
   return (
     <div class="top-bar">
@@ -193,7 +199,7 @@ export function Header() {
         </For>
         {/* Botón "+" al lado de la última tab — abre historial de sesiones */}
         <button class="top-bar-plus-btn"
-                onClick={() => navigate('sessions')}
+                onClick={() => openSessionTab()}
                 title="Nueva conversación / Historial (Ctrl+Shift+T)"
                 aria-label="Historial de conversaciones">+</button>
       </div>

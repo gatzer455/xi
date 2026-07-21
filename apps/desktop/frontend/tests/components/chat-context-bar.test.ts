@@ -226,15 +226,14 @@ describe('ChatContextBar', () => {
     cb.dispose();
   });
 
-  test('visible solo en vista chat (oculta en sessions/settings/welcome)', () => {
+  test('siempre visible (ahora vive dentro de ChatPage, no global)', () => {
     const cb = mount();
     expect(cb.root.style.display).not.toBe('none');
 
-    // Cambiar a otra vista → se oculta
+    // Ya no se oculta por currentView — está dentro de ChatPage
     currentView.value = 'sessions';
-    expect(cb.root.style.display).toBe('none');
+    expect(cb.root.style.display).not.toBe('none');
 
-    // Volver a chat → visible
     currentView.value = 'chat';
     expect(cb.root.style.display).not.toBe('none');
 

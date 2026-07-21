@@ -8,12 +8,11 @@
 </head>
 <body>
   <div id="app">
-    <!-- App shell browser-shaped: 4 filas verticales.
-         Los contenidos se montan desde main.tsx. -->
+    <!-- App shell: solo Header y OutputBoard.
+         InputBar y ContextBar viven dentro de ChatPage (no globales). -->
     <div id="top-bar"></div>
     <div id="update-banner"></div>
     <div id="output-board"></div>
-    <div id="input-bar"></div>
   </div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

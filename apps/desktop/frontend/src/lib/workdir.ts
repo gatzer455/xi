@@ -18,6 +18,7 @@ import { appState } from 'xi-ui/lib/state.ts';
 import { stopPi } from './pi/index.ts';
 import { addRecent } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { clearStores } from 'xi-ui/lib/chat/stores.ts';
+import { resetTabState } from './panel-manager.ts';
 
 /**
  * Abre un proyecto en un path dado. Mata pi, setea el state, arranca
@@ -40,6 +41,7 @@ export async function openProject(path: string): Promise<void> {
   appState.activeTabId.value = null;
   appState.session.value = null;
   clearStores();
+  resetTabState();
 
   appState.workingDir.value = path;
 

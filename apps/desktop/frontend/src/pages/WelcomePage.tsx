@@ -4,6 +4,7 @@
 import { createSignal, For, onCleanup } from 'solid-js';
 import { appState } from 'xi-ui/lib/state.ts';
 import { pickAndOpenProject, openProject } from '../lib/workdir.ts';
+import { openSessionTab } from '../lib/panel-manager.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { getRecents } from '../lib/pi/index.ts';
 import type { Recent } from '../lib/pi/index.ts';
@@ -13,10 +14,10 @@ export function WelcomePage() {
   void loadAuthStatus();
   const [error, setError] = createSignal<string | null>(null);
 
-  // Navegar a sessions cuando cambia workingDir
+  // Crear tab con SessionsPicker cuando cambia workingDir
   const initialDir = appState.workingDir.value;
   onCleanup(appState.workingDir.subscribe((dir) => {
-    if (dir && dir !== initialDir) navigate('sessions');
+    if (dir && dir !== initialDir) openSessionTab();
   }));
 
   return (
