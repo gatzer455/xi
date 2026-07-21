@@ -134,7 +134,7 @@ export function SessionsPage() {
       <header class="sessions-header">
         <h1>Sesiones</h1>
         <button class="sessions-new" onClick={createNew}>+ Nueva conversación</button>
-        <button class="sessions-back" onClick={() => openExplorerTab()}>📁 Archivos</button>
+        <button class="sessions-explorer" onClick={() => openExplorerTab()}>📁 Archivos</button>
         <button class="sessions-back" onClick={() => navigate(appState.activeTabId.value ? 'chat' : 'welcome')}>
           ← Volver
         </button>
