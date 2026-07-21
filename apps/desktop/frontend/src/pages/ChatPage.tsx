@@ -10,7 +10,7 @@ import {
 } from 'xi-ui/components/extension-ui-dialog.ts';
 import { setDialogRenderer, clearDialogRenderer } from '../lib/pi/extension-ui-handler.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
-import { ChatMessages, createWrappedSignal } from 'xi-ui/components/ChatMessages.tsx';
+import { ChatMessages } from 'xi-ui/components/ChatMessages.tsx';
 import { mountExplorer } from './ExplorerPage.tsx';
 
 export function ChatPage() {
@@ -32,21 +32,19 @@ export function ChatPage() {
   const [messages, _setMessages] = createSignal(emptyMsgs);
   const [streaming, _setStreaming] = createSignal(false);
 
-  let currentStore: ChatStore | null = null;
   let unsubMsgs: (() => void) | null = null;
   let unsubStream: (() => void) | null = null;
 
   function bindTab(id: string | null) {
     unsubMsgs?.(); unsubStream?.();
-    currentStore = null;
     if (!id) { _setMessages([]); _setStreaming(false); return; }
     const store = getStore(id);
-    currentStore = store;
-    const [sig, u1] = createWrappedSignal(store.messages$);
-    const [sig2, u2] = createWrappedSignal(store.isStreaming$);
-    _setMessages(sig);
-    _setStreaming(sig2);
-    unsubMsgs = u1; unsubStream = u2;
+    // Sincronizar estado inicial
+    _setMessages(store.messages$.value);
+    _setStreaming(store.isStreaming$.value);
+    // Suscribirse a cambios — setea SolidJS signal con valor plano
+    unsubMsgs = store.messages$.subscribe((msgs) => _setMessages(msgs));
+    unsubStream = store.isStreaming$.subscribe((s) => _setStreaming(s));
   }
 
   bindTab(tabId());
@@ -93,7 +91,7 @@ export function ChatPage() {
     dialogCleanup?.();
     if (!d) {
       if (askResponses.length > 0) {
-        addAskResult(askResponses, () => currentStore);
+        addAskResult(askResponses, () => { const id = appState.activeTabId.value; return id ? getStore(id) : null; });
         askResponses = [];
       }
       return;
