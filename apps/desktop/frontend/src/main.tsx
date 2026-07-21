@@ -70,7 +70,12 @@ async function main(): Promise<void> {
   mountShell();
 
   if (appState.workingDir.value) {
-    navigate('sessions');
+    // Crear una tab con SessionsPicker al abrir proyecto
+    // (import dinámico para evitar circular deps en entry point)
+    const m = await import('./lib/panel-manager.ts');
+    if (m.getTabs().length === 0) {
+      m.openSessionTab();
+    }
   }
   // Si no hay workingDir, welcome page se muestra por defecto
 }

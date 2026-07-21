@@ -137,6 +137,19 @@ export function openExplorerTab(): string {
   return id;
 }
 
+/** Abre una tab nueva con un panel SessionsPicker. */
+export function openSessionTab(): string {
+  const id = uid();
+  const paneId = paneUid();
+  const pane: Pane = { id: paneId, type: 'sessions', label: 'Historial' };
+  setTabs(produce((draft) => {
+    draft.push({ id, type: 'sessions', label: 'Historial', panes: [pane], focus: paneId });
+  }));
+  setActiveTabId(id);
+  navigate('sessions');
+  return id;
+}
+
 export function activateTab(tabId: string): void {
   setActiveTabId(tabId);
   const tab = tabs.find(t => t.id === tabId);
@@ -147,6 +160,8 @@ export function activateTab(tabId: string): void {
     navigate('chat');
   } else if (pane?.type === 'explorer') {
     navigate('explorer');
+  } else if (pane?.type === 'sessions') {
+    navigate('sessions');
   }
 }
 
