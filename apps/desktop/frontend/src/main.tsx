@@ -37,10 +37,10 @@ import 'katex/dist/katex.min.css';
 import { appState } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';
-import { Header } from './components/header.ts';
-import { OutputBoard } from './components/output.ts';
-import { ChatContextBar } from './components/chat-context-bar.ts';
-import { InputBar } from './components/input.ts';
+import { Header } from './components/Header.tsx';
+import { OutputBoard } from './components/OutputBoard.tsx';
+import { ChatContextBar } from './components/ChatContextBar.tsx';
+import { InputBar } from './components/InputBar.tsx';
 import { render } from 'solid-js/web';
 import { UpdateBanner } from './components/UpdateBanner.tsx';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
@@ -109,18 +109,21 @@ async function initDesktop(): Promise<void> {
 }
 
 function mountShell(): void {
-  document.getElementById('top-bar')!.append(Header());
+  // Montar Header con SolidJS
+  render(() => <Header />, document.getElementById('top-bar')!);
   // Montar UpdateBanner con SolidJS — reemplaza el contenido de #update-banner
   render(() => <UpdateBanner />, document.getElementById('update-banner')!);
-  document.getElementById('output-board')!.append(OutputBoard());
+  // Montar OutputBoard con SolidJS — contiene el routing de páginas
+  render(() => <OutputBoard />, document.getElementById('output-board')!);
 
+  // Montar ChatContextBar con SolidJS
   const ctxBarEl = document.createElement('div');
   ctxBarEl.id = 'context-bar';
   const inputBar = document.getElementById('input-bar')!;
   inputBar.parentNode!.insertBefore(ctxBarEl, inputBar);
-  const ctxBar = ChatContextBar();
-  ctxBarEl.append(ctxBar.root);
-  document.getElementById('input-bar')!.append(InputBar());
+  render(() => <ChatContextBar />, ctxBarEl);
+  // Montar InputBar con SolidJS
+  render(() => <InputBar />, document.getElementById('input-bar')!);
 
   const inputBarEl = document.getElementById('input-bar')!;
   inputBarEl.style.display = appState.currentView.value === 'chat' ? '' : 'none';
