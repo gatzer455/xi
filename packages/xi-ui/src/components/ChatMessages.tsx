@@ -11,8 +11,6 @@
 
 import { createSignal, createEffect, For, Show, onCleanup, onMount, type JSX } from 'solid-js';
 import { SolidMarkdown } from 'solid-markdown';
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
 import type { ChatMessage, Part } from '../lib/chat/types.ts';
 import { extractText } from '../lib/chat/mapping.ts';
 import { ToolChipGroup as VanillaToolChipGroup } from './chip-groups.ts';
@@ -95,8 +93,6 @@ function AssistantContent(props: { message: ChatMessage }) {
           children={text()}
           renderingStrategy="reconcile"
           class="md-root"
-          remarkPlugins={[remarkMath]}
-          rehypePlugins={[rehypeKatex]}
         />
       </div>
     </div>
