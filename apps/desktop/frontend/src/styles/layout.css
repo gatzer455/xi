@@ -282,6 +282,7 @@
   flex-direction: column;
   min-height: 100%;
   min-width: 0;
+  position: relative;
 }
 
 /* ── Content row: chat + panel lateral (split view) ──
@@ -311,6 +312,32 @@
    respecto al espacio disponible (no al viewport entero). */
 .chat-area--panel-open .chat-messages-inner {
   max-width: 100%;
+}
+
+/* ── Explorer toggle: botón bubble en la esquina inferior derecha
+   del área de chat, justo encima de la context bar. */
+.explorer-toggle {
+  position: absolute;
+  bottom: var(--space-3);
+  right: var(--space-3);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  z-index: 10;
+}
+.explorer-toggle:hover,
+.explorer-toggle.active {
+  background: var(--color-surface-3);
+  color: var(--color-text);
+  border-color: var(--color-accent);
 }
 
 /* ── Extension dialog: anclado al borde inferior de chat-area,
@@ -400,24 +427,6 @@
   line-height: 1;
 }
 .context-bar-think:hover {
-  background: var(--color-surface-2);
-  color: var(--color-text);
-}
-
-.context-bar-explorer {
-  background: transparent;
-  border: none;
-  color: var(--color-text-dim);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  padding: var(--space-1);
-  border-radius: var(--radius-sm);
-  transition: background 0.15s, color 0.15s;
-  flex-shrink: 0;
-  line-height: 1;
-}
-.context-bar-explorer:hover,
-.context-bar-explorer.active {
   background: var(--color-surface-2);
   color: var(--color-text);
 }

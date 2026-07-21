@@ -25,6 +25,7 @@ import { createScope, type Page } from 'xi-ui/lib/scope.ts';
 import type { ChatBubbleHandle } from 'xi-ui/components/chat-bubble.ts';
 import { getStore, type ChatStore } from 'xi-ui/lib/chat/stores.ts';
 import type { ChatMessage } from 'xi-ui/lib/chat/types.ts';
+import { icon } from 'xi-ui/lib/icons.ts';
 import {
   renderSelectDialog,
   renderConfirmDialog,
@@ -92,6 +93,21 @@ export function ChatPage(): Page {
     explorerPanelEl = null;
     explorerScope = null;
   });
+
+  // ═══ Explorer toggle (bubble button, esquina inferior derecha) ═══
+  const explorerToggle = document.createElement('button');
+  explorerToggle.className = 'explorer-toggle';
+  explorerToggle.title = 'Explorador de archivos';
+  explorerToggle.append(icon('folder', { size: 20 }));
+  explorerToggle.addEventListener('click', () => {
+    appState.explorerPanelOpen.value = !appState.explorerPanelOpen.value;
+  });
+  root.append(explorerToggle);
+
+  const unsubToggleState = appState.explorerPanelOpen.subscribe((open) => {
+    explorerToggle.classList.toggle('active', open);
+  });
+  scope.add(unsubToggleState);
 
   // ═══ Auto-scroll ═══
   const scroll = createAutoScroll(messagesContainer, endSentinel);

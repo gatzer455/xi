@@ -146,20 +146,6 @@ export function ChatContextBar(): ChatContextBarHandle {
     // usuario abre otro, el querySelector de arriba lo bloquea.
   });
 
-  // ── Explorer toggle ──
-  const explorerBtn = document.createElement('button');
-  explorerBtn.className = 'context-bar-explorer';
-  explorerBtn.textContent = '📁';
-  explorerBtn.title = 'Explorador de archivos';
-  explorerBtn.addEventListener('click', () => {
-    appState.explorerPanelOpen.value = !appState.explorerPanelOpen.value;
-  });
-  root.append(explorerBtn);
-
-  const unsubExplorer = appState.explorerPanelOpen.subscribe((open) => {
-    explorerBtn.classList.toggle('active', open);
-  });
-
   // ── Thinking level (ciclo: click loopa off→minimal→low→medium→high→xhigh) ──
   const THINKING_CYCLE: ThinkingLevel[] = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh'];
   const THINKING_LABELS: Record<ThinkingLevel, string> = {
@@ -316,7 +302,6 @@ export function ChatContextBar(): ChatContextBarHandle {
     unsubStreaming();
     unsubModel();
     unsubThink();
-    unsubExplorer();
     unsubTab();
     unsubStoreMessages?.();
   }
