@@ -284,6 +284,35 @@
   min-width: 0;
 }
 
+/* ── Content row: chat + panel lateral (split view) ──
+   .chat-content-row contiene .chat-messages + .explorer-panel.
+   Por defecto solo tiene .chat-messages. Al abrir el panel,
+   .chat-area--panel-open activa el layout flex-row. */
+.chat-content-row {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+}
+
+/* Panel del explorador: visible solo cuando explorerPanelOpen = true.
+   Ancho fijo, scroll independiente, borde separador. */
+.explorer-panel {
+  width: 380px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--color-border);
+  overflow-y: auto;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cuando el panel está abierto, las burbujas de chat se centran
+   respecto al espacio disponible (no al viewport entero). */
+.chat-area--panel-open .chat-messages-inner {
+  max-width: 100%;
+}
+
 /* ── Extension dialog: anclado al borde inferior de chat-area,
    fuera del scroll de mensajes. Con borde superior para separarlo
    visualmente del contenido. */
@@ -371,6 +400,24 @@
   line-height: 1;
 }
 .context-bar-think:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.context-bar-explorer {
+  background: transparent;
+  border: none;
+  color: var(--color-text-dim);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.context-bar-explorer:hover,
+.context-bar-explorer.active {
   background: var(--color-surface-2);
   color: var(--color-text);
 }

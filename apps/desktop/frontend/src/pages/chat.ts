@@ -42,6 +42,7 @@ import {
   renderMessagesInto,
   renderEmptyStateInto,
 } from 'xi-ui/components/chat-messages.ts';
+import { mountExplorer } from './explorer.ts';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 
@@ -54,10 +55,43 @@ export function ChatPage(): Page {
   const { banner: authBanner, dispose: disposeAuthBanner } = createAuthBanner();
   root.append(authBanner);
 
+  // ═══ Content row: chat + panel lateral (split view) ═══
+  const contentRow = document.createElement('div');
+  contentRow.className = 'chat-content-row';
+  root.append(contentRow);
+
   // ═══ Messages container ═══
   const { messagesContainer, messagesInner, endSentinel } =
     createMessagesContainer();
-  root.append(messagesContainer);
+  contentRow.append(messagesContainer);
+
+  // ═══ Explorer side panel ═══
+  let explorerPanelEl: HTMLElement | null = null;
+  let explorerScope: ReturnType<typeof createScope> | null = null;
+
+  const unsubPanel = appState.explorerPanelOpen.subscribe((open) => {
+    if (open && !explorerPanelEl) {
+      explorerPanelEl = document.createElement('div');
+      explorerPanelEl.className = 'explorer-panel';
+      explorerScope = createScope();
+      mountExplorer(explorerPanelEl, explorerScope);
+      contentRow.append(explorerPanelEl);
+      root.classList.add('chat-area--panel-open');
+    } else if (!open && explorerPanelEl) {
+      explorerPanelEl.remove();
+      explorerScope?.dispose();
+      explorerPanelEl = null;
+      explorerScope = null;
+      root.classList.remove('chat-area--panel-open');
+    }
+  });
+  scope.add(unsubPanel);
+  scope.add(() => {
+    explorerPanelEl?.remove();
+    explorerScope?.dispose();
+    explorerPanelEl = null;
+    explorerScope = null;
+  });
 
   // ═══ Auto-scroll ═══
   const scroll = createAutoScroll(messagesContainer, endSentinel);

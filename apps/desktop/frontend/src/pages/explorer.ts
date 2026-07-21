@@ -45,7 +45,22 @@ export function ExplorerPage(): Page {
   root.className = 'explorer-page';
   const scope = createScope();
 
-  // Layout de dos paneles
+  mountExplorer(root, scope);
+
+  scope.add(() => {
+    loading.value = false;
+    error.value = null;
+  });
+
+  return { root, dispose: () => scope.dispose() };
+}
+
+/**
+ * Monta el explorador (FileList + FilePreview) dentro de un contenedor,
+ * con su propio scope. Usable tanto desde la página full-screen como
+ * desde el panel lateral del chat.
+ */
+export function mountExplorer(container: HTMLElement, scope: Scope): void {
   const sidebar = document.createElement('div');
   sidebar.className = 'explorer-sidebar';
   sidebar.append(FileList(scope));
@@ -54,17 +69,14 @@ export function ExplorerPage(): Page {
   content.className = 'explorer-content';
   content.append(FilePreview(scope));
 
-  root.append(sidebar, content);
+  container.append(sidebar, content);
 
-  // Cargar archivos iniciales
   const cwd = appState.workingDir.value;
   if (cwd) {
     void loadFiles(cwd);
 
-    // Restaurar último archivo abierto
     const saved = loadExplorerState();
     if (saved.lastFile) {
-      // Seleccionar archivo después de cargar la lista
       scope.add(appState.files.subscribe((files) => {
         if (files.length > 0 && !appState.selectedFile.value) {
           const file = files.find(f => f.path === saved.lastFile);
@@ -75,19 +87,11 @@ export function ExplorerPage(): Page {
       }));
     }
   }
-
-  // Cleanup
-  scope.add(() => {
-    loading.value = false;
-    error.value = null;
-  });
-
-  return { root, dispose: () => scope.dispose() };
 }
 
 // ─── Carga de archivos ─────────────────────────────────────────
 
-async function loadFiles(dirPath: string): Promise<void> {
+export async function loadFiles(dirPath: string): Promise<void> {
   loading.value = true;
   error.value = null;
 
@@ -104,7 +108,7 @@ async function loadFiles(dirPath: string): Promise<void> {
 
 // ─── Selección de archivo ──────────────────────────────────────
 
-async function selectFile(file: FileEntry): Promise<void> {
+export async function selectFile(file: FileEntry): Promise<void> {
   if (file.is_dir) {
     // Navegar al subdirectorio
     const cwd = appState.workingDir.value;

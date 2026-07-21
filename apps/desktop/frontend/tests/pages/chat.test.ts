@@ -58,6 +58,7 @@ const mock = vi.hoisted(() => {
       selectedFile: mockSignal(null),
       fileContent: mockSignal(null),
       isEditing: mockSignal(false),
+      explorerPanelOpen: mockSignal(false),
       openTabs: mockSignal([]),
       activeTabId: mockSignal(null),
       tabMessages: mockSignal({}),

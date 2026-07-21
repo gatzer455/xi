@@ -50,6 +50,7 @@ const mockState = vi.hoisted(() => {
       thinkingLevel: mockSignal('medium'),
       availableModels: mockSignal([]),
       session: mockSignal(null),
+      explorerPanelOpen: mockSignal(false),
     }),
     isStreaming,
     currentModel,
