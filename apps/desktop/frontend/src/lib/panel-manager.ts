@@ -252,10 +252,19 @@ export function setPaneType(tabId: string, paneId: string, type: PaneType, sessi
       tab.label = 'Historial';
     }
   }));
-  // Sincronizar estado global
+  // Sincronizar estado global + openTabs para state-sync
   const tab = tabs.find(t => t.id === tabId);
   if (!tab) return;
   const pane = tab.panes.find(p => p.id === paneId);
+  // Actualizar openTabs: state-sync filtra eventos por esta lista
+  if (sessionId && !appState.openTabs.value.some((t) => t.id === sessionId)) {
+    appState.openTabs.value = [...appState.openTabs.value, {
+      id: sessionId,
+      file: sessionId,
+      name: pane?.label ?? sessionId,
+      messageCount: 0,
+    }];
+  }
   if (pane?.type === 'chat' && pane.sessionId) {
     setAppActiveTab(pane.sessionId);
     navigate('chat');
