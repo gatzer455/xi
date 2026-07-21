@@ -1,24 +1,18 @@
 /**
- * tab-manager.ts — Estado y acciones del sistema de tabs y tiles.
+ * tab-manager.ts — Tree-based tile system (Ghostty-inspired).
  *
- * Capa separada de appState (lib/state.ts). Mientras que appState
- * representa el estado global de la app (pi, sesiones, settings),
- * este módulo gestiona exclusivamente las tabs VISUALES en la barra
- * y los tiles (splits) dentro de cada tab.
+ * Cada tab tiene un árbol binario de tiles (TileNode). Cada hoja
+ * es un tile independiente (chat o explorer). Cada split divide en
+ * dos (horizontal o vertical) con proporción 50/50.
  *
- * Una tab puede tener múltiples tiles (splits). El label de la tab
- * se deriva del tile activo (como Ghostty).
+ * Operaciones: splitLeaf, removeLeaf, setFocus.
+ * El label de la tab se deriva de la hoja con foco.
  *
  * Relación con appState:
- *   - Una tab de tipo 'chat' tiene un sessionId que refiere a
- *     appState.openTabs[]. Al activar esa tab, se llama a
- *     setActiveTab(sessionId) para que state-sync.ts siga
- *     ruteando eventos al store correcto.
- *   - El Explorer era antes un toggle (appState.explorerPanelOpen)
- *     y una vista (navigate('explorer')). Con tabs, es una tab
- *     singleton de tipo 'explorer'.
- *   - welcome, sessions, settings siguen usando appState.currentView
- *     directamente (no son tabs).
+ *   - Una hoja de tipo 'chat' tiene un sessionId que refiere a
+ *     appState.openTabs[].
+ *   - El Explorer es una tab singleton de tipo 'explorer'.
+ *   - welcome, sessions, settings siguen usando appState.currentView.
  */
 
 import { createStore, produce } from 'solid-js/store';
@@ -31,9 +25,9 @@ import { navigate } from 'xi-ui/lib/nav.ts';
 // ═══════════════════════════════════════════════════════════
 
 export type TabType = 'chat' | 'explorer';
-
 export type SplitDir = 'horizontal' | 'vertical';
 
+/** Datos de una hoja (tile individual). */
 export interface Tile {
   id: string;
   type: TabType;
@@ -42,113 +36,163 @@ export interface Tile {
   sessionId?: string;
 }
 
-export interface TabLayout {
-  direction: SplitDir | null;  // null = un solo tile
-  sizes: number[];             // proporciones, sum(1), length = tiles.length
-}
+/**
+ * Árbol binario de tiles.
+ *
+ *   Leaf = un tile (chat o explorer).
+ *   Split = divide el espacio en dos con proporción ratio (0-1).
+ */
+export type TileNode =
+  | (Tile & { kind: 'leaf' })
+  | { kind: 'split'; direction: SplitDir; ratio: number; left: TileNode; right: TileNode };
 
 export interface Tab {
   id: string;
-  /**
-   * Sincronizado del tile activo. Se mantiene para backward
-   * compat con código que lee tab.type directamente.
-   */
+  /** Sincronizado de la hoja con foco. */
   type: TabType;
-  /**
-   * Sincronizado del tile activo.
-   */
+  /** Sincronizado de la hoja con foco. */
   label: string;
-  /**
-   * Sincronizado del tile activo. undefined si el tile activo
-   * no es de tipo 'chat'.
-   */
+  /** Sincronizado de la hoja con foco. undefined si explorer. */
   sessionId?: string;
-  /** Tiles (splits) dentro de esta tab. */
-  tiles: Tile[];
-  /** ID del tile activo dentro de esta tab. */
-  activeTileId: string;
-  /** Layout de los tiles. */
-  layout: TabLayout;
+  /** Raíz del árbol de tiles. */
+  root: TileNode;
+  /** ID de la hoja con foco. */
+  focus: string;
 }
 
 // ═══════════════════════════════════════════════════════════
-// Store — module-level, convive con appState
+// Store
 // ═══════════════════════════════════════════════════════════
 
 const [tabs, setTabs] = createStore<Tab[]>([]);
 const [activeTabId, setActiveTabId] = createSignal<string | null>(null);
 
 // ═══════════════════════════════════════════════════════════
-// Helpers
+// Helpers — Árbol
 // ═══════════════════════════════════════════════════════════
 
 let counter = 0;
-function uid(): string {
-  return `tab-${++counter}-${Date.now().toString(36)}`;
+function uid(): string { return `tab-${++counter}-${Date.now().toString(36)}`; }
+function leafUid(): string { return `tile-${++counter}-${Date.now().toString(36)}`; }
+
+function createLeaf(type: TabType, label: string, sessionId?: string): TileNode & { kind: 'leaf' } {
+  return { kind: 'leaf', id: leafUid(), type, label, sessionId };
 }
 
-function tileUid(): string {
-  return `tile-${++counter}-${Date.now().toString(36)}`;
+/** Busca una hoja por ID en el árbol. */
+export function findLeaf(node: TileNode, leafId: string): (TileNode & { kind: 'leaf' }) | null {
+  if (node.kind === 'leaf') return node.id === leafId ? node : null;
+  return findLeaf(node.left, leafId) ?? findLeaf(node.right, leafId);
 }
 
-/** Sincroniza los campos de nivel tab (type, label, sessionId)
- *  desde el tile activo. Se llama dentro de un bloque produce(). */
-function syncTabFromActiveTile(draft: Tab): void {
-  const tile = draft.tiles.find(t => t.id === draft.activeTileId);
-  if (!tile) return;
-  draft.type = tile.type;
-  draft.label = tile.label;
-  draft.sessionId = tile.sessionId;
+/** Retorna todas las hojas del árbol (orden DFS). */
+export function getAllLeaves(node: TileNode): Tile[] {
+  if (node.kind === 'leaf') return [node];
+  return [...getAllLeaves(node.left), ...getAllLeaves(node.right)];
+}
+
+export function leafCount(node: TileNode): number {
+  if (node.kind === 'leaf') return 1;
+  return leafCount(node.left) + leafCount(node.right);
+}
+
+/** Aplica fn a la hoja con leafId, manteniendo el resto del árbol intacto. */
+function mapLeaf(
+  node: TileNode,
+  leafId: string,
+  fn: (leaf: TileNode & { kind: 'leaf' }) => TileNode,
+): TileNode {
+  if (node.kind === 'leaf') return node.id === leafId ? fn(node) : node;
+  return {
+    ...node,
+    left: mapLeaf(node.left, leafId, fn),
+    right: mapLeaf(node.right, leafId, fn),
+  };
+}
+
+/** Envuelve la hoja focusId en un Split con newLeaf a la derecha/abajo. */
+function splitNode(
+  root: TileNode,
+  focusId: string,
+  direction: SplitDir,
+  newLeaf: TileNode,
+): TileNode {
+  return mapLeaf(root, focusId, (existing) => ({
+    kind: 'split',
+    direction,
+    ratio: 0.5,
+    left: existing,
+    right: newLeaf,
+  }));
+}
+
+/** Elimina la hoja leafId del árbol. Colapsa el split padre si queda un solo hijo.
+ *  Retorna null si el árbol queda vacío (única hoja). */
+function removeNode(root: TileNode, leafId: string): TileNode | null {
+  if (root.kind === 'leaf') return root.id === leafId ? null : root;
+
+  const nL = removeNode(root.left, leafId);
+  const nR = removeNode(root.right, leafId);
+
+  if (nL === root.left && nR === root.right) return root; // no encontrada
+  if (nL === null && nR === null) return null;
+  if (nL === null) return nR!;   // colapsar split → hijo sobreviviente
+  if (nR === null) return nL!;   // colapsar split → hijo sobreviviente
+  return { ...root, left: nL, right: nR };
+}
+
+/** Retorna el id de una hoja cualquiera (para focus después de remover). */
+function firstLeafId(node: TileNode): string {
+  if (node.kind === 'leaf') return node.id;
+  return firstLeafId(node.left);
+}
+
+/** Sincroniza tab.type, tab.label, tab.sessionId desde la hoja con foco. */
+function syncFromFocus(draft: Tab): void {
+  const leaf = findLeaf(draft.root, draft.focus);
+  if (leaf) {
+    draft.type = leaf.type;
+    draft.label = leaf.label;
+    draft.sessionId = leaf.sessionId;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
-// Getters (para uso en componentes)
+// Getters
 // ═══════════════════════════════════════════════════════════
 
-/** Retorna el store de tabs reactivo. Usar con <For each={tabs}> */
-export function getTabs(): Tab[] {
-  return tabs;
-}
+export function getTabs(): Tab[] { return tabs; }
+export function getActiveTabId(): string | null { return activeTabId(); }
 
-/** ID de la tab activa. */
-export function getActiveTabId(): string | null {
-  return activeTabId();
-}
-
-/** La tab activa, o null si no hay. */
 export function getActiveTab(): Tab | null {
   const id = activeTabId();
   if (!id) return null;
   return tabs.find(t => t.id === id) ?? null;
 }
 
-/** El tile activo de la tab activa, o null. */
 export function getActiveTile(): Tile | null {
   const tab = getActiveTab();
   if (!tab) return null;
-  return tab.tiles.find(t => t.id === tab.activeTileId) ?? null;
+  return findLeaf(tab.root, tab.focus);
 }
 
-/** El tile activo de una tab específica, o null. */
 export function getActiveTileInTab(tabId: string): Tile | null {
   const tab = tabs.find(t => t.id === tabId);
   if (!tab) return null;
-  return tab.tiles.find(t => t.id === tab.activeTileId) ?? null;
+  return findLeaf(tab.root, tab.focus);
 }
 
-/** ¿Hay tabs abiertas? */
-export function hasOpenTabs(): boolean {
-  return tabs.length > 0;
+export function hasOpenTabs(): boolean { return tabs.length > 0; }
+
+export function tabHasMultipleLeaves(tabId: string): boolean {
+  const tab = tabs.find(t => t.id === tabId);
+  return tab ? leafCount(tab.root) > 1 : false;
 }
 
 // ═══════════════════════════════════════════════════════════
 // Acciones — Tabs
 // ═══════════════════════════════════════════════════════════
 
-/**
- * Abre una tab de chat para una sesión existente.
- * Si ya hay una tab con ese sessionId, solo la activa.
- */
 export function openChatTab(sessionId: string, label?: string): string {
   const existing = tabs.find(t => t.type === 'chat' && t.sessionId === sessionId);
   if (existing) {
@@ -159,33 +203,17 @@ export function openChatTab(sessionId: string, label?: string): string {
   }
 
   const id = uid();
-  const tileId = tileUid();
-  const tileLabel = label ?? sessionId.slice(0, 8);
-  const tile: Tile = { id: tileId, type: 'chat', label: tileLabel, sessionId };
+  const leaf = createLeaf('chat', label ?? sessionId.slice(0, 8), sessionId);
 
-  setTabs(
-    produce((draft) => {
-      draft.push({
-        id,
-        type: 'chat',
-        label: tileLabel,
-        sessionId,
-        tiles: [tile],
-        activeTileId: tileId,
-        layout: { direction: null, sizes: [1] },
-      });
-    })
-  );
+  setTabs(produce((draft) => {
+    draft.push({ id, type: 'chat', label: leaf.label, sessionId, root: leaf, focus: leaf.id });
+  }));
   setActiveTabId(id);
   setAppActiveTab(sessionId);
   navigate('chat');
   return id;
 }
 
-/**
- * Abre el Explorer como tab (singleton).
- * Si ya está abierto, lo activa.
- */
 export function openExplorerTab(): string {
   const existing = tabs.find(t => t.type === 'explorer');
   if (existing) {
@@ -195,68 +223,41 @@ export function openExplorerTab(): string {
   }
 
   const id = '__explorer__';
-  const tileId = 'tile-explorer';
-  const tile: Tile = { id: tileId, type: 'explorer', label: 'Explorador' };
+  const leaf = createLeaf('explorer', 'Explorador');
 
-  setTabs(
-    produce((draft) => {
-      draft.push({
-        id,
-        type: 'explorer',
-        label: 'Explorador',
-        tiles: [tile],
-        activeTileId: tileId,
-        layout: { direction: null, sizes: [1] },
-      });
-    })
-  );
+  setTabs(produce((draft) => {
+    draft.push({ id, type: 'explorer', label: 'Explorador', root: leaf, focus: leaf.id });
+  }));
   setActiveTabId(id);
   navigate('explorer');
   return id;
 }
 
-/**
- * Activa una tab existente por ID.
- * Si es de tipo 'chat', también setea la sesión activa en appState y navega a chat.
- */
 export function activateTab(tabId: string): void {
   setActiveTabId(tabId);
   const tab = tabs.find(t => t.id === tabId);
   if (!tab) return;
 
-  const tile = tab.tiles.find(t => t.id === tab.activeTileId);
-  if (tile?.type === 'chat' && tile.sessionId) {
-    setAppActiveTab(tile.sessionId);
+  const leaf = findLeaf(tab.root, tab.focus);
+  if (leaf?.type === 'chat' && leaf.sessionId) {
+    setAppActiveTab(leaf.sessionId);
     navigate('chat');
-  } else if (tile?.type === 'explorer') {
+  } else if (leaf?.type === 'explorer') {
     navigate('explorer');
   }
 }
 
-/**
- * Cierra una tab por ID.
- * Si es la activa, activa la adyacente más cercana.
- * Si no quedan tabs, navega a la vista anterior o welcome.
- */
 export function closeTab(tabId: string): void {
   const idx = tabs.findIndex(t => t.id === tabId);
   if (idx === -1) return;
-
   const wasActive = activeTabId() === tabId;
 
-  setTabs(
-    produce((draft) => {
-      draft.splice(idx, 1);
-    })
-  );
+  setTabs(produce((draft) => { draft.splice(idx, 1); }));
 
   if (wasActive) {
     if (tabs.length > 0) {
       const next = tabs[idx] ?? tabs[idx - 1] ?? null;
-      if (next) {
-        activateTab(next.id);
-        return;
-      }
+      if (next) { activateTab(next.id); return; }
     }
     setActiveTabId(null);
     const prev = appState.previousView.value;
@@ -264,7 +265,6 @@ export function closeTab(tabId: string): void {
   }
 }
 
-/** Navega a la tab siguiente (ciclo). */
 export function nextTab(): void {
   const id = activeTabId();
   if (!id || tabs.length < 2) return;
@@ -273,7 +273,6 @@ export function nextTab(): void {
   if (next) activateTab(next.id);
 }
 
-/** Navega a la tab anterior (ciclo). */
 export function prevTab(): void {
   const id = activeTabId();
   if (!id || tabs.length < 2) return;
@@ -282,134 +281,102 @@ export function prevTab(): void {
   if (prev) activateTab(prev.id);
 }
 
-/** Cierra todas las tabs. */
 export function closeAllTabs(): void {
   setTabs(() => []);
   setActiveTabId(null);
 }
 
 // ═══════════════════════════════════════════════════════════
-// Acciones — Tiles (splits dentro de una tab)
+// Acciones — Tiles (split tree)
 // ═══════════════════════════════════════════════════════════
 
-/**
- * Divide la tab en dos tiles. El nuevo tile se agrega al final
- * y se activa. El tipo por defecto es 'explorer' por ser el más
- * útil como split.
- */
 export function splitTile(tabId: string, direction: SplitDir, tileType?: TabType): void {
-  setTabs(
-    produce((draft) => {
-      const tab = draft.find(t => t.id === tabId);
-      if (!tab) return;
+  setTabs(produce((draft) => {
+    const tab = draft.find(t => t.id === tabId);
+    if (!tab) return;
 
-      const tileId = tileUid();
-      const newTile: Tile = {
-        id: tileId,
-        type: tileType ?? 'explorer',
-        label: tileType === 'chat' ? 'Nuevo chat' : 'Explorador',
-      };
-
-      tab.tiles.push(newTile);
-      const n = tab.tiles.length;
-      tab.layout = { direction, sizes: Array(n).fill(1 / n) };
-      tab.activeTileId = tileId;
-      syncTabFromActiveTile(tab);
-    })
-  );
+    const newLeaf = createLeaf(
+      tileType ?? 'explorer',
+      tileType === 'chat' ? 'Nuevo chat' : 'Explorador',
+    );
+    tab.root = splitNode(tab.root, tab.focus, direction, newLeaf);
+    tab.focus = newLeaf.id;
+    syncFromFocus(tab);
+  }));
 }
 
-/** Cierra un tile dentro de una tab.
- *  Si es el último tile, cierra la tab completa.
- */
 export function closeTile(tabId: string, tileId: string): void {
-  setTabs(
-    produce((draft) => {
-      const tab = draft.find(t => t.id === tabId);
-      if (!tab) return;
-      if (tab.tiles.length <= 1) {
-        // El único tile — no se cierra acá, el caller debe cerrar la tab
-        return;
-      }
-      const idx = tab.tiles.findIndex(t => t.id === tileId);
-      if (idx === -1) return;
+  setTabs(produce((draft) => {
+    const tab = draft.find(t => t.id === tabId);
+    if (!tab || leafCount(tab.root) <= 1) return;
 
-      tab.tiles.splice(idx, 1);
-      const n = tab.tiles.length;
-      tab.layout = { direction: tab.layout.direction, sizes: Array(n).fill(1 / n) };
+    const newRoot = removeNode(tab.root, tileId);
+    if (!newRoot) return;
 
-      // Si el tile cerrado era el activo, activar otro
-      if (tab.activeTileId === tileId) {
-        const next = tab.tiles[idx] ?? tab.tiles[idx - 1] ?? tab.tiles[0];
-        tab.activeTileId = next.id;
-        syncTabFromActiveTile(tab);
-      }
-    })
-  );
+    tab.root = newRoot;
+    if (tab.focus === tileId) {
+      tab.focus = firstLeafId(newRoot);
+    }
+    syncFromFocus(tab);
+  }));
 }
 
-/** Cierra el tile activo de la tab activa.
- *  Si es el único tile, cierra la tab completa. */
 export function closeActiveTile(): void {
   const tabId = activeTabId();
   if (!tabId) return;
-  const tab = getActiveTab();
+  const tab = tabs.find(t => t.id === tabId);
   if (!tab) return;
 
-  if (tab.tiles.length <= 1) {
+  if (leafCount(tab.root) <= 1) {
     closeTab(tabId);
     return;
   }
-  closeTile(tabId, tab.activeTileId);
+  closeTile(tabId, tab.focus);
 }
 
-/** Activa un tile específico dentro de una tab.
- *  Sincroniza tab.type, tab.label, tab.sessionId y appState. */
 export function setActiveTile(tabId: string, tileId: string): void {
-  setTabs(
-    produce((draft) => {
-      const tab = draft.find(t => t.id === tabId);
-      if (!tab) return;
-      if (!tab.tiles.find(t => t.id === tileId)) return;
+  setTabs(produce((draft) => {
+    const tab = draft.find(t => t.id === tabId);
+    if (!tab || !findLeaf(tab.root, tileId)) return;
+    tab.focus = tileId;
+    syncFromFocus(tab);
+  }));
 
-      tab.activeTileId = tileId;
-      syncTabFromActiveTile(tab);
-    })
-  );
-
-  // Sincronizar appState para state-sync
+  // Sincronizar appState
   const tab = tabs.find(t => t.id === tabId);
   if (!tab) return;
-  const tile = tab.tiles.find(t => t.id === tileId);
-  if (tile?.type === 'chat' && tile.sessionId) {
-    setAppActiveTab(tile.sessionId);
+  const leaf = findLeaf(tab.root, tileId);
+  if (leaf?.type === 'chat' && leaf.sessionId) {
+    setAppActiveTab(leaf.sessionId);
     navigate('chat');
-  } else if (tile?.type === 'explorer') {
+  } else if (leaf?.type === 'explorer') {
     navigate('explorer');
   }
 }
 
-/** Navega al tile siguiente dentro de la tab activa (ciclo). */
 export function nextTile(): void {
   const tabId = activeTabId();
   if (!tabId) return;
   const tab = tabs.find(t => t.id === tabId);
-  if (!tab || tab.tiles.length < 2) return;
+  if (!tab) return;
 
-  const idx = tab.tiles.findIndex(t => t.id === tab.activeTileId);
-  const next = tab.tiles[(idx + 1) % tab.tiles.length];
+  const leaves = getAllLeaves(tab.root);
+  if (leaves.length < 2) return;
+  const idx = leaves.findIndex(l => l.id === tab.focus);
+  const next = leaves[(idx + 1) % leaves.length];
   if (next) setActiveTile(tabId, next.id);
 }
 
-/** Navega al tile anterior dentro de la tab activa (ciclo). */
 export function prevTile(): void {
   const tabId = activeTabId();
   if (!tabId) return;
   const tab = tabs.find(t => t.id === tabId);
-  if (!tab || tab.tiles.length < 2) return;
+  if (!tab) return;
 
-  const idx = tab.tiles.findIndex(t => t.id === tab.activeTileId);
-  const prev = tab.tiles[(idx - 1 + tab.tiles.length) % tab.tiles.length];
+  const leaves = getAllLeaves(tab.root);
+  if (leaves.length < 2) return;
+  const idx = leaves.findIndex(l => l.id === tab.focus);
+  const prev = leaves[(idx - 1 + leaves.length) % leaves.length];
   if (prev) setActiveTile(tabId, prev.id);
 }
 
@@ -417,7 +384,6 @@ export function prevTile(): void {
 // Sincronización con appState
 // ═══════════════════════════════════════════════════════════
 
-/** Crea una UI tab para una sesión si no existe ya. Retorna el id de la tab. */
 export function syncChatTab(sessionId: string, label: string): string {
   const existing = tabs.find(t => t.type === 'chat' && t.sessionId === sessionId);
   if (existing) {
@@ -426,27 +392,15 @@ export function syncChatTab(sessionId: string, label: string): string {
   }
 
   const id = uid();
-  const tileId = tileUid();
-  const tile: Tile = { id: tileId, type: 'chat', label, sessionId };
+  const leaf = createLeaf('chat', label, sessionId);
 
-  setTabs(
-    produce((draft) => {
-      draft.push({
-        id,
-        type: 'chat',
-        label,
-        sessionId,
-        tiles: [tile],
-        activeTileId: tileId,
-        layout: { direction: null, sizes: [1] },
-      });
-    })
-  );
+  setTabs(produce((draft) => {
+    draft.push({ id, type: 'chat', label, sessionId, root: leaf, focus: leaf.id });
+  }));
   if (!activeTabId()) setActiveTabId(id);
   return id;
 }
 
-/** Resetea el estado (útil en tests). */
 export function resetTabState(): void {
   setTabs(() => []);
   setActiveTabId(null);

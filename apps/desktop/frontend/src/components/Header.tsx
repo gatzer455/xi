@@ -25,6 +25,8 @@ import {
   openExplorerTab,
   nextTab,
   prevTab,
+  findLeaf,
+  leafCount,
 } from '../lib/tab-manager.ts';
 import { abortPi } from '../lib/pi/index.ts';
 
@@ -48,13 +50,13 @@ function closeTabWithCleanup(tabId: string): void {
   }
 
   // Si hay múltiples tiles, cerrar solo el tile activo
-  if (tab.tiles.length > 1) {
-    const tile = tab.tiles.find(t => t.id === tab.activeTileId);
-    if (tile?.type === 'chat' && tile.sessionId) {
-      if (tile.sessionId === appState.activeTabId.value && appState.isStreaming.value) {
+  if (leafCount(tab.root) > 1) {
+    const leaf = findLeaf(tab.root, tab.focus);
+    if (leaf?.type === 'chat' && leaf.sessionId) {
+      if (leaf.sessionId === appState.activeTabId.value && appState.isStreaming.value) {
         abortPi().catch(() => {});
       }
-      dropStore(tile.sessionId);
+      dropStore(leaf.sessionId);
     }
     closeActiveTile();
     return;
