@@ -14,7 +14,7 @@
  * - **Modelo**: nombre del modelo activo desde `appState.currentModel`.
  *   Click → abre picker (Etapa 10). Por ahora placeholder.
  *
- * El componente se monta en el SHELL (main.ts), no en ChatPage. Esto
+ * El componente se monta en el SHELL (main.tsx), no en ChatPage. Esto
  * lo mantiene fuera del scroll de output-board — siempre visible en
  * la parte baja del viewport.
  */

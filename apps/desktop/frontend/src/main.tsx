@@ -40,7 +40,8 @@ import { Header } from './components/header.ts';
 import { OutputBoard } from './components/output.ts';
 import { ChatContextBar } from './components/chat-context-bar.ts';
 import { InputBar } from './components/input.ts';
-import { UpdateBanner } from './components/update-banner.ts';
+import { render } from 'solid-js/web';
+import { UpdateBanner } from './components/UpdateBanner.tsx';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 import { loadTheme, loadFontSize, applyThemeToDOM, applyFontToDOM } from './lib/settings-storage.ts';
 import { getAvailableModels, getPiUpstreamVersion } from 'xi-ui/lib/pi/tauri-commands.ts';
@@ -108,7 +109,8 @@ async function initDesktop(): Promise<void> {
 
 function mountShell(): void {
   document.getElementById('top-bar')!.append(Header());
-  document.getElementById('update-banner')!.append(UpdateBanner());
+  // Montar UpdateBanner con SolidJS — reemplaza el contenido de #update-banner
+  render(() => <UpdateBanner />, document.getElementById('update-banner')!);
   document.getElementById('output-board')!.append(OutputBoard());
 
   const ctxBarEl = document.createElement('div');
