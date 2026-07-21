@@ -2,7 +2,7 @@
   "name": "xi-frontend",
   "version": "0.3.7",
   "private": true,
-  "description": "xi — UI vanilla TypeScript. Sin frameworks, sin dependencias de runtime.",
+  "description": "xi — UI con SolidJS.",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "dev": "tsc --noEmit && vite",
@@ -14,9 +14,11 @@
   },
   "type": "module",
   "devDependencies": {
+    "@solidjs/testing-library": "^0.8.10",
     "jsdom": "^29.1.1",
     "typescript": "7.0.2",
     "vite": "^6.0.0",
+    "vite-plugin-solid": "^2.11.13",
     "vitest": "^4.1.9"
   },
   "dependencies": {
@@ -25,6 +27,7 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-process": "^2.0.0",
-    "@tauri-apps/plugin-updater": "^2.0.0"
+    "@tauri-apps/plugin-updater": "^2.0.0",
+    "solid-js": "^1.9.14"
   }
 }
