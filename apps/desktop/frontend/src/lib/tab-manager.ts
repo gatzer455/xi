@@ -155,7 +155,6 @@ export function closeTab(tabId: string): void {
   const idx = tabs.findIndex(t => t.id === tabId);
   if (idx === -1) return;
 
-  const tab = tabs[idx];
   const wasActive = activeTabId() === tabId;
 
   // Remover del store
@@ -180,12 +179,6 @@ export function closeTab(tabId: string): void {
     const prev = appState.previousView.value;
     navigate(prev && prev !== 'chat' ? prev : 'welcome');
   }
-}
-
-/** Cierra la tab activa. */
-export function closeActiveTab(): void {
-  const id = activeTabId();
-  if (id) closeTab(id);
 }
 
 /** Navega a la tab siguiente (ciclo). */
@@ -216,11 +209,7 @@ export function closeAllTabs(): void {
 // Sincronización con appState
 // ═══════════════════════════════════════════════════════════
 
-/**
- * Sincroniza las tabs de chat con appState.openTabs.
- * Si se abre una sesión desde fuera del tab manager (SessionsPage),
- * este hook permite crear una tab para ella.
- */
+/** Crea una UI tab para una sesión si no existe ya. Retorna el id de la tab. */
 export function syncChatTab(sessionId: string, label: string): string {
   const existing = tabs.find(t => t.type === 'chat' && t.sessionId === sessionId);
   if (existing) return existing.id;
