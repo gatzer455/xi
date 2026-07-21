@@ -70,69 +70,62 @@ function closeTabWithCleanup(tabId: string): void {
   closeTab(tabId);
 }
 
-// ─── Atajos de teclado (window-level) ─────────────────────────
+// ─── Atajos de teclado ─────────────────────────────────────
 
-function useTabShortcuts() {
-  onMount(() => {
-    function handler(e: KeyboardEvent) {
-      if (!e.ctrlKey && !e.metaKey) return;
-      const ctrl = e.ctrlKey || e.metaKey;
+function onKeyDown(e: KeyboardEvent): void {
+  if (!e.ctrlKey && !e.metaKey) return;
+  const ctrl = e.ctrlKey || e.metaKey;
 
-      if (ctrl && e.shiftKey && e.key === 'T') {
-        e.preventDefault();
-        navigate('sessions');
-        return;
-      }
-      // Ctrl+W — cerrar tab activa (o tile si hay múltiples)
-      if (ctrl && e.key === 'w') {
-        e.preventDefault();
-        const id = getActiveTabId();
-        if (id) closeTabWithCleanup(id);
-        return;
-      }
-      // Ctrl+Shift+O — split horizontal (derecha)
-      if (ctrl && e.shiftKey && e.key === 'O') {
-        e.preventDefault();
-        const id = getActiveTabId();
-        if (id) splitTile(id, 'horizontal');
-        return;
-      }
-      // Ctrl+Shift+E — split vertical (abajo)
-      if (ctrl && e.shiftKey && e.key === 'E') {
-        e.preventDefault();
-        const id = getActiveTabId();
-        if (id) splitTile(id, 'vertical');
-        return;
-      }
-      // Ctrl+Tab — navegar tabs
-      if (ctrl && !e.shiftKey && e.key === 'Tab') {
-        e.preventDefault();
-        nextTab();
-        return;
-      }
-      // Ctrl+Shift+Tab — navegar tiles dentro de la tab
-      if (ctrl && e.shiftKey && e.key === 'Tab') {
-        e.preventDefault();
-        nextTile();
-        return;
-      }
-      // Ctrl+PageDown — tab siguiente (backup)
-      if (ctrl && e.key === 'PageDown') {
-        e.preventDefault();
-        nextTab();
-        return;
-      }
-      // Ctrl+PageUp — tab anterior
-      if (ctrl && e.key === 'PageUp') {
-        e.preventDefault();
-        prevTab();
-        return;
-      }
-    }
-
-    document.addEventListener('keydown', handler);
-    onCleanup(() => document.removeEventListener('keydown', handler));
-  });
+  if (ctrl && e.shiftKey && e.key === 'T') {
+    e.preventDefault();
+    navigate('sessions');
+    return;
+  }
+  // Ctrl+W — cerrar tab activa (o tile si hay múltiples)
+  if (ctrl && e.key === 'w') {
+    e.preventDefault();
+    const id = getActiveTabId();
+    if (id) closeTabWithCleanup(id);
+    return;
+  }
+  // Ctrl+Shift+O — split horizontal (derecha)
+  if (ctrl && e.shiftKey && e.key === 'O') {
+    e.preventDefault();
+    const id = getActiveTabId();
+    if (id) splitTile(id, 'horizontal');
+    return;
+  }
+  // Ctrl+Shift+E — split vertical (abajo)
+  if (ctrl && e.shiftKey && e.key === 'E') {
+    e.preventDefault();
+    const id = getActiveTabId();
+    if (id) splitTile(id, 'vertical');
+    return;
+  }
+  // Ctrl+Tab — navegar tabs
+  if (ctrl && !e.shiftKey && e.key === 'Tab') {
+    e.preventDefault();
+    nextTab();
+    return;
+  }
+  // Ctrl+Shift+Tab — navegar tiles
+  if (ctrl && e.shiftKey && e.key === 'Tab') {
+    e.preventDefault();
+    nextTile();
+    return;
+  }
+  // Ctrl+PageDown — tab siguiente (backup)
+  if (ctrl && e.key === 'PageDown') {
+    e.preventDefault();
+    nextTab();
+    return;
+  }
+  // Ctrl+PageUp — tab anterior
+  if (ctrl && e.key === 'PageUp') {
+    e.preventDefault();
+    prevTab();
+    return;
+  }
 }
 
 // ─── Header ──────────────────────────────────────────────────
@@ -160,7 +153,12 @@ export function Header() {
     onCleanup(() => clearInterval(interval));
   });
 
-  useTabShortcuts();
+
+  // Atajos de teclado
+  onMount(() => {
+    window.addEventListener('keydown', onKeyDown);
+    onCleanup(() => window.removeEventListener('keydown', onKeyDown));
+  });
 
   return (
     <div class="top-bar">
