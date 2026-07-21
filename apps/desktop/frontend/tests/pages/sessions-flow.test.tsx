@@ -20,6 +20,7 @@
  */
 
 import { describe, test, expect, vi, beforeEach } from "vitest";
+import { render, cleanup } from '@solidjs/testing-library';
 
 // ─── vi.hoisted: definido antes que los factories de vi.mock ──────────────
 
@@ -140,25 +141,23 @@ vi.mock("../../src/lib/pi/lifecycle.ts", () => ({
   ensurePiRunning: mock.track("ensurePiRunning"),
 }));
 
-import { SessionsPage, resetSessionsState } from "../../src/pages/sessions.ts";
+import { SessionsPage } from "../../src/pages/SessionsPage.tsx";
 
 describe("Flujo de sesión nueva — orden de llamadas", () => {
   beforeEach(() => {
-    // Limpiar el registro de llamadas entre tests.
     mock.callLog.length = 0;
-    mock.callLog.length = 0; // noop, verificación de idempotencia
-    resetSessionsState();
   });
 
-  test('click en "+ Nueva conversación" arranca pi ANTES de pedir sesión', async () => {
-    const page = SessionsPage();
+  afterEach(() => cleanup());
 
-    // Buscar el botón "+ Nueva conversación" en el header.
-    const newBtn = page.root.querySelector(".sessions-new");
+  test('click en "+ Nueva conversación" arranca pi ANTES de pedir sesión', async () => {
+    render(() => <SessionsPage />);
+
+    const newBtn = document.querySelector(".sessions-new") as HTMLButtonElement;
     expect(newBtn).toBeTruthy();
 
-    // Disparar el click — reproduce el flujo del usuario.
-    (newBtn as HTMLButtonElement).click();
+    newBtn.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     // syncPiSessionInBackground es async. Esperar a que las
     // llamadas tracked se completen con un microtask flush.
@@ -186,7 +185,5 @@ describe("Flujo de sesión nueva — orden de llamadas", () => {
       startPiCall,
       "new chat NO debe llamar startPi (usa ensurePiRunning)",
     ).toBeFalsy();
-
-    page.dispose();
   });
 });

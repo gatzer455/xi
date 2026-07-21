@@ -130,10 +130,14 @@ export function SettingsPage() {
 
   // Cargar modelos y version al mount
   onMount(() => {
-    if (appState.workingDir.value && appState.availableModels.value.length === 0) { getAvailableModels(); }
     getPiVersion().then((v) => appState.piVersion.value = v);
     loadAuthStatus();
-    if (appState.workingDir.value) { ensurePiRunning().then(() => getPiState()).catch(() => {}); }
+    if (appState.workingDir.value) {
+      ensurePiRunning().then(() => {
+        if (appState.availableModels.value.length === 0) getAvailableModels();
+        getPiState();
+      }).catch(() => {});
+    }
   });
 
   return (

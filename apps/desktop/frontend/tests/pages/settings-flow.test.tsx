@@ -21,6 +21,7 @@
  */
 
 import { describe, test, expect, vi, beforeEach } from "vitest";
+import { render, cleanup } from '@solidjs/testing-library';
 
 // ─── vi.hoisted: definido antes que los factories de vi.mock ──────────────
 
@@ -156,20 +157,18 @@ vi.mock("../../src/lib/updater.ts", () => ({
 
 // ─── Tests ───────────────────────────────────────────────────────────────
 
-import { SettingsPage } from "../../src/pages/settings.ts";
+import { SettingsPage } from "../../src/pages/SettingsPage.tsx";
 
 describe("Flujo de Settings — ensurePiRunning antes de comandos", () => {
   beforeEach(() => {
     mock.callLog.length = 0;
   });
 
-  test("al montar Settings, ensurePiRunning se llama ANTES que getPiState", async () => {
-    // appState.activeTabId = "tab-1" → dispara el bloque
-    //   `if (appState.activeTabId.value) { void getPiState(); }`
-    // que ahora está envuelto en ensurePiRunning().then(...).
-    const page = SettingsPage();
+  afterEach(() => cleanup());
 
-    // El bloque es async (.then()). Esperar al microtask queue.
+  test("al montar Settings, ensurePiRunning se llama ANTES que getPiState", async () => {
+    render(() => <SettingsPage />);
+
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const ensureCall = mock.callLog.find((c) => c.name === "ensurePiRunning");
@@ -194,23 +193,11 @@ describe("Flujo de Settings — ensurePiRunning antes de comandos", () => {
       ).toBeLessThan(getStateCall.index);
     }
 
-    page.dispose();
+    expect(cleanup).not.toThrow();
   });
 
   test("loadModels llama ensurePiRunning ANTES que getAvailableModels", async () => {
-    // Limpiar availableModels y modelsLoadAttempted para que
-    // SettingsPage() dispare loadModels().
-    // Nota: modelsLoadAttempted es una variable module-level en
-    // settings.ts, y no podemos resetearla directamente porque
-    // no está exportada. En este test creamos la page 2 veces:
-    // la primera setea modelsLoadAttempted = true, la segunda
-    // ya no dispara loadModels. Mejor importar el módulo dinámico.
-    //
-    // Alternativa: solo verificamos que el orden sea correcto
-    // en el primer mount (el que sí dispara loadModels).
-    // modelsLoadAttempted arranca en false, el primer mount lo
-    // setea a true y llama loadModels.
-    const page = SettingsPage();
+    render(() => <SettingsPage />);
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const ensureCall = mock.callLog.find((c) => c.name === "ensurePiRunning");
@@ -226,7 +213,5 @@ describe("Flujo de Settings — ensurePiRunning antes de comandos", () => {
           `(ensurePiRunning=${ensureCall!.index}, getAvailableModels=${getModelsCall.index})`,
       ).toBeLessThan(getModelsCall.index);
     }
-
-    page.dispose();
   });
 });
