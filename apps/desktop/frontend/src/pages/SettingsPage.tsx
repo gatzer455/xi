@@ -6,7 +6,7 @@ import { appState, type ThemeMode, type FontSize, type ThinkingLevel } from 'xi-
 import { navigate } from 'xi-ui/lib/nav.ts';
 import {
   setModel, setThinkingLevel, getAvailableModels, getPiVersion, getPiState,
-  setApiKey, testApiKey, deleteApiKey, type ProviderInfo,
+  getApiKey, setApiKey, testApiKey, deleteApiKey, type ProviderInfo,
   getExaConfig, getExaApiKey, setExaApiKey, deleteExaApiKey, testExaApiKey,
   getApproveRules, setApproveRules, type ApproveRules,
 } from 'xi-ui/lib/pi/tauri-commands.ts';
@@ -67,12 +67,23 @@ function Section(props: { title: string; desc: string; children: any }) {
 
 /* ─── Eye input (password toggle) ─── */
 
-function EyeInput(props: { placeholder: string; onSave: (key: string) => Promise<void>; onTest: (key: string) => Promise<string> }) {
+function EyeInput(props: { placeholder: string; onSave: (key: string) => Promise<void>; onTest: (key: string) => Promise<string>; onReveal?: () => Promise<string | null> }) {
   const [visible, setVisible] = createSignal(false);
   const [value, setValue] = createSignal('');
   const [status, setStatus] = createSignal<{ kind: 'idle' } | { kind: 'ok'; msg: string } | { kind: 'error'; msg: string }>({ kind: 'idle' });
 
   let inputRef: HTMLInputElement | undefined;
+
+  async function toggleVisibility() {
+    if (visible()) { setVisible(false); return; }
+    if (value() === '' && props.onReveal) {
+      try {
+        const key = await props.onReveal();
+        if (key) { setValue(key); setVisible(true); return; }
+      } catch { /* no disponible */ }
+    }
+    if (value() !== '') setVisible(true);
+  }
 
   async function test() {
     const v = value().trim();
@@ -96,7 +107,7 @@ function EyeInput(props: { placeholder: string; onSave: (key: string) => Promise
                placeholder={props.placeholder} autocomplete="off" spellcheck={false}
                value={value()} onInput={(e) => setValue(e.currentTarget.value)} />
         <button type="button" class="settings-provider-toggle" aria-label="Mostrar/Ocultar key"
-                onClick={() => setVisible(!visible())}>{visible() ? '🙈' : '👁'}</button>
+                onClick={toggleVisibility}>{visible() ? '🙈' : '👁'}</button>
       </div>
       <div class="settings-provider-actions">
         <button type="button" class="settings-btn settings-btn--primary" onClick={save}>Guardar</button>
@@ -205,7 +216,8 @@ function ProviderSection() {
         <div class="settings-provider-keyhint">Este provider está configurado con OAuth (no editable desde xi). Usa `pi login` en una terminal para cambiarlo.</div>
       </Show>
 
-      <EyeInput placeholder={placeholder()} onSave={saveKey} onTest={(key) => testApiKey(current(), key)} />
+      <EyeInput placeholder={placeholder()} onSave={saveKey} onTest={(key) => testApiKey(current(), key)}
+               onReveal={() => getApiKey(current())} />
 
       <Show when={activeProvider()?.hasKey}>
         <DeleteButton onDelete={async () => {
@@ -242,14 +254,20 @@ function DeleteButton(props: { onDelete: () => Promise<void> }) {
 /* ─── Appearance ─── */
 
 function AppearanceSection() {
+  const [theme, setTheme] = createSignal(appState.theme.value);
+  const [fontSize, setFontSize] = createSignal(appState.fontSize.value);
+
+  onCleanup(appState.theme.subscribe(setTheme));
+  onCleanup(appState.fontSize.subscribe(setFontSize));
+
   return (
     <div class="settings-appearance-controls">
       <div class="settings-sublabel">Tema</div>
       <Segmented options={[{ value: 'dark' as const, label: 'Oscuro' }, { value: 'light' as const, label: 'Claro' }, { value: 'system' as const, label: 'Sistema' }]}
-                 current={appState.theme.value} onChange={(t) => { appState.theme.value = t; applyThemeToDOM(t); saveTheme(t); }} />
+                 current={theme()} onChange={(t) => { appState.theme.value = t; applyThemeToDOM(t); saveTheme(t); }} />
       <div class="settings-sublabel">Fuente</div>
       <Segmented options={[{ value: 'small' as const, label: 'Pequeña' }, { value: 'medium' as const, label: 'Mediana' }, { value: 'large' as const, label: 'Grande' }]}
-                 current={appState.fontSize.value} onChange={(s) => { appState.fontSize.value = s; applyFontToDOM(s); saveFontSize(s); }} />
+                 current={fontSize()} onChange={(s) => { appState.fontSize.value = s; applyFontToDOM(s); saveFontSize(s); }} />
     </div>
   );
 }
@@ -366,7 +384,8 @@ function ExaSection() {
       <div classList={{ 'settings-exa-status': true, 'settings-exa-status--configured': configured().hasKey }}>
         {configured().hasKey ? `Configurada (···${configured().last4})` : 'No configurada'}
       </div>
-      <EyeInput placeholder={placeholder()} onSave={saveKey} onTest={async (key) => { const err = await testExaApiKey(key); return err ? err : ''; }} />
+      <EyeInput placeholder={placeholder()} onSave={saveKey} onTest={async (key) => { const err = await testExaApiKey(key); return err ? err : ''; }}
+               onReveal={() => getExaApiKey()} />
     </div>
   );
 }
