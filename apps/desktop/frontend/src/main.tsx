@@ -38,7 +38,6 @@ import { appState } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';
 import { Header } from './components/Header.tsx';
-import { TabBar } from './components/TabBar.tsx';
 import { OutputBoard } from './components/OutputBoard.tsx';
 import { ChatContextBar } from './components/ChatContextBar.tsx';
 import { InputBar } from './components/InputBar.tsx';
@@ -110,9 +109,6 @@ async function initDesktop(): Promise<void> {
 }
 
 function mountShell(): void {
-  // Montar TabBar con SolidJS
-  const tabBarEl = document.getElementById('tab-bar');
-  if (tabBarEl) render(() => <TabBar />, tabBarEl);
   // Montar Header con SolidJS
   render(() => <Header />, document.getElementById('top-bar')!);
   // Montar UpdateBanner con SolidJS — reemplaza el contenido de #update-banner
