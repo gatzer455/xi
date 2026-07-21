@@ -139,9 +139,9 @@ export function Header() {
                 </span>
                 <span class="top-bar-tab-text">{tab.label}</span>
               </button>
-              <span class="top-bar-tab-close"
-                    onClick={(e) => { e.stopPropagation(); closeTabWithCleanup(tab.id); }}
-                    role="button" tabIndex={-1}>×</span>
+              <button class="top-bar-tab-close"
+                      onClick={(e) => { e.stopPropagation(); closeTabWithCleanup(tab.id); }}
+                      aria-label="Cerrar tab">×</button>
             </div>
           )}
         </For>
