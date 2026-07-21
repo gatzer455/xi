@@ -420,7 +420,10 @@ export function prevTile(): void {
 /** Crea una UI tab para una sesión si no existe ya. Retorna el id de la tab. */
 export function syncChatTab(sessionId: string, label: string): string {
   const existing = tabs.find(t => t.type === 'chat' && t.sessionId === sessionId);
-  if (existing) return existing.id;
+  if (existing) {
+    if (!activeTabId()) setActiveTabId(existing.id);
+    return existing.id;
+  }
 
   const id = uid();
   const tileId = tileUid();
@@ -439,6 +442,7 @@ export function syncChatTab(sessionId: string, label: string): string {
       });
     })
   );
+  if (!activeTabId()) setActiveTabId(id);
   return id;
 }
 
