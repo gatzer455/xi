@@ -27,7 +27,13 @@ export interface TileAreaProps {
 }
 
 export function TileArea(props: TileAreaProps) {
-  const tab = () => getTabs().find(t => t.id === props.tabId);
+  // NOTA: el getter accede a .tiles para que SolidJS trackee cambios
+  // via produce(). Sin esto, TabArea no se re-renderiza al hacer split.
+  const tab = () => {
+    const t = getTabs().find(t => t.id === props.tabId);
+    if (t) t.tiles; // ← fuerza tracking de tiles
+    return t ?? null;
+  };
   const tiles = () => tab()?.tiles ?? [];
   const layout = () => tab()?.layout;
   const activeTileId = () => tab()?.activeTileId;
