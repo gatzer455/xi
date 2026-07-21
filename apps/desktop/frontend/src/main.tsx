@@ -39,7 +39,7 @@ import { navigate } from 'xi-ui/lib/nav.ts';
 import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';
 import { Header } from './components/Header.tsx';
 import { OutputBoard } from './components/OutputBoard.tsx';
-import { ChatContextBar } from './components/chat-context-bar.ts';
+import { ChatContextBar } from './components/ChatContextBar.tsx';
 import { InputBar } from './components/InputBar.tsx';
 import { render } from 'solid-js/web';
 import { UpdateBanner } from './components/UpdateBanner.tsx';
@@ -116,12 +116,12 @@ function mountShell(): void {
   // Montar OutputBoard con SolidJS — contiene el routing de páginas
   render(() => <OutputBoard />, document.getElementById('output-board')!);
 
+  // Montar ChatContextBar con SolidJS
   const ctxBarEl = document.createElement('div');
   ctxBarEl.id = 'context-bar';
   const inputBar = document.getElementById('input-bar')!;
   inputBar.parentNode!.insertBefore(ctxBarEl, inputBar);
-  const ctxBar = ChatContextBar();
-  ctxBarEl.append(ctxBar.root);
+  render(() => <ChatContextBar />, ctxBarEl);
   // Montar InputBar con SolidJS
   render(() => <InputBar />, document.getElementById('input-bar')!);
 
