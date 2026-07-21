@@ -42,7 +42,7 @@ import {
 import { ChatMessages, createWrappedSignal } from 'xi-ui/components/ChatMessages.tsx';
 import { render } from 'solid-js/web';
 import { createComponent } from 'solid-js';
-import { mountExplorer } from './explorer.ts';
+import { mountExplorer } from './ExplorerPage.tsx';
 
 /** Distancia máxima al fondo (en px) para considerar "near bottom". */
 

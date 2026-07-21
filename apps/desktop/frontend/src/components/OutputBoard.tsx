@@ -5,7 +5,7 @@ import { createSignal, Switch, Match, onMount, onCleanup } from 'solid-js';
 import { appState, type ViewName } from 'xi-ui/lib/state.ts';
 import type { Page } from 'xi-ui/lib/scope.ts';
 import { ChatPage } from '../pages/chat.ts';
-import { ExplorerPage } from '../pages/explorer.ts';
+import { explorerPageFactory as ExplorerPage } from '../pages/ExplorerPage.tsx';
 import { SessionsPage } from '../pages/sessions.ts';
 import { SettingsPage } from '../pages/settings.ts';
 import { WelcomePage } from '../pages/WelcomePage.tsx';
