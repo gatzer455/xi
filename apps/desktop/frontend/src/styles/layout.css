@@ -61,6 +61,123 @@
 }
 .top-bar-tabs::-webkit-scrollbar { height: 3px; }
 
+/* ═══ TAB BAR ═══
+   Barra horizontal de tabs (reemplaza secciones de top-bar).
+   Aparece arriba del top-bar, solo cuando hay tabs abiertas. */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 var(--space-2);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  height: 36px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  user-select: none;
+}
+
+.tab-bar__tabs {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  overflow-x: auto;
+  gap: 0;
+  height: 100%;
+}
+.tab-bar__tabs::-webkit-scrollbar { height: 0; }
+
+.tab-bar__tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  height: 100%;
+  min-width: 0;
+  position: relative;
+}
+.tab-bar__tab:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+.tab-bar__tab--active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+  background: var(--color-surface-1);
+}
+
+.tab-bar__tab-icon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  opacity: 0.7;
+}
+.tab-bar__tab--active .tab-bar__tab-icon { opacity: 1; }
+
+.tab-bar__tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.tab-bar__tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  margin-left: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: 1;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.tab-bar__tab-close:hover {
+  color: var(--color-text);
+  background: var(--color-surface-3);
+}
+
+.tab-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.tab-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.tab-bar__btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+
 .top-bar-tab {
   display: flex;
   align-items: center;
@@ -523,4 +640,121 @@
   flex-shrink: 0;
   margin: calc(var(--space-6) * -1) 0 0 0;
   padding: 0;
+}
+
+/* ═══ TAB BAR ═══
+   Barra de tabs (reemplaza las tabs en top-bar).
+   Aparece arriba del top-bar. */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 var(--space-2);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  height: 36px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  user-select: none;
+}
+
+.tab-bar__tabs {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  overflow-x: auto;
+  gap: 0;
+  height: 100%;
+}
+.tab-bar__tabs::-webkit-scrollbar { height: 0; }
+
+.tab-bar__tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  height: 100%;
+  min-width: 0;
+  position: relative;
+}
+.tab-bar__tab:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+.tab-bar__tab--active {
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent);
+  background: var(--color-surface-1);
+}
+
+.tab-bar__tab-icon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  opacity: 0.7;
+}
+.tab-bar__tab--active .tab-bar__tab-icon { opacity: 1; }
+
+.tab-bar__tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.tab-bar__tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  margin-left: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: 1;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.tab-bar__tab-close:hover {
+  color: var(--color-text);
+  background: var(--color-surface-3);
+}
+
+.tab-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.tab-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.tab-bar__btn:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
 }

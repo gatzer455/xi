@@ -116,6 +116,7 @@ export function openExplorerTab(): string {
   const existing = tabs.find(t => t.type === 'explorer');
   if (existing) {
     setActiveTabId(existing.id);
+    navigate('explorer');
     return existing.id;
   }
 
@@ -126,18 +127,22 @@ export function openExplorerTab(): string {
     })
   );
   setActiveTabId(id);
+  navigate('explorer');
   return id;
 }
 
 /**
  * Activa una tab existente por ID.
- * Si es de tipo 'chat', también setea la sesión activa en appState.
+ * Si es de tipo 'chat', también setea la sesión activa en appState y navega a chat.
  */
 export function activateTab(tabId: string): void {
   setActiveTabId(tabId);
   const tab = tabs.find(t => t.id === tabId);
   if (tab?.type === 'chat' && tab.sessionId) {
     setAppActiveTab(tab.sessionId);
+    navigate('chat');
+  } else if (tab?.type === 'explorer') {
+    navigate('explorer');
   }
 }
 
@@ -166,11 +171,7 @@ export function closeTab(tabId: string): void {
       // tabs ya está actualizada por produce, el índice puede haber cambiado
       const next = tabs[idx] ?? tabs[idx - 1] ?? null;
       if (next) {
-        setActiveTabId(next.id);
-        if (next.type === 'chat' && next.sessionId) {
-          setAppActiveTab(next.sessionId);
-          navigate('chat');
-        }
+        activateTab(next.id);
         return;
       }
     }

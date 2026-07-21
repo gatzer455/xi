@@ -20,10 +20,10 @@ import {
   getActiveTabId,
   activateTab,
   closeTab,
-  openChatTab,
   openExplorerTab,
   nextTab,
   prevTab,
+  syncChatTab,
 } from '../lib/tab-manager.ts';
 
 // ─── Helper: abort si la tab que se cierra es la del streaming ───
@@ -98,6 +98,19 @@ export function TabBar() {
   // Signal reactiva para tabs (el store se trackea por getTabs() en JSX)
   // Refrescar cuando cambia activeTabId
   const [activeId, setActiveId] = createSignal(getActiveTabId());
+
+  // Sync: cuando appState.activeTabId cambia (desde SessionsPage),
+  // crear una UI tab si no existe.
+  onMount(() => {
+    onCleanup(appState.activeTabId.subscribe((sessionId) => {
+      if (sessionId && !getTabs().find(t => t.sessionId === sessionId)) {
+        const session = appState.openTabs.value.find(s => s.id === sessionId);
+        if (session) {
+          syncChatTab(sessionId, session.name ?? sessionId.slice(0, 8));
+        }
+      }
+    }));
+  });
 
   // Suscribirse a cambios del tab manager
   onMount(() => {
