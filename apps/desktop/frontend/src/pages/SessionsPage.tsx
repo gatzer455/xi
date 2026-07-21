@@ -85,6 +85,7 @@ export function SessionsPage() {
     if (!cwd) return;
     const isOpen = appState.openTabs.value.some((t) => t.id === session.id);
     if (isOpen) { setActiveTab(session.id); navigate('chat'); return; }
+    const prevActiveId = appState.activeTabId.value;
     const newTab: Session = { id: session.id, name: session.name, file: session.path, messageCount: session.messageCount };
     setActiveTab(session.id);
     appState.openTabs.value = [...appState.openTabs.value, newTab];
@@ -95,10 +96,8 @@ export function SessionsPage() {
       await getAvailableModels();
       navigate('chat');
     } catch (err) {
-      // Rollback: remover el tab que agregamos
-      appState.activeTabId.value = appState.openTabs.value.length > 1
-        ? appState.openTabs.value[appState.openTabs.value.length - 2].id
-        : null;
+      // Rollback: restaurar el tab activo anterior
+      appState.activeTabId.value = prevActiveId;
       appState.openTabs.value = appState.openTabs.value.filter((t) => t.id !== session.id);
       setError(err instanceof Error ? err.message : String(err));
     }

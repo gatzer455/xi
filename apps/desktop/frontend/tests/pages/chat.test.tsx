@@ -64,11 +64,32 @@ const mock = vi.hoisted(() => {
       tabMessages: mockSignal({}),
     }),
     hasAnyProvider,
+    activeTabId,
   };
 });
 
 vi.mock('xi-ui/lib/state.ts', () => ({ appState: mock.createMockAppState() }));
-vi.mock('xi-ui/lib/chat/stores.ts', () => ({ getStore: vi.fn() }));
+// Store mock compartido para tests de binding
+const storeMsgSignal = vi.hoisted(() => {
+  let value: unknown[] = [];
+  const subs = new Set<(v: unknown[]) => void>();
+  return {
+    get value() { return value; },
+    set value(v: unknown[]) { value = v; subs.forEach((fn) => fn(value)); },
+    subscribe(fn: (v: unknown[]) => void) {
+      subs.add(fn);
+      fn(value);
+      return () => subs.delete(fn);
+    },
+  };
+});
+
+vi.mock('xi-ui/lib/chat/stores.ts', () => ({
+  getStore: vi.fn(() => ({
+    messages$: storeMsgSignal,
+    isStreaming$: { value: false, subscribe: () => () => {} },
+  })),
+}));
 vi.mock('xi-ui/lib/nav.ts', () => ({ navigate: vi.fn() }));
 vi.mock('xi-ui/components/extension-ui-dialog.ts', () => ({
   renderSelectDialog: vi.fn(),
@@ -77,15 +98,14 @@ vi.mock('xi-ui/components/extension-ui-dialog.ts', () => ({
   renderEditorDialog: vi.fn(),
 }));
 vi.mock('xi-ui/components/ChatMessages.tsx', () => {
-  const ChatMessages = () => {
+  // Componente que renderiza mensajes reales (para tests de binding)
+  function ChatMessages(props: { messages: () => unknown[]; streaming: () => boolean }) {
     const div = document.createElement('div');
     div.className = 'chat-messages';
+    div.textContent = `msgs:${props.messages().length} streaming:${props.streaming()}`;
     return div;
-  };
-  return {
-    ChatMessages,
-    createWrappedSignal: () => [() => [], () => {}],
-  };
+  }
+  return { ChatMessages };
 });
 vi.mock('../../src/lib/pi/extension-ui-handler.ts', () => ({
   setDialogRenderer: vi.fn(),
@@ -94,9 +114,10 @@ vi.mock('../../src/lib/pi/extension-ui-handler.ts', () => ({
 vi.mock('./ExplorerPage.tsx', () => ({ mountExplorer: vi.fn() }));
 
 import { ChatPage } from '../../src/pages/ChatPage.tsx';
+import { getStore } from 'xi-ui/lib/chat/stores.ts';
 
 describe('ChatPage', () => {
-  afterEach(() => cleanup());
+  afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
   test('mounts without error', () => {
     expect(() => render(() => <ChatPage />)).not.toThrow();
@@ -148,5 +169,11 @@ describe('ChatPage', () => {
   test('cleanup runs without error', () => {
     const { unmount } = render(() => <ChatPage />);
     expect(() => unmount()).not.toThrow();
+  });
+
+  test('bindTab llama getStore con activeTabId', () => {
+    mock.activeTabId.value = 'tab-1';
+    render(() => <ChatPage />);
+    expect(getStore).toHaveBeenCalledWith('tab-1');
   });
 });

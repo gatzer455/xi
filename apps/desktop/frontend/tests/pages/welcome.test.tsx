@@ -67,8 +67,8 @@ vi.mock('xi-ui/lib/state.ts', () => ({ appState: mock.createMockAppState() }));
 vi.mock('xi-ui/lib/nav.ts', () => ({ navigate: vi.fn() }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 vi.mock('xi-ui/lib/debug-panel.ts', () => ({ addEntry: vi.fn() }));
-vi.mock('../lib/auth-status.ts', () => ({ loadAuthStatus: vi.fn(() => Promise.resolve()) }));
-vi.mock('../lib/pi/index.ts', () => ({ getRecents: vi.fn(() => Promise.resolve([])), addRecent: vi.fn() }));
+vi.mock('../../src/lib/auth-status.ts', () => ({ loadAuthStatus: vi.fn(() => Promise.resolve()) }));
+vi.mock('../../src/lib/pi/index.ts', () => ({ getRecents: vi.fn(() => Promise.resolve([])), addRecent: vi.fn() }));
 
 import { WelcomePage } from '../../src/pages/WelcomePage.tsx';
 

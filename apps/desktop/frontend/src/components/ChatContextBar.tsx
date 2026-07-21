@@ -76,6 +76,7 @@ export function ChatContextBar() {
     if (store) { unsubMessages = store.messages$.subscribe(() => updateTokens()); }
     updateTokens();
   }));
+  onCleanup(() => unsubMessages?.());
   // También refrescar cuando cambia el streaming (terminó de generar)
   onCleanup(appState.isStreaming.subscribe(() => updateTokens()));
 

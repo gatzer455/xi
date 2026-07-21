@@ -64,5 +64,9 @@ process.on('unhandledRejection', (err) => {
   // Es esperado en jsdom donde no hay Tauri runtime.
   if (err instanceof TypeError && err.message.includes("Cannot read properties of undefined")) {
     // ya fue, no reportar como error
+  } else {
+    // Otros errores no silenciados — registrarlos para que no pasen
+    // desapercibidos.
+    console.error('Unhandled rejection (not a Tauri mock issue):', err);
   }
 });
