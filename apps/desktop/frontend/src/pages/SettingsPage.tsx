@@ -149,10 +149,10 @@ export function SettingsPage() {
         </div>
 
         <div class="settings-tab-content">
-          <Show when={tab() === 'provider'}><ProviderSection /></Show>
-          <Show when={tab() === 'appearance'}><AppearanceSection /></Show>
-          <Show when={tab() === 'extensions'}><ExtensionsSection /></Show>
-          <Show when={tab() === 'about'}><><UpdateSection /><SessionSection /><AboutSection /></></Show>
+          <div style={{ display: tab() === 'provider' ? '' : 'none' }}><ProviderSection /></div>
+          <div style={{ display: tab() === 'appearance' ? '' : 'none' }}><AppearanceSection /></div>
+          <div style={{ display: tab() === 'extensions' ? '' : 'none' }}><ExtensionsSection /></div>
+          <div style={{ display: tab() === 'about' ? '' : 'none' }}><UpdateSection /><SessionSection /><AboutSection /></div>
         </div>
       </div>
     </div>
