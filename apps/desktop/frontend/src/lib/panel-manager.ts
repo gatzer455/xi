@@ -193,8 +193,8 @@ export function addPane(tabId: string, paneType?: PaneType): void {
     if (!tab || tab.panes.length >= 4) return;
     const newPane: Pane = {
       id: paneUid(),
-      type: paneType ?? 'explorer',
-      label: paneType === 'chat' ? 'Nuevo chat' : 'Explorador',
+      type: paneType ?? 'sessions',
+      label: paneType === 'chat' ? 'Nuevo chat' : 'Nueva sesión',
     };
     tab.panes.push(newPane);
     tab.focus = newPane.id;
@@ -213,6 +213,14 @@ export function removeLastPane(tabId: string): void {
       syncFromFocus(tab);
     }
   }));
+  // Sincronizar estado global después del pop
+  const tab = tabs.find(t => t.id === tabId);
+  if (tab) {
+    const pane = tab.panes.find(p => p.id === tab.focus);
+    if (pane?.type === 'chat' && pane.sessionId) {
+      navigate('chat');
+    }
+  }
 }
 
 /** Activa un panel específico dentro de una tab. */

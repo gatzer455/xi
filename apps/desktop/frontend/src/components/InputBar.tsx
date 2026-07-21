@@ -149,12 +149,6 @@ export function InputBar(props?: { sessionId?: string }) {
     updateBtn();
   });
 
-  // Efecto: mostrar/ocultar barra
-  createEffect(() => {
-    if (!barRef) return;
-    barRef.style.display = hasSession() ? '' : 'none';
-  });
-
   // Global Esc para abortar (textarea disabled no captura keydown)
   onMount(() => {
     const handler = (e: KeyboardEvent) => {

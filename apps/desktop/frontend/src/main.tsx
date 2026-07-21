@@ -40,6 +40,7 @@ import { UpdateBanner } from './components/UpdateBanner.tsx';
 import { registerPaneType } from './components/PaneView.tsx';
 import { ChatPage } from './pages/ChatPage.tsx';
 import { ExplorerPane } from './pages/ExplorerPane.tsx';
+import { SessionsPane } from './pages/SessionsPane.tsx';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 import { loadTheme, loadFontSize, applyThemeToDOM, applyFontToDOM } from './lib/settings-storage.ts';
 import { getAvailableModels, getPiUpstreamVersion } from 'xi-ui/lib/pi/tauri-commands.ts';
@@ -109,6 +110,7 @@ function mountShell(): void {
   // Registrar tipos de panel para el sistema de paneles
   registerPaneType('chat', ChatPage);
   registerPaneType('explorer', ExplorerPane);
+  registerPaneType('sessions', SessionsPane);
 
   // Montar Header con SolidJS
   render(() => <Header />, document.getElementById('top-bar')!);
