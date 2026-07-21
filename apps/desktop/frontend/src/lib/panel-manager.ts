@@ -105,7 +105,9 @@ export function openChatTab(sessionId: string, label?: string): string {
       id: sessionId, file: sessionId, name: label ?? sessionId, messageCount: 0,
     }];
   }
-  const existing = tabs.find(t => t.type === 'chat' && t.sessionId === sessionId);
+  // Buscar pane chat con esa sesión en TODAS las tabs (no confiar en tab.sessionId,
+  // que refleja solo el pane con foco — syncFromFocus).
+  const existing = tabs.find(t => t.panes.some(p => p.type === 'chat' && p.sessionId === sessionId));
   if (existing) {
     setActiveTabId(existing.id);
     setAppActiveTab(sessionId);
@@ -126,14 +128,15 @@ export function openChatTab(sessionId: string, label?: string): string {
 }
 
 export function openExplorerTab(): string {
-  const existing = tabs.find(t => t.type === 'explorer');
+  // Buscar explorer pane en todas las tabs (no solo tab.type — syncFromFocus lo rota)
+  const existing = tabs.find(t => t.panes.some(p => p.type === 'explorer'));
   if (existing) {
     setActiveTabId(existing.id);
     navigate('explorer');
     return existing.id;
   }
-  const id = '__explorer__';
-  const paneId = 'pane-explorer';
+  const id = uid();
+  const paneId = paneUid();
   const pane: Pane = { id: paneId, type: 'explorer', label: 'Explorador' };
   setTabs(produce((draft) => {
     draft.push({ id, type: 'explorer', label: 'Explorador', panes: [pane], focus: paneId });
@@ -252,20 +255,15 @@ export function setPaneType(tabId: string, paneId: string, type: PaneType, sessi
     if (type === 'chat' && sessionId) {
       pane.sessionId = sessionId;
       pane.label = sessionId.split('/').pop() || 'Chat';
-      tab.type = 'chat';
-      tab.label = pane.label;
-      tab.sessionId = sessionId;
     } else if (type === 'explorer') {
       pane.sessionId = undefined;
       pane.label = 'Explorador';
-      tab.type = 'explorer';
-      tab.label = 'Explorador';
     } else if (type === 'sessions') {
       pane.sessionId = undefined;
       pane.label = 'Historial';
-      tab.type = 'sessions';
-      tab.label = 'Historial';
     }
+    // Sync tab-level fields SOLO si este pane tiene foco
+    syncFromFocus(tab);
   }));
   // Sincronizar estado global + openTabs para state-sync
   const tab = tabs.find(t => t.id === tabId);
@@ -292,19 +290,29 @@ export function setPaneType(tabId: string, paneId: string, type: PaneType, sessi
 
 /** Elimina el ultimo panel de la tab. Min 1. */
 export function removeLastPane(tabId: string): void {
+  const tab = tabs.find(t => t.id === tabId);
+  const lastPane = tab?.panes[tab.panes.length - 1];
+  const removedSessionId = lastPane?.sessionId;
+
   setTabs(produce((draft) => {
-    const tab = draft.find(t => t.id === tabId);
-    if (!tab || tab.panes.length <= 1) return;
-    tab.panes.pop();
-    if (tab.panes.every(p => p.id !== tab.focus)) {
-      tab.focus = tab.panes[tab.panes.length - 1].id;
-      syncFromFocus(tab);
+    const t = draft.find(t => t.id === tabId);
+    if (!t || t.panes.length <= 1) return;
+    t.panes.pop();
+    if (t.panes.every(p => p.id !== t.focus)) {
+      t.focus = t.panes[t.panes.length - 1].id;
+      syncFromFocus(t);
     }
   }));
+  // Limpiar openTabs de la sesión del pane eliminado
+  if (removedSessionId) {
+    appState.openTabs.value = appState.openTabs.value.filter(
+      (t) => t.id !== removedSessionId
+    );
+  }
   // Sincronizar estado global después del pop
-  const tab = tabs.find(t => t.id === tabId);
-  if (tab) {
-    const pane = tab.panes.find(p => p.id === tab.focus);
+  const updatedTab = tabs.find(t => t.id === tabId);
+  if (updatedTab) {
+    const pane = updatedTab.panes.find(p => p.id === updatedTab.focus);
     if (pane?.type === 'chat' && pane.sessionId) {
       navigate('chat');
     }
@@ -360,7 +368,8 @@ export function tabHasMultiplePanes(): boolean {
 // ═════════════════════════════════════════════
 
 export function syncChatTab(sessionId: string, label: string): string {
-  const existing = tabs.find(t => t.type === 'chat' && t.sessionId === sessionId);
+  // Buscar en todos los panes (no solo tab.sessionId, que es focus-derived)
+  const existing = tabs.find(t => t.panes.some(p => p.type === 'chat' && p.sessionId === sessionId));
   if (existing) {
     if (!activeTabId()) setActiveTabId(existing.id);
     return existing.id;

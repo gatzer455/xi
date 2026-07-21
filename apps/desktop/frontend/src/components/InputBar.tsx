@@ -3,6 +3,7 @@
  */
 import { createSignal, createEffect, onCleanup, onMount } from 'solid-js';
 import { appState } from 'xi-ui/lib/state.ts';
+import { getStore } from 'xi-ui/lib/chat/stores.ts';
 import { sendPrompt, abortPi, beginStreamForSession, endStream, dispatchSlashCommand } from '../lib/pi/index.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { SlashMenu } from 'xi-ui/components/slash-menu.ts';
@@ -29,7 +30,14 @@ export function InputBar(props?: { sessionId?: string }) {
   if (fixedSessionId() === undefined) {
     onCleanup(appState.activeTabId.subscribe((v) => setHasSession(v !== null)));
   }
-  onCleanup(appState.isStreaming.subscribe(setStreaming));
+  // En modo pane, usar streaming de la store de sesión, no global
+  if (fixedSessionId()) {
+    const store = getStore(fixedSessionId()!);
+    setStreaming(store.isStreaming$.value);
+    onCleanup(store.isStreaming$.subscribe(setStreaming));
+  } else {
+    onCleanup(appState.isStreaming.subscribe(setStreaming));
+  }
   onCleanup(appState.workingDir.subscribe((v) => setHasWd(!!v)));
 
   // Input handler: auto-expand + slash menu

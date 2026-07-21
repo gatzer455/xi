@@ -31,14 +31,27 @@ export function ChatContextBar(props?: { sessionId?: string }) {
   // Sino, escuchar activeTabId global (modo full-page)
   const fixedSessionId = () => props?.sessionId;
 
-  const [streaming, setStreaming] = createSignal(appState.isStreaming.value);
+  const [streaming, setStreaming] = createSignal(
+    fixedSessionId() ? (getStore(fixedSessionId()!)?.isStreaming$.value ?? false) : appState.isStreaming.value
+  );
   const [spinnerIdx, setSpinnerIdx] = createSignal(0);
-  const [tokens, setTokens] = createSignal(0);
+  const [tokens, setTokens] = createSignal(
+    fixedSessionId() ? (getStore(fixedSessionId()!)?.messages$.value.length ?? 0) : 0
+  );
   const [model, setModelState] = createSignal(appState.currentModel.value);
   const [thinkLevel, setThinkLevel] = createSignal(appState.thinkingLevel.value);
   const [pickerOpen, setPickerOpen] = createSignal(false);
 
-  onCleanup(appState.isStreaming.subscribe(setStreaming));
+  // Streaming: escopo a sesión en modo pane, global en modo full-page
+  if (fixedSessionId()) {
+    const store = getStore(fixedSessionId()!);
+    setStreaming(store.isStreaming$.value);
+    setTokens(store.messages$.value.length);
+    onCleanup(store.isStreaming$.subscribe(setStreaming));
+    onCleanup(store.messages$.subscribe((msgs) => setTokens(msgs.length)));
+  } else {
+    onCleanup(appState.isStreaming.subscribe(setStreaming));
+  }
   onCleanup(appState.currentModel.subscribe(setModelState));
   onCleanup(appState.thinkingLevel.subscribe(setThinkLevel));
 

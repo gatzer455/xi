@@ -15,8 +15,8 @@
 
 ### 1. `layout.css` — `.chat-content-row` (edit 1/3)
 
-```
-thread 'main' (246625) panicked at src/edit.rs:256:61:
+```text
+f 'main' (246625) panicked at src/edit.rs:256:61:
 index out of bounds: the len is 860 but the index is 860
 ```
 
@@ -28,8 +28,8 @@ index out of bounds: the len is 860 but the index is 860
 
 ### 2. `layout.css` — `.chat-content-row` (edit 2/3)
 
-```
-thread 'main' (246660) panicked at src/edit.rs:256:61:
+```text
+f 'main' (246660) panicked at src/edit.rs:256:61:
 index out of bounds: the len is 868 but the index is 868
 ```
 
@@ -39,8 +39,8 @@ index out of bounds: the len is 868 but the index is 868
 
 ### 3. `layout.css` — `.output-content` (edit 3/3)
 
-```
-thread 'main' (263464) panicked at src/edit.rs:256:61:
+```text
+f 'main' (263464) panicked at src/edit.rs:256:61:
 index out of bounds: the len is 874 but the index is 874
 ```
 
@@ -50,8 +50,8 @@ index out of bounds: the len is 874 but the index is 874
 
 ### 4. `panel-manager.ts` — `openSessionTab` insertion
 
-```
-thread 'main' (269251) panicked at src/edit.rs:256:61:
+```text
+f 'main' (269251) panicked at src/edit.rs:256:61:
 index out of bounds: the len is 294 but the index is 294
 ```
 
@@ -89,7 +89,7 @@ content = content.replace('old', 'new', 1)
 with open('path', 'w') as f:
     f.write(content)
 "
-```
+```python
 
 ## Workaround para el dev
 
