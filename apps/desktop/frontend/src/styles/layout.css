@@ -424,7 +424,7 @@
   flex-direction: column;
   min-height: 0;
   padding: var(--space-6) var(--space-8);
-}
+  box-sizing: border-box;
 }
 
 /* Panel del explorador: visible solo cuando explorerPanelOpen = true.
