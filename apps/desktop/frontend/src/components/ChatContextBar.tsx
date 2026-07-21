@@ -7,7 +7,7 @@
 import { createSignal, createMemo, createEffect, onCleanup, Show } from 'solid-js';
 import { appState, type ThinkingLevel } from 'xi-ui/lib/state.ts';
 import { getStore } from 'xi-ui/lib/chat/stores.ts';
-import { ModelPicker } from './model-picker.ts';
+import { ModelPicker } from './ModelPicker.tsx';
 import { setThinkingLevel } from 'xi-ui/lib/pi/tauri-commands.ts';
 
 const BRAILLE = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -33,6 +33,7 @@ export function ChatContextBar() {
   const [tokens, setTokens] = createSignal(0);
   const [model, setModelState] = createSignal(appState.currentModel.value);
   const [thinkLevel, setThinkLevel] = createSignal(appState.thinkingLevel.value);
+  const [pickerOpen, setPickerOpen] = createSignal(false);
 
   onCleanup(appState.isStreaming.subscribe(setStreaming));
   onCleanup(appState.currentView.subscribe(setView));
@@ -135,12 +136,11 @@ export function ChatContextBar() {
         </button>
         <span class="context-bar-sep">·</span>
         <button class="context-bar-model" title="Cambiar modelo"
-                onClick={() => {
-                  if (document.querySelector('.model-picker-backdrop')) return;
-                  ModelPicker();
-                }}>
+                onClick={() => setPickerOpen(true)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPickerOpen(true); } }}>
           {model()?.name ?? 'sin modelo'}
         </button>
+      <Show when={pickerOpen()}><ModelPicker onClose={() => setPickerOpen(false)} /></Show>
       </span>
     </div>
   );

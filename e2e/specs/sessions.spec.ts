@@ -88,7 +88,7 @@ describe('Página de sesiones', () => {
   it('debería tener indicador de polling en el footer', async () => {
     const status = await $('.sessions-status');
     const text = await status.getText();
-    expect(text).toContain('10s');
+    expect(text).toContain('30s');
   });
 
   it('debería tener botón de refrescar en el footer', async () => {
