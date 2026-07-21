@@ -5,7 +5,7 @@
  * un update descargado listo para aplicar.
  *
  * Bridge entre signals legacy (appState) y reactividad de SolidJS.
- * Se monta via render() en main.ts → document.getElementById('update-banner').
+ * Se monta via render() en main.tsx → document.getElementById('update-banner').
  */
 
 import { createSignal, onCleanup } from 'solid-js';
