@@ -388,7 +388,6 @@
    Contenido central. El chat usa todo el espacio disponible. */
 .output-content {
   width: 100%;
-  padding: var(--space-6) var(--space-8);
   min-height: 100%;
   box-sizing: border-box;
 }
@@ -399,8 +398,6 @@
   flex-direction: column;
   min-height: 0;
   min-width: 0;
-  /* Cancelar padding de .output-content para que InputBar sea full-width */
-  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-8));
 }
 
 /* ── Content row: chat + panel lateral (split view) ──
@@ -616,6 +613,15 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+/* Constrain the messages wrapper so .chat-messages scrolls independently */
+#messages-inner {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Spacing entre mensajes normales */

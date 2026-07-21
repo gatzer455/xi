@@ -224,7 +224,7 @@
 .settings-provider-feedback--err { color: var(--color-error, #f87171); }
 
 /* ═══ SESSIONS PAGE ═══ */
-.sessions-page { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.sessions-page { flex: 1; display: flex; flex-direction: column; overflow: hidden; padding: var(--space-6) var(--space-8); }
 
 .sessions-header {
   display: flex;
