@@ -85,12 +85,14 @@ export function SessionsPage(props: SessionsPageProps) {
     const cwd = appState.workingDir.value;
     if (!cwd) return;
     if (!props.tabId || !props.paneId) { setError('No hay un panel activo'); return; }
+    // Convertir el pane a chat ANTES de cargar mensajes
+    // para que state-sync.ts enrute los eventos a la store correcta
+    setPaneType(props.tabId, props.paneId, 'chat', session.path);
     try {
       await startPi(cwd, session.path);
       await getPiState();
       await getPiMessages();
       await getAvailableModels();
-      setPaneType(props.tabId, props.paneId, 'chat', session.path);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
