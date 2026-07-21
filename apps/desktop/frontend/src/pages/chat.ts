@@ -102,12 +102,15 @@ export function ChatPage(): Page {
   explorerToggle.addEventListener('click', () => {
     appState.explorerPanelOpen.value = !appState.explorerPanelOpen.value;
   });
-  root.append(explorerToggle);
+  // Append al #output-board (no a .chat-area) para que el position: absolute
+  // sea relativo al contenedor fijo y el botón no scrollee con los mensajes.
+  document.getElementById('output-board')?.append(explorerToggle);
 
   const unsubToggleState = appState.explorerPanelOpen.subscribe((open) => {
     explorerToggle.classList.toggle('active', open);
   });
   scope.add(unsubToggleState);
+  scope.add(() => explorerToggle.remove());
 
   // ═══ Auto-scroll ═══
   const scroll = createAutoScroll(messagesContainer, endSentinel);

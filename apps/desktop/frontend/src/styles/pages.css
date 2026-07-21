@@ -506,13 +506,43 @@
 /* ═══ EXPLORER PAGE ═══ */
 .explorer-page { display: flex; flex: 1; overflow: hidden; height: 100%; }
 
-.explorer-sidebar {
-  width: 280px;
-  min-width: 200px;
-  max-width: 400px;
-  border-right: 1px solid var(--color-border);
+/* Single-view: file list container */
+.explorer-list {
+  flex: 1;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   background: var(--color-surface);
+}
+
+/* Preview container con barra de navegación */
+.explorer-preview {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Barra de navegación: "← Volver" */
+.explorer-preview-nav {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+.explorer-preview-back {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+.explorer-preview-back:hover {
+  background: var(--color-hover);
 }
 
 .file-list { padding: var(--space-2) 0; }
@@ -544,8 +574,6 @@
 }
 .file-item-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-item-size { font-size: 11px; color: var(--color-text-muted); }
-
-.explorer-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
 
 .file-preview { flex: 1; display: flex; flex-direction: column; }
 .file-preview-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--color-text-muted); }
