@@ -1,10 +1,16 @@
 /**
  * FileList.tsx — Lista de archivos del explorador (SolidJS).
  */
-import { createSignal, For, Show, onCleanup } from 'solid-js';
+import { createSignal, For, Show, onCleanup, onMount } from 'solid-js';
 import { appState, type FileEntry } from 'xi-ui/lib/state.ts';
 import { listFiles, readFile } from 'xi-ui/lib/pi/tauri-commands.ts';
-import { getFileIconName } from 'xi-ui/lib/icons.ts';
+import { getFileIconName, icon } from 'xi-ui/lib/icons.ts';
+
+function FileIcon(props: { isDir: boolean; name: string; size?: number }) {
+  let ref: HTMLSpanElement | undefined;
+  onMount(() => { if (ref) ref.append(icon(getFileIconName(props.isDir, props.name), { size: props.size ?? 16 })); });
+  return <span ref={ref} class="file-item-icon" />;
+}
 
 export function FileList() {
   const [files, setFiles] = createSignal(appState.files.value);
@@ -73,7 +79,7 @@ export function FileList() {
         {(file) => (
           <div classList={{ 'file-item': true, 'file-item--active': file.path === selectedPath() }}
                onClick={() => onFileClick(file)}>
-            <span class="file-item-icon">{getFileIconName(file.is_dir, file.name)}</span>
+            <FileIcon isDir={file.is_dir} name={file.name} />
             <span class="file-item-name" title={file.path}>{file.name}</span>
             <Show when={!file.is_dir}>
               <span class="file-item-size">{fmtSize(file.size)}</span>

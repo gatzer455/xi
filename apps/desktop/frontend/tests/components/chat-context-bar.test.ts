@@ -14,6 +14,7 @@
  * @vitest-environment jsdom
  */
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
+import { render, createComponent } from 'solid-js/web';
 
 // ─── Mock appState (controllable signals) ─────────────────
 
@@ -67,9 +68,15 @@ vi.mock('xi-ui/lib/debug-panel.ts', () => ({
   addEntry: vi.fn(),
 }));
 
-import { ChatContextBar } from '../../src/components/chat-context-bar.ts';
+import { ChatContextBar } from '../../src/components/ChatContextBar.tsx';
 
 const { isStreaming, currentModel, activeTabId, currentView } = mockState;
+
+function mount(): { root: HTMLElement; dispose: () => void } {
+  const container = document.createElement('div');
+  const dispose = render(() => createComponent(ChatContextBar, {}), container);
+  return { root: container.firstElementChild as HTMLElement, dispose };
+}
 
 describe('ChatContextBar', () => {
   beforeEach(() => {
@@ -85,20 +92,20 @@ describe('ChatContextBar', () => {
   });
 
   test('root siempre visible (display != none)', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     expect(cb.root.style.display).not.toBe('none');
     expect(cb.root.className).toBe('context-bar');
     cb.dispose();
   });
 
   test('label por defecto es "Trabajando…"', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     expect(cb.root.querySelector('.context-bar-label')?.textContent).toBe('Trabajando…');
     cb.dispose();
   });
 
   test('spinner y label ocultos con visibility (no display) cuando isStreaming=false', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     const spinner = cb.root.querySelector<HTMLElement>('.context-bar-spinner')!;
     const label = cb.root.querySelector<HTMLElement>('.context-bar-label')!;
     // Preservan espacio (visibility:hidden) pero no son visibles
@@ -109,7 +116,7 @@ describe('ChatContextBar', () => {
   });
 
   test('isStreaming=true cambia visibility a visible', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     isStreaming.value = true;
     const spinner = cb.root.querySelector<HTMLElement>('.context-bar-spinner')!;
     const label = cb.root.querySelector<HTMLElement>('.context-bar-label')!;
@@ -119,7 +126,7 @@ describe('ChatContextBar', () => {
   });
 
   test('isStreaming=false vuelve a visibility hidden', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     isStreaming.value = true;
     isStreaming.value = false;
     const spinner = cb.root.querySelector<HTMLElement>('.context-bar-spinner')!;
@@ -130,7 +137,7 @@ describe('ChatContextBar', () => {
   });
 
   test('el spinner cambia de frame tras 80ms cuando streaming', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     isStreaming.value = true;
     const spinner = cb.root.querySelector('.context-bar-spinner')!;
     const before = spinner.textContent;
@@ -142,7 +149,7 @@ describe('ChatContextBar', () => {
   });
 
   test('el spinner avanza 9+ frames únicos en un ciclo (800ms)', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     isStreaming.value = true;
     const spinner = cb.root.querySelector('.context-bar-spinner')!;
     const frames: string[] = [spinner.textContent!];
@@ -156,7 +163,7 @@ describe('ChatContextBar', () => {
   });
 
   test('isStreaming=true dos veces no arranca segundo interval', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     isStreaming.value = true;
     isStreaming.value = true;
     const spinner = cb.root.querySelector('.context-bar-spinner')!;
@@ -167,7 +174,7 @@ describe('ChatContextBar', () => {
   });
 
   test('dispose detiene el interval (no más ticks)', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     isStreaming.value = true;
     const spinner = cb.root.querySelector('.context-bar-spinner')!;
     cb.dispose();
@@ -177,7 +184,7 @@ describe('ChatContextBar', () => {
   });
 
   test('modelo se actualiza con currentModel', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     const btn = cb.root.querySelector<HTMLButtonElement>('.context-bar-model')!;
     expect(btn.textContent).toBe('sin modelo');
 
@@ -190,14 +197,14 @@ describe('ChatContextBar', () => {
   });
 
   test('token bar vacía sin activeTabId', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     const tokens = cb.root.querySelector('.context-bar-tokens')!;
     expect(tokens.textContent).toBe('');
     cb.dispose();
   });
 
   test('boton modelo es un button clickeable con title', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     const btn = cb.root.querySelector<HTMLButtonElement>('.context-bar-model')!;
     expect(btn.tagName).toBe('BUTTON');
     expect(btn.title).toBe('Cambiar modelo');
@@ -205,13 +212,13 @@ describe('ChatContextBar', () => {
   });
 
   test('dispose no tira error si se llama dos veces', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     cb.dispose();
     expect(() => cb.dispose()).not.toThrow();
   });
 
   test('token bar y modelo visibles aunque isStreaming=false', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     const tokens = cb.root.querySelector('.context-bar-tokens')!;
     expect(tokens.textContent).toBe('');
     const modelBtn = cb.root.querySelector<HTMLButtonElement>('.context-bar-model')!;
@@ -220,7 +227,7 @@ describe('ChatContextBar', () => {
   });
 
   test('visible solo en vista chat (oculta en sessions/settings/welcome)', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     expect(cb.root.style.display).not.toBe('none');
 
     // Cambiar a otra vista → se oculta
@@ -235,7 +242,7 @@ describe('ChatContextBar', () => {
   });
 
   test('progress bar fill NO tiene hsl (el verde/rojo viejo)', () => {
-    const cb = ChatContextBar();
+    const cb = mount();
     const fill = cb.root.querySelector<HTMLElement>('.context-bar-progress-fill')!;
     // El CSS del componente ya pone background: var(--color-accent) por
     // clase. El inline style solo se actualiza cuando hay activeTabId.

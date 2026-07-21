@@ -7,7 +7,7 @@ import type { Page } from 'xi-ui/lib/scope.ts';
 import { ChatPage } from '../pages/chat.ts';
 import { explorerPageFactory as ExplorerPage } from '../pages/ExplorerPage.tsx';
 import { SessionsPage } from '../pages/sessions.ts';
-import { SettingsPage } from '../pages/settings.ts';
+import { SettingsPage } from '../pages/SettingsPage.tsx';
 import { WelcomePage } from '../pages/WelcomePage.tsx';
 
 /** Envuelve una página vanilla (interfaz Page) como componente SolidJS. */
@@ -37,7 +37,7 @@ export function OutputBoard() {
           <Match when={view() === 'chat'}><VanillaPage factory={ChatPage} /></Match>
           <Match when={view() === 'sessions'}><VanillaPage factory={SessionsPage} /></Match>
           <Match when={view() === 'explorer'}><VanillaPage factory={ExplorerPage} /></Match>
-          <Match when={view() === 'settings'}><VanillaPage factory={SettingsPage} /></Match>
+          <Match when={view() === 'settings'}><SettingsPage /></Match>
         </Switch>
       </div>
     </div>
