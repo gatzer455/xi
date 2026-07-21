@@ -85,16 +85,23 @@ export function SessionsPage() {
     if (!cwd) return;
     const isOpen = appState.openTabs.value.some((t) => t.id === session.id);
     if (isOpen) { setActiveTab(session.id); navigate('chat'); return; }
+    const newTab: Session = { id: session.id, name: session.name, file: session.path, messageCount: session.messageCount };
+    setActiveTab(session.id);
+    appState.openTabs.value = [...appState.openTabs.value, newTab];
     try {
       await startPi(cwd, session.path);
       await getPiState();
       await getPiMessages();
       await getAvailableModels();
-      const newTab: Session = { id: session.id, name: session.name, file: session.path, messageCount: session.messageCount };
-      setActiveTab(session.id);
-      appState.openTabs.value = [...appState.openTabs.value, newTab];
       navigate('chat');
-    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    } catch (err) {
+      // Rollback: remover el tab que agregamos
+      appState.activeTabId.value = appState.openTabs.value.length > 1
+        ? appState.openTabs.value[appState.openTabs.value.length - 2].id
+        : null;
+      appState.openTabs.value = appState.openTabs.value.filter((t) => t.id !== session.id);
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   async function handleDelete(session: SessionInfo) {
