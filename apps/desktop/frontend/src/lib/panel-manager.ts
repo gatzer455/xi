@@ -99,6 +99,12 @@ export function getActivePane(): Pane | null {
 // ═════════════════════════════════════════════
 
 export function openChatTab(sessionId: string, label?: string): string {
+  // openTabs: state-sync filtra eventos por esta lista
+  if (!appState.openTabs.value.some((t) => t.id === sessionId)) {
+    appState.openTabs.value = [...appState.openTabs.value, {
+      id: sessionId, file: sessionId, name: label ?? sessionId, messageCount: 0,
+    }];
+  }
   const existing = tabs.find(t => t.type === 'chat' && t.sessionId === sessionId);
   if (existing) {
     setActiveTabId(existing.id);
