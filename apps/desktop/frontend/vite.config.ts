@@ -35,10 +35,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    // Target moderno para soportar top-level await.
-    target: 'es2022',
-  },
-  esbuild: {
     target: 'es2022',
   },
   optimizeDeps: {
