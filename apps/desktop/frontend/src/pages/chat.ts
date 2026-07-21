@@ -38,7 +38,6 @@ import {
 import { navigate } from 'xi-ui/lib/nav.ts';
 import {
   createMessagesContainer,
-  createAutoScroll,
 } from 'xi-ui/components/chat-messages.ts';
 import { ChatMessages, createWrappedSignal } from 'xi-ui/components/ChatMessages.tsx';
 import { render } from 'solid-js/web';
@@ -62,7 +61,7 @@ export function ChatPage(): Page {
   root.append(contentRow);
 
   // ═══ Messages container ═══
-  const { messagesContainer, messagesInner, endSentinel } =
+  const { messagesContainer, messagesInner } =
     createMessagesContainer();
   contentRow.append(messagesContainer);
 
@@ -112,8 +111,6 @@ export function ChatPage(): Page {
   scope.add(unsubToggleState);
   scope.add(() => explorerToggle.remove());
 
-  // ═══ Auto-scroll ═══
-  const scroll = createAutoScroll(messagesContainer, endSentinel);
 
   // ═══ Bind al ChatStore del activeTab + render SolidJS ═══
   let currentStore: ChatStore | null = null;
@@ -129,9 +126,7 @@ export function ChatPage(): Page {
 
     // Empty state (mensajes vacíos o sin tab activa)
     messagesInner.replaceChildren();
-    messagesInner.append(endSentinel);
     if (!tabId) {
-      scroll.pinToBottom();
       return;
     }
 
@@ -139,14 +134,22 @@ export function ChatPage(): Page {
     currentStore = store;
 
     // Bridge: signal legacy → SolidJS reactive
-    const messagesSig = createWrappedSignal(store.messages$);
-    const streamingSig = createWrappedSignal(store.isStreaming$);
+    const [messagesSig, unsubMsgs] = createWrappedSignal(store.messages$);
+    const [streamingSig, unsubStream] = createWrappedSignal(store.isStreaming$);
 
     // Montar ChatMessages SolidJS dentro de messagesInner
     solidDispose = render(
       () => createComponent(ChatMessages, { messages: messagesSig, streaming: streamingSig }),
       messagesInner,
     );
+
+    // Combinar cleanup: dispose del render + unsubscribe de las señales
+    const prevDispose = solidDispose;
+    solidDispose = () => {
+      prevDispose?.();
+      unsubMsgs();
+      unsubStream();
+    };
   }
 
   scope.add(appState.activeTabId.subscribe(bindActiveTab));
