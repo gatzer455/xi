@@ -845,15 +845,16 @@
   min-height: 0;
   gap: 2px;
   background: var(--color-border);
+  overflow: hidden;
 }
 
-.pane-root[data-panes="1"] { grid-template: 1fr / 1fr; }
-.pane-root[data-panes="2"] { grid-template: 1fr / 1fr 1fr; }
-.pane-root[data-panes="3"] { grid-template: 1fr 1fr / 1fr 1fr; }
+.pane-root[data-panes="1"] { grid-template: minmax(0, 1fr) / 1fr; }
+.pane-root[data-panes="2"] { grid-template: minmax(0, 1fr) / 1fr 1fr; }
+.pane-root[data-panes="3"] { grid-template: minmax(0, 1fr) minmax(0, 1fr) / 1fr 1fr; }
 .pane-root[data-panes="3"] > .pane:first-child {
   grid-row: 1 / 3;
 }
-.pane-root[data-panes="4"] { grid-template: 1fr 1fr / 1fr 1fr; }
+.pane-root[data-panes="4"] { grid-template: minmax(0, 1fr) minmax(0, 1fr) / 1fr 1fr; }
 
 .pane {
   position: relative;
