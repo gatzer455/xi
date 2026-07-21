@@ -83,16 +83,16 @@ export function SessionsPage() {
   async function switchTo(session: SessionInfo) {
     const cwd = appState.workingDir.value;
     if (!cwd) return;
-    const newTab: Session = { id: session.id, name: session.name, file: session.path, messageCount: session.messageCount };
     const isOpen = appState.openTabs.value.some((t) => t.id === session.id);
     if (isOpen) { setActiveTab(session.id); navigate('chat'); return; }
-    setActiveTab(session.id);
-    appState.openTabs.value = [...appState.openTabs.value, newTab];
     try {
       await startPi(cwd, session.path);
       await getPiState();
       await getPiMessages();
       await getAvailableModels();
+      const newTab: Session = { id: session.id, name: session.name, file: session.path, messageCount: session.messageCount };
+      setActiveTab(session.id);
+      appState.openTabs.value = [...appState.openTabs.value, newTab];
       navigate('chat');
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
   }
@@ -193,7 +193,10 @@ function SessionCard(props: {
   let clickTimer: ReturnType<typeof setTimeout> | null = null;
 
   return (
-    <article classList={{ 'session-card': true, 'is-active': props.isActive }} onClick={() => props.onSwitch()}>
+    <article classList={{ 'session-card': true, 'is-active': props.isActive }}
+             tabIndex={0} role="button"
+             onClick={() => props.onSwitch()}
+             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); props.onSwitch(); } }}>
       <div class="session-item-header">
         <div class="session-item-name">
           <Show when={!isRenaming()} fallback={

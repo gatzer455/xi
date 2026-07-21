@@ -9,8 +9,11 @@ export function ModelPicker(props: { onClose: () => void }) {
   const [query, setQuery] = createSignal('');
   const [idx, setIdx] = createSignal(0);
   const [models, setModels] = createSignal<PiModel[]>([]);
+  const [error, setError] = createSignal<string | null>(null);
+  const [currentModel, setCurrentModel] = createSignal(appState.currentModel.value);
 
   onCleanup(appState.availableModels.subscribe(setModels));
+  onCleanup(appState.currentModel.subscribe(setCurrentModel));
 
   const filtered = createMemo(() => {
     const q = query().toLowerCase().trim();
@@ -19,11 +22,15 @@ export function ModelPicker(props: { onClose: () => void }) {
     return f.sort((a, b) => a.provider.localeCompare(b.provider) || (a.name || a.id).localeCompare(b.name || b.id));
   });
 
-  const current = () => appState.currentModel.value;
+  const current = currentModel;
 
-  function select(m: PiModel) {
-    setModel(m.provider, m.id);
-    props.onClose();
+  async function select(m: PiModel) {
+    try {
+      await setModel(m.provider, m.id);
+      props.onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   function onKey(e: KeyboardEvent) {
@@ -65,6 +72,7 @@ export function ModelPicker(props: { onClose: () => void }) {
             );
           }}</For>
         </div>
+        <Show when={error()}><div class="model-picker-error">{error()}</div></Show>
         <div class="model-picker-footer">{filtered().length} modelo{filtered().length !== 1 ? 's' : ''}</div>
       </div>
     </div>

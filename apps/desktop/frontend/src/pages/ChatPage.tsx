@@ -8,7 +8,7 @@ import type { ChatMessage } from 'xi-ui/lib/chat/types.ts';
 import {
   renderSelectDialog, renderConfirmDialog, renderInputDialog, renderEditorDialog,
 } from 'xi-ui/components/extension-ui-dialog.ts';
-import { setDialogRenderer } from '../lib/pi/extension-ui-handler.ts';
+import { setDialogRenderer, clearDialogRenderer } from '../lib/pi/extension-ui-handler.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { ChatMessages, createWrappedSignal } from 'xi-ui/components/ChatMessages.tsx';
 import { mountExplorer } from './ExplorerPage.tsx';
@@ -85,7 +85,7 @@ export function ChatPage() {
     });
   });
 
-  onCleanup(() => { dialogCleanup?.(); });
+  onCleanup(() => { dialogCleanup?.(); clearDialogRenderer(); });
 
   onCleanup(appState.activeExtensionDialog.subscribe((d) => {
     if (!dialogContainer) return;
