@@ -13,20 +13,23 @@ import { navigate } from 'xi-ui/lib/nav.ts';
 import { ChatMessages } from 'xi-ui/components/ChatMessages.tsx';
 import { mountExplorer } from './ExplorerPage.tsx';
 
-export function ChatPage() {
+export function ChatPage(props?: { sessionId?: string }) {
   // ═══ Auth banner ═══
-  const [hasProvider, setHasProvider] = createSignal(appState.hasAnyProvider.value);
-  onCleanup(appState.hasAnyProvider.subscribe(setHasProvider));
+  const sessionId = () => props?.sessionId ?? appState.activeTabId.value;
 
-  // ═══ Explorer panel ═══
+  // ═══ Auth banner (solo en tab principal) ═══
+  const [hasProvider, setHasProvider] = createSignal(appState.hasAnyProvider.value);
+  if (!props?.sessionId) onCleanup(appState.hasAnyProvider.subscribe(setHasProvider));
+
+  // ═══ Explorer panel (solo en tab principal) ═══
   const [panelOpen, setPanelOpen] = createSignal(appState.explorerPanelOpen.value);
-  onCleanup(appState.explorerPanelOpen.subscribe(setPanelOpen));
+  if (!props?.sessionId) onCleanup(appState.explorerPanelOpen.subscribe(setPanelOpen));
 
   // ═══ Active tab → store binding ═══
-  const [tabId, setTabId] = createSignal(appState.activeTabId.value);
+  const [tabId, setTabId] = createSignal(sessionId());
   const [dialog, setDialog] = createSignal(appState.activeExtensionDialog.value);
-  onCleanup(appState.activeTabId.subscribe(setTabId));
-  onCleanup(appState.activeExtensionDialog.subscribe(setDialog));
+  if (!props?.sessionId) onCleanup(appState.activeTabId.subscribe(setTabId));
+  if (!props?.sessionId) onCleanup(appState.activeExtensionDialog.subscribe(setDialog));
 
   const emptyMsgs: ChatMessage[] = [];
   const [messages, _setMessages] = createSignal(emptyMsgs);
@@ -47,8 +50,8 @@ export function ChatPage() {
     unsubStream = store.isStreaming$.subscribe((s) => _setStreaming(s));
   }
 
-  bindTab(tabId());
-  onCleanup(appState.activeTabId.subscribe((id) => bindTab(id)));
+  bindTab(sessionId());
+  if (!props?.sessionId) onCleanup(appState.activeTabId.subscribe((id) => bindTab(id)));
   onCleanup(() => { unsubMsgs?.(); unsubStream?.(); });
 
   // ═══ Extension dialog setup (imperativo) ═══
@@ -56,36 +59,39 @@ export function ChatPage() {
   let dialogCleanup: (() => void) | null = null;
   let askResponses: Array<{ question: string; answer: string }> = [];
 
-  onMount(() => {
-    setDialogRenderer((_method, request: any) => {
-      return new Promise((resolve, reject) => {
-        const wrappedResolve = (value: Record<string, unknown>) => {
-          const answer = formatDialogResponse(request.method, value);
-          if (answer) askResponses.push({ question: request.title ?? request.message ?? '', answer });
-          appState.activeExtensionDialog.value = null;
-          resolve(value);
-        };
-        const wrappedReject = () => {
-          askResponses.push({ question: request.title ?? request.message ?? '', answer: '(cancelled)' });
-          appState.activeExtensionDialog.value = null;
-          reject();
-        };
-        appState.activeExtensionDialog.value = {
-          id: request.id, method: request.method,
-          title: 'title' in request ? request.title : '',
-          message: 'message' in request ? request.message : undefined,
-          options: 'options' in request ? request.options : undefined,
-          placeholder: 'placeholder' in request ? request.placeholder : undefined,
-          prefill: 'prefill' in request ? request.prefill : undefined,
-          resolve: wrappedResolve, reject: wrappedReject,
-        };
+  // Extension dialog (solo en tab principal)
+  if (!props?.sessionId) {
+    onMount(() => {
+      setDialogRenderer((_method, request: any) => {
+        return new Promise((resolve, reject) => {
+          const wrappedResolve = (value: Record<string, unknown>) => {
+            const answer = formatDialogResponse(request.method, value);
+            if (answer) askResponses.push({ question: request.title ?? request.message ?? '', answer });
+            appState.activeExtensionDialog.value = null;
+            resolve(value);
+          };
+          const wrappedReject = () => {
+            askResponses.push({ question: request.title ?? request.message ?? '', answer: '(cancelled)' });
+            appState.activeExtensionDialog.value = null;
+            reject();
+          };
+          appState.activeExtensionDialog.value = {
+            id: request.id, method: request.method,
+            title: 'title' in request ? request.title : '',
+            message: 'message' in request ? request.message : undefined,
+            options: 'options' in request ? request.options : undefined,
+            placeholder: 'placeholder' in request ? request.placeholder : undefined,
+            prefill: 'prefill' in request ? request.prefill : undefined,
+            resolve: wrappedResolve, reject: wrappedReject,
+          };
+        });
       });
     });
-  });
+  }
 
   onCleanup(() => { dialogCleanup?.(); clearDialogRenderer(); });
 
-  onCleanup(appState.activeExtensionDialog.subscribe((d) => {
+  if (!props?.sessionId) onCleanup(appState.activeExtensionDialog.subscribe((d) => {
     if (!dialogContainer) return;
     dialogContainer.replaceChildren();
     dialogCleanup?.();
@@ -143,7 +149,7 @@ export function ChatPage() {
 
   return (
     <div class="chat-area">
-      <Show when={!hasProvider()}>
+      <Show when={!props?.sessionId && !hasProvider()}>
         <div class="chat-auth-banner">
           <span>⚠ No hay modelo configurado. Configura tu API key en Ajustes para empezar a conversar.</span>
           <button class="chat-auth-banner-btn" onClick={() => navigate('settings')}>Ir a Ajustes</button>
@@ -157,20 +163,22 @@ export function ChatPage() {
           </div>
         </div>
 
-        <Show when={panelOpen()}>
+        <Show when={!props?.sessionId && panelOpen()}>
           <div class="explorer-panel" ref={setExplorerRef} />
         </Show>
       </div>
 
-      <div ref={dialogContainer} class="extension-dialog-wrapper" />
+      <Show when={!props?.sessionId}>
+        <div ref={dialogContainer} class="extension-dialog-wrapper" />
 
-      <button class="explorer-toggle" title="Explorador de archivos"
-              classList={{ active: panelOpen() }}
-              onClick={() => { appState.explorerPanelOpen.value = !panelOpen(); }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-        </svg>
-      </button>
+        <button class="explorer-toggle" title="Explorador de archivos"
+                classList={{ active: panelOpen() }}
+                onClick={() => { appState.explorerPanelOpen.value = !panelOpen(); }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+          </svg>
+        </button>
+      </Show>
     </div>
   );
 }

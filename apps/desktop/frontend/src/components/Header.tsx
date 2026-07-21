@@ -18,6 +18,9 @@ import {
   getActiveTabId,
   activateTab,
   closeTab,
+  closeActiveTile,
+  splitTile,
+  nextTile,
   syncChatTab,
   openExplorerTab,
   nextTab,
@@ -39,6 +42,25 @@ function IconEl(props: { name: string; size?: number }) {
 
 function closeTabWithCleanup(tabId: string): void {
   const tab = getTabs().find(t => t.id === tabId);
+  if (!tab) {
+    closeTab(tabId);
+    return;
+  }
+
+  // Si hay múltiples tiles, cerrar solo el tile activo
+  if (tab.tiles.length > 1) {
+    const tile = tab.tiles.find(t => t.id === tab.activeTileId);
+    if (tile?.type === 'chat' && tile.sessionId) {
+      if (tile.sessionId === appState.activeTabId.value && appState.isStreaming.value) {
+        abortPi().catch(() => {});
+      }
+      dropStore(tile.sessionId);
+    }
+    closeActiveTile();
+    return;
+  }
+
+  // Un solo tile — cerrar la tab completa
   if (tab?.type === 'chat' && tab.sessionId) {
     if (tab.sessionId === appState.activeTabId.value && appState.isStreaming.value) {
       abortPi().catch(() => {});
@@ -61,22 +83,46 @@ function useTabShortcuts() {
         navigate('sessions');
         return;
       }
+      // Ctrl+W — cerrar tab activa (o tile si hay múltiples)
       if (ctrl && e.key === 'w') {
         e.preventDefault();
         const id = getActiveTabId();
         if (id) closeTabWithCleanup(id);
         return;
       }
-      if (ctrl && e.shiftKey && e.key === 'E') {
+      // Ctrl+Shift+O — split horizontal (derecha)
+      if (ctrl && e.shiftKey && e.key === 'O') {
         e.preventDefault();
-        openExplorerTab();
+        const id = getActiveTabId();
+        if (id) splitTile(id, 'horizontal');
         return;
       }
+      // Ctrl+Shift+E — split vertical (abajo)
+      if (ctrl && e.shiftKey && e.key === 'E') {
+        e.preventDefault();
+        const id = getActiveTabId();
+        if (id) splitTile(id, 'vertical');
+        return;
+      }
+      // Ctrl+Tab — navegar tabs
+      if (ctrl && !e.shiftKey && e.key === 'Tab') {
+        e.preventDefault();
+        nextTab();
+        return;
+      }
+      // Ctrl+Shift+Tab — navegar tiles dentro de la tab
+      if (ctrl && e.shiftKey && e.key === 'Tab') {
+        e.preventDefault();
+        nextTile();
+        return;
+      }
+      // Ctrl+PageDown — tab siguiente (backup)
       if (ctrl && e.key === 'PageDown') {
         e.preventDefault();
         nextTab();
         return;
       }
+      // Ctrl+PageUp — tab anterior
       if (ctrl && e.key === 'PageUp') {
         e.preventDefault();
         prevTab();
