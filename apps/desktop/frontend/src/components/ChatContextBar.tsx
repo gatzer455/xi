@@ -32,7 +32,6 @@ export function ChatContextBar(props?: { sessionId?: string }) {
   const fixedSessionId = () => props?.sessionId;
 
   const [streaming, setStreaming] = createSignal(appState.isStreaming.value);
-  const [view, setView] = createSignal(appState.currentView.value);
   const [spinnerIdx, setSpinnerIdx] = createSignal(0);
   const [tokens, setTokens] = createSignal(0);
   const [model, setModelState] = createSignal(appState.currentModel.value);
@@ -40,7 +39,6 @@ export function ChatContextBar(props?: { sessionId?: string }) {
   const [pickerOpen, setPickerOpen] = createSignal(false);
 
   onCleanup(appState.isStreaming.subscribe(setStreaming));
-  onCleanup(appState.currentView.subscribe(setView));
   onCleanup(appState.currentModel.subscribe(setModelState));
   onCleanup(appState.thinkingLevel.subscribe(setThinkLevel));
 
@@ -112,23 +110,13 @@ export function ChatContextBar(props?: { sessionId?: string }) {
     setThinkingLevel(next);
   }
 
-  // Cuando cambia la vista, ocultar/mostrar via DOM directo
-  let divRef: HTMLDivElement | undefined;
-  function setRef(el: HTMLDivElement) {
-    divRef = el;
-    el.style.display = view() === 'chat' ? '' : 'none';
-  }
-  onCleanup(appState.currentView.subscribe((v) => {
-    if (divRef) divRef.style.display = v === 'chat' ? '' : 'none';
-  }));
-
   const pct = createMemo(() => ctxWin() > 0 ? (tokens() / ctxWin()) * 100 : 0);
 
   // Token text: vacío si no hay tokens, o formato "N / M (X%)"
   const tokenText = createMemo(() => tokens() === 0 ? '' : `${fmt(tokens())} / ${fmt(ctxWin())} (${pct().toFixed(1)}%)`);
 
   return (
-    <div id="context-bar" class="context-bar" ref={setRef}>
+    <div id="context-bar" class="context-bar">
       <span class="context-bar-spinner" style={{ visibility: streaming() ? 'visible' : 'hidden' }}>
         {BRAILLE[spinnerIdx()]}
       </span>
