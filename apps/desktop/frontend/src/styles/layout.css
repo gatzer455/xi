@@ -8,6 +8,23 @@
    Dependencias: tokens.css, base.css.
    Dependientes: components.css, pages.css. */
 
+/* ═══ OUTPUT BOARD ═══
+   Wrapper de OutputBoard.tsx que contiene el routing de páginas.
+   .output-board envuelve .output-content para mantener flex.
+   #output-board en base.css da el flex: 1 del app shell. */
+.output-board {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.output-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ═══ TOP BAR ═══
    Barra horizontal: logo | card proyecto | tabs conversaciones
    | (espacio) | settings. 48px height, JetBrains Mono en todo. */
@@ -105,6 +122,155 @@
   color: var(--color-text);
   background: var(--color-surface-2);
   border-color: var(--color-border);
+}
+
+/* ═══ UPDATE BANNER ═══
+   Franja horizontal debajo del header cuando hay update
+   descargado listo para aplicar. visibility: hidden por defecto,
+   .update-banner--visible lo muestra. */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-accent-soft);
+  border-bottom: 1px solid var(--color-accent);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  visibility: hidden;
+}
+.update-banner--visible { visibility: visible; }
+.update-banner-text { flex: 1; }
+
+.update-banner-restart {
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.update-banner-restart:hover { filter: brightness(1.1); }
+
+.update-banner-dismiss {
+  background: transparent;
+  color: var(--color-text-muted);
+  border: none;
+  font-size: var(--text-base);
+  line-height: 1;
+  cursor: pointer;
+  padding: var(--space-1);
+}
+.update-banner-dismiss:hover { color: var(--color-text); }
+
+/* ═══ CHAT AUTH BANNER ═══
+   Aviso cuando no hay modelo configurado. Dentro de ChatPage,
+   entre el header y el area de mensajes. */
+.chat-auth-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-warning-bg, #fff3cd);
+  border-bottom: 1px solid var(--color-warning-border, #ffc107);
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}
+.chat-auth-banner span {
+  flex: 1;
+  color: var(--color-warning-text, #856404);
+}
+.chat-auth-banner-btn {
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.chat-auth-banner-btn:hover { background: var(--color-accent-hover); }
+
+/* ── Content row: chat + panel lateral (split view) ──
+   .chat-content-row contiene .chat-messages + .explorer-panel.
+   Por defecto solo tiene .chat-messages. Al abrir el panel,
+   .chat-area--panel-open activa el layout flex-row. */
+.chat-content-row {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+}
+
+.chat-messages-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: var(--space-6) var(--space-8);
+  box-sizing: border-box;
+}
+
+#messages-inner {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  scroll-padding-bottom: var(--space-8);
+}
+
+/* Panel del explorador: visible solo cuando explorerPanelOpen = true.
+   Ancho fijo, scroll independiente, borde separador. */
+.explorer-panel {
+  width: 380px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--color-border);
+  overflow-y: auto;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Explorer toggle: botón bubble fijo en la esquina inferior
+   derecha del output board, justo encima de la context bar.
+   position: fixed respecto al viewport para que nunca scrollee. */
+.explorer-toggle {
+  position: fixed;
+  bottom: calc(var(--space-3) + 84px); /* encima de context + input */
+  right: var(--space-3);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  z-index: 10;
+}
+.explorer-toggle:hover,
+.explorer-toggle.active {
+  background: var(--color-surface-3);
+  color: var(--color-text);
+  border-color: var(--color-accent);
+}
+
+/* ── Extension dialog: anclado al borde inferior de chat-area,
+   fuera del scroll de mensajes. Con borde superior para separarlo
+   visualmente del contenido. */
+.extension-dialog-wrapper {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-3);
+  background: var(--color-bg);
 }
 
 /* ─── Pane Root (multi-panel grid) ────────────────────────
