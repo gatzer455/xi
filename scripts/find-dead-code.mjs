@@ -3,15 +3,15 @@
  * find-dead-code.mjs — Detecta archivos TS/TSX muertos (sin importers).
  *
  * Usa ast-grep outline --items imports/exports para construir un grafo
- * de dependencias determinístico. Sin falsos positivos de regex.
+ * de dependencias determinístico.
  *
  * Uso:
- *   bun scripts/find-dead-code.mjs                      # reporte
- *   bun scripts/find-dead-code.mjs --json               # salida JSON
+ *   bun scripts/find-dead-code.mjs                 # reporte
+ *   bun scripts/find-dead-code.mjs --json          # salida JSON
  */
 
-import { execSync } from "node:child_process";
-import { resolve, relative, dirname, join, normalize } from "node:path";
+import { execFileSync } from "node:child_process";
+import { resolve, relative, dirname, normalize } from "node:path";
 
 const ROOT = resolve(import.meta.dirname, "..");
 
@@ -25,7 +25,6 @@ const SCAN_DIRS = [
   "packages/xi-tools",
 ];
 
-// Path aliases (de tsconfig.json / vite.config.ts)
 const ALIASES = {
   "xi-ui": "packages/xi-ui/src",
   "xi-exa": "packages/xi-exa",
@@ -33,18 +32,14 @@ const ALIASES = {
   "xi-tools": "packages/xi-tools",
 };
 
-// Entry points: nunca importados, pero vivos
 const ENTRY_PATTERNS = [
   /\/main\.tsx?$/,
-  /\/main\.ts$/,
   /vite\.config\.ts$/,
   /\/index\.ts$/,
   /\/index\.tsx$/,
-  /\.config\.(ts|js|mjs)$/,
   /\/vite-env\.d\.ts$/,
 ];
 
-// Archivos ignorados
 const IGNORE_PATTERNS = [
   /\/tests\//,
   /\/__tests__\//,
@@ -57,49 +52,47 @@ const IGNORE_PATTERNS = [
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function findFiles(dirs) {
-  const paths = dirs.map((d) => resolve(ROOT, d)).join(" ");
-  const cmd = `find ${paths} -type f \\( -name '*.ts' -o -name '*.tsx' \\)`;
+/** Ejecuta un comando y devuelve stdout como string. Args seguros (sin shell). */
+function run(cmd, args) {
   try {
-    return execSync(cmd, { encoding: "utf8" }).trim().split("\n").filter(Boolean);
+    return execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
-    return [];
+    return "";
   }
+}
+
+function findFiles(dirs) {
+  const args = dirs.map((d) => resolve(ROOT, d));
+  const out = run("find", [
+    ...args, "-type", "f",
+    "(", "-name", "*.ts", "-o", "-name", "*.tsx", ")",
+  ]);
+  return out ? out.split("\n").filter(Boolean) : [];
 }
 
 function outlineJson(file, itemType) {
-  try {
-    const out = execSync(
-      `ast-grep outline --items ${itemType} --json=stream "${file}"`,
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }
-    );
-    return out.trim().split("\n").filter(Boolean).map(JSON.parse);
-  } catch {
-    return [];
-  }
+  const out = run("ast-grep", [
+    "outline", "--items", itemType, "--json=stream", file,
+  ]);
+  return out ? out.split("\n").filter(Boolean).map(JSON.parse) : [];
 }
 
-/** Normaliza un path de archivo a forma canónica sin extensión */
 function normalizePath(p) {
   return normalize(p).replace(/\.(ts|tsx)$/, "");
 }
 
-/** Resuelve un path de import a un path de archivo absoluto */
 function resolveImportPath(fromFile, importPath) {
   const fromDir = dirname(fromFile);
-  const fromRel = relative(ROOT, fromFile);
 
   // npm packages y CSS: ignorar
-  if (!importPath.startsWith(".") && !Object.keys(ALIASES).some((a) => importPath.startsWith(a + "/") || importPath.startsWith(a + "\\"))) {
+  if (!importPath.startsWith(".") && !Object.keys(ALIASES).some((a) => importPath.startsWith(a + "/"))) {
     return null;
   }
 
   // Path alias
   for (const [alias, target] of Object.entries(ALIASES)) {
     if (importPath.startsWith(alias + "/")) {
-      const rest = importPath.slice(alias.length + 1);
-      const candidate = resolve(ROOT, target, rest);
-      return candidate;
+      return resolve(ROOT, target, importPath.slice(alias.length + 1));
     }
   }
 
@@ -114,27 +107,24 @@ function resolveImportPath(fromFile, importPath) {
 // ── Graph builder ──────────────────────────────────────────────────
 
 function buildGraph(files) {
-  // Mapa de path normalizado → [lista de absolutePaths]
+  // Filtrar una sola vez
+  const filtered = files.filter((f) => !IGNORE_PATTERNS.some((p) => p.test(relative(ROOT, f))));
+
   const lookup = new Map();
-  for (const file of files) {
-    const rel = relative(ROOT, file);
-    if (IGNORE_PATTERNS.some((p) => p.test(rel))) continue;
+  for (const file of filtered) {
     const np = normalizePath(file);
     if (!lookup.has(np)) lookup.set(np, []);
     lookup.get(np).push(file);
   }
 
-  const graph = new Map(); // absolutePath → { exports: Set, importedBy: Set }
-  const filtered = files.filter((f) => {
-    const rel = relative(ROOT, f);
-    return !IGNORE_PATTERNS.some((p) => p.test(rel));
-  });
+  const graph = new Map();
 
   for (const file of filtered) {
     graph.set(file, { exports: new Set(), importedBy: new Set() });
 
-    // Extraer exports
-    for (const item of outlineJson(file, "exports")) {
+    // Extraer exports e imports en una sola pasada
+    const items = outlineJson(file, "exports");
+    for (const item of items) {
       for (const entry of item.items || []) {
         if (entry.name && entry.isExported) {
           graph.get(file).exports.add(entry.name);
@@ -149,7 +139,6 @@ function buildGraph(files) {
       for (const entry of item.items || []) {
         let importPath = entry.name;
         if (!importPath) continue;
-        // Limpiar comillas: "'./foo'" → "./foo"
         importPath = importPath.replace(/^['"]|['"]$/g, "");
         if (!importPath) continue;
 
@@ -160,9 +149,7 @@ function buildGraph(files) {
         const matches = lookup.get(targetNp);
         if (matches) {
           for (const m of matches) {
-            if (graph.has(m)) {
-              graph.get(m).importedBy.add(file);
-            }
+            if (graph.has(m)) graph.get(m).importedBy.add(file);
           }
         }
       }
@@ -185,7 +172,6 @@ const files = findFiles(SCAN_DIRS);
 const graph = buildGraph(files);
 
 const deadFiles = [];
-
 for (const [file, data] of graph) {
   const rel = relative(ROOT, file);
   if (data.importedBy.size === 0 && !isEntry(rel)) {
@@ -194,18 +180,12 @@ for (const [file, data] of graph) {
 }
 
 if (jsonOutput) {
-  console.log(JSON.stringify({
-    deadFiles: deadFiles.map((d) => d.file),
-  }, null, 2));
+  console.log(JSON.stringify({ deadFiles: deadFiles.map((d) => d.file) }, null, 2));
 } else {
   console.log("🔍 find-dead-code — grafo de dependencias\n");
+  console.log(`  Archivos totales: ${graph.size} (${graph.size - deadFiles.length} vivos, ${deadFiles.length} candidatos)\n`);
 
-  const deadCount = deadFiles.length;
-  const aliveCount = graph.size - deadCount;
-
-  console.log(`  Archivos totales: ${graph.size} (${aliveCount} vivos, ${deadCount} candidatos)\n`);
-
-  if (deadCount === 0) {
+  if (deadFiles.length === 0) {
     console.log("  ✅ Sin archivos muertos.\n");
     process.exit(0);
   }
@@ -217,5 +197,5 @@ if (jsonOutput) {
     }
   }
 
-  console.log(`\n  ⚠️  Verificar manualmente: imports dinámicos y barrel files\n     pueden dar falsos positivos.`);
+  console.log(`\n  ⚠️  Verificar manualmente: imports dinámicos y barrel files pueden dar falsos positivos.`);
 }
