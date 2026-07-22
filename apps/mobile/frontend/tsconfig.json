@@ -13,9 +13,11 @@
     "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
     "paths": {
       "xi-ui/*": ["../../../packages/xi-ui/src/*"]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

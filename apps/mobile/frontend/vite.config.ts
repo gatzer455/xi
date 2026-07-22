@@ -1,13 +1,7 @@
 import { defineConfig } from 'vite';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-
-/**
- * Vite config — Vanilla TypeScript, sin frameworks.
- *
- * Mismo patrón que apps/desktop/frontend/vite.config.ts: xi-ui se
- * consume vía alias (no hay npm workspaces en el repo).
- */
+import solidPlugin from 'vite-plugin-solid';
 
 const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf-8'));
 
@@ -24,6 +18,7 @@ export default defineConfig({
       'xi-ui': xiUiSrc,
     },
   },
+  plugins: [solidPlugin()],
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -48,6 +43,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    include: ['tests/**/*.test.ts'],
+    setupFiles: ['tests/setup.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
   },
 });
