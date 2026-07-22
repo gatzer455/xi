@@ -9,20 +9,6 @@
 /* ═══ MESSAGE WRAPPER ═══
    El wrapper de cada mensaje (user/assistant/toolResult/compaction).
    No tiene background propio — solo define layout y max-width. */
-.message {
-  display: flex;
-  width: 100%;
-  max-width: 100%;
-  font-size: var(--text-base);
-  line-height: 1.6;
-  flex-shrink: 0;
-}
-
-.message--user { justify-content: flex-end; }
-.message--assistant { justify-content: flex-start; }
-.message--toolResult { justify-content: flex-start; }
-.message--compaction { justify-content: center; margin: var(--space-3) 0; }
-
 /* ═══ MESSAGE CONTENT (user/assistant) ═══
    El bloque real de contenido. User tiene bubble gris a la derecha,
    assistant es texto libre con max-width cómodo para lectura. */
@@ -98,10 +84,6 @@
      - spans que envuelven el delta de texto del último bloque mutable
    La duración (0.18s) debe caber dentro de la cadencia de revelado
    (~200ms) para que la animación complete antes del siguiente render. */
-.fade-in {
-  animation: block-fade-in 0.18s ease-out both;
-}
-
 @keyframes block-fade-in {
   from {
     opacity: 0;
@@ -114,9 +96,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fade-in {
-    animation: none;
-  }
 }
 
 /* Cursor parpadeante al final del texto pendiente (bloque incompleto).
@@ -275,23 +254,6 @@ details[open] >
    Cuando el usuario abre un tab nuevo sin mensajes. Centrado,
    con icono + título + subtítulo. Mismo patrón que el welcome
    screen pero vive dentro del chat (no en una página aparte). */
-.chat-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: var(--space-12) var(--space-6);
-  gap: var(--space-3);
-  flex: 1;
-  min-height: 60vh;
-}
-.chat-empty-title {
-  font-size: var(--text-2xl, 24px);
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0;
-}
 /* ═══ MODEL PICKER MODAL (Etapa 10) ═══
    Modal overlay centrado para seleccionar modelo.
    Backdrop semi-transparente, panel con search + lista.
