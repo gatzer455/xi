@@ -10,6 +10,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { appState } from 'xi-ui/lib/state.ts';
 import { registerPaneType } from '../components/PaneView.tsx';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 
@@ -23,6 +24,8 @@ export interface PluginInfo {
 
 export interface PluginApi {
   registerPaneType: (type: string, comp: unknown, label?: string) => void;
+  /** Directorio de trabajo actual del proyecto abierto, o null si no hay. */
+  workingDir: string | null;
 }
 
 export interface PluginModule {
@@ -54,7 +57,7 @@ export async function loadPlugins(): Promise<void> {
       const mod: PluginModule = await import(/* @vite-ignore */ url);
       URL.revokeObjectURL(url);
 
-      const api: PluginApi = { registerPaneType };
+      const api: PluginApi = { registerPaneType, workingDir: appState.workingDir.value };
       await mod.register(api);
 
       addEntry('system', `plugin ${plugin.name}: registrado`);

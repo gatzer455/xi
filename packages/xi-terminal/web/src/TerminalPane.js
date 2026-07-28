@@ -9,6 +9,7 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import xtermCss from '@xterm/xterm/css/xterm.css?inline';
+import { getWorkingDir } from './index.js';
 
 const TERM_CSS = `
   .terminal-pane { width: 100%; height: 100%; overflow: hidden; }
@@ -67,10 +68,11 @@ async function setupTerminal(container) {
     await invoke('spawn_plugin_pty', { pluginName: 'terminal' });
 
     // Spawnear shell dentro del sidecar
+    const cwd = getWorkingDir();
     const spawnMsg = JSON.stringify({
       cmd: 'spawn',
       shell: null,
-      cwd: null,
+      cwd,
       cols: term.cols,
       rows: term.rows,
     }) + '\n';
