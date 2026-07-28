@@ -8,6 +8,7 @@
       "cwd": "../frontend"
     },
     "beforeBuildCommand": "echo \"frontend already built\"",
+    "removeUnusedCommands": true,
     "devUrl": "http://localhost:5173",
     "frontendDist": "../frontend/dist"
   },

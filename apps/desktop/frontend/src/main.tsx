@@ -18,12 +18,6 @@
 // en puntos distintos del <head>; juntar todo acá lo hace determinista).
 import './styles/index.css';
 
-import '@fontsource/adwaita-sans/index.css';
-import '@fontsource/adwaita-mono/400.css';
-import '@fontsource/adwaita-mono/700.css';
-import './styles/temml.css';
-import 'katex/dist/katex.min.css';
-
 import { appState } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';
@@ -43,6 +37,8 @@ import { checkForUpdate, isUpdaterAvailable } from './lib/updater.ts';
 async function main(): Promise<void> {
   addEntry('system', 'xi starting...');
 
+  // ── Sync: theme + font + mount shell ──
+  // Todo esto es síncrono — el usuario VE la UI inmediatamente.
   const initialTheme = loadTheme();
   const initialFont = loadFontSize();
   applyThemeToDOM(initialTheme);
@@ -51,27 +47,22 @@ async function main(): Promise<void> {
   appState.fontSize.value = initialFont;
   addEntry('system', `theme=${initialTheme} fontSize=${initialFont}`);
 
-  try {
-    await initPiConnection();
-    addEntry('system', 'pi connection initialized');
-  } catch (err) {
-    addEntry('system', `Pi connection failed: ${err}`);
-    throw err;
-  }
-
-  await initDesktop();
+  // Cargar CSS crítico después del render inicial
+  // (katex/temml no se necesitan hasta que hay mensajes con math)
+  Promise.all([
+    import('katex/dist/katex.min.css'),
+    import('./styles/temml.css'),
+  ]).catch(() => {});
 
   mountShell();
 
-  if (appState.workingDir.value) {
-    // Crear una tab con SessionsPicker al abrir proyecto
-    // (import dinámico para evitar circular deps en entry point)
-    const m = await import('./lib/panel-manager.ts');
-    if (m.getTabs().length === 0) {
-      m.openSessionTab();
-    }
-  }
-  // Si no hay workingDir, welcome page se muestra por defecto
+  // ── Async: init pi sin bloquear el paint ──
+  initPiConnection().then(() => {
+    addEntry('system', 'pi connection initialized');
+    initDesktop();
+  }).catch((err) => {
+    addEntry('system', `Pi connection failed: ${err}`);
+  });
 }
 
 async function initDesktop(): Promise<void> {
