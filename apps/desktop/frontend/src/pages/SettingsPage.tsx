@@ -2,6 +2,8 @@
  * SettingsPage.tsx — Configuración (SolidJS).
  */
 import { createSignal, createMemo, For, Show, onCleanup, onMount } from 'solid-js';
+import { invoke } from '@tauri-apps/api/core';
+import type { PluginInfo } from '../lib/plugin-loader.ts';
 import { appState, type ThemeMode, type FontSize, type ThinkingLevel } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import {
@@ -15,7 +17,7 @@ import { loadAuthStatus } from '../lib/auth-status.ts';
 import { applyThemeToDOM, applyFontToDOM, saveTheme, saveFontSize } from '../lib/settings-storage.ts';
 import { checkForUpdate, installAndRelaunch, isUpdaterAvailable } from '../lib/updater.ts';
 
-type SettingsTab = 'provider' | 'appearance' | 'extensions' | 'about';
+type SettingsTab = 'provider' | 'appearance' | 'plugins' | 'extensions' | 'about';
 
 const PROVIDERS = [
   { id: 'opencode-go', label: 'OpenCode Go' },
@@ -147,7 +149,7 @@ export function SettingsPage() {
 
       <div class="settings-tabs">
         <div class="settings-tab-bar">
-          <For each={[{ id: 'provider' as const, label: 'Proveedor' }, { id: 'appearance' as const, label: 'Apariencia' }, { id: 'extensions' as const, label: 'Extensiones' }, { id: 'about' as const, label: 'Acerca de' }]}>
+          <For each={[{ id: 'provider' as const, label: 'Proveedor' }, { id: 'appearance' as const, label: 'Apariencia' }, { id: 'plugins' as const, label: 'Plugins' }, { id: 'extensions' as const, label: 'Extensiones' }, { id: 'about' as const, label: 'Acerca de' }]}>
             {(t) => <button type="button" classList={{ 'settings-tab-btn': true, 'settings-tab-btn--active': tab() === t.id }} onClick={() => setTab(t.id)}>{t.label}</button>}
           </For>
         </div>
@@ -155,6 +157,7 @@ export function SettingsPage() {
         <div class="settings-tab-content">
           <div style={{ display: tab() === 'provider' ? '' : 'none' }}><ProviderSection /></div>
           <div style={{ display: tab() === 'appearance' ? '' : 'none' }}><AppearanceSection /></div>
+          <div style={{ display: tab() === 'plugins' ? '' : 'none' }}><PluginsSection /></div>
           <div style={{ display: tab() === 'extensions' ? '' : 'none' }}><ExtensionsSection /></div>
           <div style={{ display: tab() === 'about' ? '' : 'none' }}><UpdateSection /><SessionSection /><AboutSection /></div>
         </div>
@@ -462,6 +465,51 @@ function ApproveToolCard(props: { tool: { key: string; label: string; desc: stri
                onKeyDown={(e) => { if (e.key === 'Enter') add(); }} spellcheck={false} />
         <button type="button" class="settings-btn settings-btn--small" onClick={add}>+ Agregar</button>
       </div>
+    </div>
+  );
+}
+
+/* ─── Plugins (plugins de xi, no extensiones de pi) ─── */
+
+function PluginsSection() {
+  const [plugins, setPlugins] = createSignal<PluginInfo[]>([]);
+  const [loading, setLoading] = createSignal(true);
+
+  onMount(async () => {
+    try {
+      const list = await invoke<PluginInfo[]>('get_plugins');
+      setPlugins(list);
+    } catch (e) {
+      console.error('[PluginsSection] Error:', e);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  return (
+    <div class="settings-extensions-controls">
+      <Section title="Plugins de xi" desc="Módulos que agregan páginas o paneles a la interfaz.">
+        <Show when={!loading()} fallback={<p class="settings-subsection-desc">Cargando...</p>}>
+          <Show
+            when={plugins().length > 0}
+            fallback={<p class="settings-subsection-desc">No hay plugins instalados. Colocá plugins en ~/.xi/plugins/ para que xi los detecte.</p>}
+          >
+            <div class="settings-plugin-list">
+              <For each={plugins()}>
+                {(p) => (
+                  <div class="settings-plugin-card" classList={{ 'settings-plugin-card--installed': p.installed }}>
+                    <div class="settings-plugin-name">{p.name}</div>
+                    <div class="settings-plugin-version">v{p.version}</div>
+                    <div class="settings-plugin-status">
+                      {p.installed ? '✓ Instalado' : '⚠ Incompleto (falta binario o entry)'}
+                    </div>
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
+        </Show>
+      </Section>
     </div>
   );
 }

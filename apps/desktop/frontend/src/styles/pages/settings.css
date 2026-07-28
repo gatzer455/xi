@@ -343,3 +343,38 @@
   padding: var(--space-1) var(--space-2);
   font-size: var(--text-sm);
 }
+
+/* ═══ PLUGINS ═══ */
+
+.settings-plugin-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.settings-plugin-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.settings-plugin-name {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.settings-plugin-version {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+
+.settings-plugin-status {
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
