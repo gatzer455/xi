@@ -125,7 +125,7 @@ describe('ChatPage', () => {
 
   test('renders chat-messages container', () => {
     render(() => <ChatPage />);
-    expect(document.querySelector('.chat-messages')).toBeTruthy();
+    expect(document.querySelector('.chat-messages-container')).toBeTruthy();
   });
 
   test('shows auth banner when no provider', () => {
