@@ -1,19 +1,10 @@
-# Setup — xi
+# Desarrollo
 
-## Dependencias del sistema (Linux)
+Dependencias y comandos para compilar xi desde el código fuente.
 
-Tauri en Linux requiere las siguientes librerías de desarrollo:
+## Dependencias del sistema
 
-### Fedora / RHEL / CentOS
-```bash
-sudo dnf install -y \
-  webkit2gtk4.1-devel \
-  libsoup3-devel \
-  gtk3-devel \
-  javascriptcoregtk4.1-devel
-```
-
-### Ubuntu / Debian
+### Linux (Debian/Ubuntu)
 ```bash
 sudo apt install -y \
   libwebkit2gtk-4.1-dev \
@@ -22,57 +13,62 @@ sudo apt install -y \
   javascriptcoregtk-4.1
 ```
 
-### Arch Linux
+### Fedora
 ```bash
-sudo pacman -S \
-  webkit2gtk-4.1 \
-  libsoup3 \
-  gtk3
+sudo dnf install -y \
+  webkit2gtk4.1-devel \
+  libsoup3-devel \
+  gtk3-devel \
+  javascriptcoregtk4.1-devel
 ```
 
-## Dependencias de desarrollo
-
-- **Node.js** v18+ (recomendado: v22)
-- **Rust** 1.77.2+ (recomendado: estable actual)
-- **npm** o **pnpm**
-
-## Instalación del proyecto
-
+### Arch
 ```bash
-# 1. Instalar dependencias del frontend
-cd frontend && npm install
-
-# 2. Instalar Tauri CLI (en el root)
-cd .. && npm install -D @tauri-apps/cli
-
-# 3. Verificar que el frontend compila
-cd frontend && npx vite build
-
-# 4. Verificar que el backend compila
-cd ../backend && cargo check
-
-# 5. Ejecutar en modo desarrollo
-cd .. && npm run dev
+sudo pacman -S webkit2gtk-4.1 libsoup3 gtk3
 ```
 
-## Keygen para auto-update (Etapa 7)
+## Dependencias de herramientas
 
-xi usa `tauri-plugin-updater` v2 con claves minisign. Solo hace falta una vez por máquina de desarrollo.
+- **Bun** 1.1+ (para frontend tooling y build de pi)
+- **Rust** 1.77.2+ (para backend Tauri y paquetes Rust)
+- **Tauri CLI** (se instala con bun)
+
+## Compilar y ejecutar
 
 ```bash
-# Generar el par de claves
-npx tauri signer generate -w ~/.tauri/xi.key -p "<passphrase>"
+# Clonar
+git clone https://github.com/gatzer455/xi.git
+cd xi
 
-# Pegar el contenido de la pubkey en backend/tauri.conf.json
-cat ~/.tauri/xi.key.pub
-# Copiar el string (incluyendo "untrusted comment: ...") a:
-#   plugins.updater.pubkey
+# Instalar dependencias (cada proyecto npm tiene su node_modules)
+cd apps/desktop/frontend && bun install
+cd ../..
+cd packages/xi-ui && bun install
+cd ../..
+cd apps/mobile/frontend && bun install
+cd ../..
+
+# Build de sidecars (pi, pi-sessions, extensiones)
+bun run ./scripts/ensure-sidecars.mjs
+
+# Dev: levanta Vite + Tauri
+bun run dev
 ```
 
-**Custodia**:
-- `~/.tauri/xi.key` (private) — mode 0600, nunca commitear
-- Backup de la key + passphrase en 1Password o similar
-- Para CI: configurar como GitHub Secrets `TAURI_SIGNING_PRIVATE_KEY` y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`
+## Tests
 
-Más detalles en `docs/discoveries.md` sección 10.
+```bash
+apps/desktop/frontend:  cd apps/desktop/frontend && bunx vitest run
+apps/desktop/backend:   cd apps/desktop/backend && cargo test
+apps/mobile/frontend:   cd apps/mobile/frontend && bunx vitest run
+```
 
+## Release
+
+```bash
+# 1. Bump version en package.json, Cargo.toml, tauri.conf.json
+# 2. Actualizar CHANGELOG.md
+# 3. git commit -m "chore: bump to vX.Y.Z"
+# 4. git tag vX.Y.Z && git push origin main --tags
+# 5. GitHub Actions compila y publica el release
+```

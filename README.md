@@ -1,102 +1,133 @@
 # xi
 
-Interfaz de escritorio para [pi](https://github.com/earendil-works/pi-coding-agent), un agente de inteligencia artificial creado por Mario Zechner.
+Interfaz de escritorio para [pi](https://github.com/earendil-works/pi-coding-agent),
+el agente de inteligencia artificial de [Mario Zechner](https://mariozechner.at/).
 
-xi no es un producto independiente. Es una ventana para que personas sin experiencia técnica puedan usar pi sin tocar la terminal. Pi es el motor de lenguaje natural, la gestion de sesiones y la inteligencia artificial. Xi se encarga de mostrar una pantalla donde el usuario conversa con pi sin ver comandos ni configuraciones tecnicas.
+xi es una ventana para usar pi sin tocar la terminal. Abrís un proyecto,
+escribís lo que necesitás y pi responde con streaming en vivo, ejecuta
+herramientas, analiza archivos y redacta documentos.
 
-La aplicacion viene con valores por defecto que quien desarrolla xi considera sensatos. Si el usuario quiere cambiarlos, puede hacerlo desde la pantalla de ajustes. No es obligatorio.
-
----
-
-## Requisitos
-
-- **Node.js** v18 o superior (recomendado: v22)
-- **Rust** 1.77.2 o superior
-- **npm** o **pnpm**
-- **Linux**: las librerias de sistema que Tauri necesita (ver [docs/dev.md](docs/dev.md))
+![v0.4.0](https://img.shields.io/badge/version-0.4.0-6716dd)
+[![Release](https://github.com/gatzer455/xi/actions/workflows/release.yml/badge.svg)](https://github.com/gatzer455/xi/actions/workflows/release.yml)
+[![CI](https://github.com/gatzer455/xi/actions/workflows/ci.yml/badge.svg)](https://github.com/gatzer455/xi/actions/workflows/ci.yml)
 
 ---
 
-## Instalacion
-
-```bash
-git clone https://github.com/gatzer455/xi.git
-cd xi
-cd frontend && npm install
-cd .. && npm install -D @tauri-apps/cli
-```
-
-Para verificar que todo compila:
-
-```bash
-cd frontend && npx vite build
-cd ../backend && cargo check
-```
-
-Para ejecutar en modo desarrollo:
-
-```bash
-npm run dev
-```
-
-La primera vez, Rust descarga y compila las dependencias. Tarda entre 3 y 8 minutos. Las veces siguientes, la compilacion toma segundos.
-
----
-
-## Lo que ya funciona
-
-Las funcionalidades implementadas estan documentadas en [docs/features.md](docs/features.md). Incluyen chat con streaming, gestion de sesiones, configuracion de proveedores, explorador de archivos, actualizaciones automaticas y soporte para extensiones de pi.
-
-El plan de desarrollo, con lo que sigue, esta en [docs/roadmap.md](docs/roadmap.md).
-
----
-
-## Estructura del proyecto
-
-```
-xi/
-  frontend/            Interfaz de usuario (TypeScript + Vite)
-    src/
-      lib/             Seniales, estado, ruteo, markdown
-      components/      Componentes de interfaz
-      pages/           Chat, sesiones, ajustes, bienvenida, explorador
-      styles/          Tokens CSS, temml
-  backend/             Nucleo Tauri (Rust)
-    src/commands/      Comandos IPC
-  docs/                Documentacion
-  .develop/            Pipeline de diseno (idea, diseno, requisitos)
-```
+## Captura
 
 ---
 
 ## Stack
 
-| Capa | Tecnologia |
-|------|------------|
-| Desktop | Tauri 2 |
+| Capa | Tecnología |
+|------|-----------|
+| Shell | [Tauri 2](https://v2.tauri.app) |
 | Backend | Rust |
-| Frontend | TypeScript + Vite |
-| Motor | pi (sidecar compilado con bun) |
-| Markdown | markdown-it + temml |
-| State | Seniales propias (~25 lineas) |
-| Routing | Hash-based propio (~80 lineas) |
+| Frontend | TypeScript + [SolidJS](https://www.solidjs.com) + Vite |
+| Motor | pi (sidecar, `--mode rpc`) |
+| Markdown | [solid-markdown](https://github.com/oscartbeaumont/solid-markdown) |
+| Matemáticas | [KaTeX](https://katex.org) |
+| Mobile | Tauri 2 Android + WS remoto |
 
 ---
 
-## Desarrollo
+## Funcionalidades
+
+**Chat con streaming** — los tokens aparecen mientras pi genera la respuesta.
+Pi puede pensar, ejecutar herramientas, leer/escribir archivos y mostrar el
+resultado en vivo.
+
+**Gestión de sesiones** — varias conversaciones separadas. Pestañas en la
+barra superior, como un navegador. Crear, renombrar y eliminar.
+
+**Sistema de paneles** — dividí la ventana en hasta 4 paneles para ver
+varios chats o el explorador al mismo tiempo.
+
+**Ajustes** — modelo, nivel de razonamiento, API keys (Anthropic, OpenAI,
+Google, OpenRouter, Groq, DeepSeek, OpenCode Go), tema claro/oscuro,
+tamaño de fuente.
+
+**Explorador de archivos** — navegá y editá archivos del proyecto.
+Árbol de directorios con vista previa de texto.
+
+**Extensiones** — xi-tools (shell + archivos sin depender del sistema),
+xi-exa (búsqueda web), xi-flow (aprobación interactiva de comandos).
+
+**Actualizaciones automáticas** — firmadas con minisign, vía GitHub Releases.
+
+**Mobile** — app Android (Tauri 2) que se conecta a [xi-serve](packages/xi-serve/)
+en un homeserver vía Tailscale. Chat completo con streaming remoto.
+
+---
+
+## Cómo arrancar
+
+### Usuarios
+
+Descargá el instalador para tu sistema desde
+[GitHub Releases](https://github.com/gatzer455/xi/releases/latest):
+
+| Plataforma | Formato |
+|-----------|---------|
+| Linux | `.deb` (amd64) |
+| Windows | `.exe` (NSIS) / `.msi` |
+| macOS | `.dmg` (Apple Silicon / Intel) |
+
+La app se actualiza sola cuando hay una versión nueva.
+
+### Desarrollo
+
+Ver [docs/dev.md](docs/dev.md) — necesitás Bun, Rust y las librerías de
+sistema de Tauri.
 
 ```bash
-# Tests del frontend
-cd frontend && npm test
-
-# Tests del backend
-cd backend && cargo test
-
-# Tests E2E (requiere tauri-driver)
-npm run test:e2e
+git clone https://github.com/gatzer455/xi.git
+cd xi
+cd apps/desktop/frontend && bun install && cd ../..
+cd packages/xi-ui && bun install && cd ..
+cd apps/desktop/frontend && bun run dev
 ```
 
-Ver [docs/dev.md](docs/dev.md) para el setup completo de desarrollo.
+---
+
+## Arquitectura en 30 segundos
+
+xi separa la interfaz del motor en dos procesos que se comunican por JSONL:
+
+```
+┌─────────────────────┐     ┌──────────────────┐     ┌────────────┐
+│  WebView (SolidJS)  │ IPC │  Tauri (Rust)    │     │  pi        │
+│  UI, streaming,     │◄───►│  comandos,       │◄───►│  agente    │
+│  paneles, settings  │     │  lifecycle,       │     │  LLM +     │
+│                     │     │  extensiones      │     │  tools     │
+└─────────────────────┘     └──────────────────┘     └────────────┘
+```
+
+Para mobile, el Tauri IPC se reemplaza por WebSocket (xi-serve):
+
+```
+┌───────────────────┐     ┌──────────────┐     ┌────────────┐
+│  Android WebView   │ WS  │ xi-serve     │     │  pi        │
+│  (SolidJS +        │◄───►│  Rust daemon │◄───►│  agente    │
+│   xi-ui compartido)│     │  passthrough │     │            │
+└───────────────────┘     └──────────────┘     └────────────┘
+```
+
+El frontend no sabe si está hablando con pi por IPC local o por WebSocket
+remoto — la interfaz `PiEventBus` abstrae el transporte.
+
+---
+
+## Proyectos relacionados
+
+| Proyecto | Qué hace |
+|----------|---------|
+| [pi](https://github.com/earendil-works/pi-coding-agent) | Motor de IA, agente de código |
+| [xi-tools](packages/xi-tools/) | Shell + archivos cross-platform |
+| [xi-exa](packages/xi-exa/) | Búsqueda web vía Exa API |
+| [xi-flow](packages/xi-flow/) | Flujo interactivo (approve, ask) |
+| [xi-serve](packages/xi-serve/) | Daemon WS para acceso remoto |
+| [xi-ui](packages/xi-ui/) | Pipeline de chat + estilos compartidos |
 
 ---
 
