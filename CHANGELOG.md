@@ -181,9 +181,51 @@ Pi ahora incluye los temas necesarios para arrancar. Versión pineada.
   `node_modules` ya está resuelto, evitando errores de resolución de módulos
   en el directorio temporal
 
-## [Unreleased]
+## [0.4.0] - 2025-07-27
+
+Rediseño visual completo + migración SolidJS + sistema de paneles.
 
 ### Added
 
-- CHANGELOG.md
-- Reorganización de docs (plan.md, dev.md)
+- **Rediseño visual navy/lavender**: paleta fría (navy `#0a0632` dark / lavanda
+  `#bbc4fe` light, acento púrpura). Fuente Fira Sans + Fira Mono + Fira Math.
+  Logo inline con `currentColor` se adapta al tema automáticamente.
+- **Sistema de paneles CSS Grid**: reemplaza tile-manager. Progresión
+  determinística 1→2→3→4 paneles (#81). Scroll de chat arreglado, mensajes
+  nuevos aparecen correctamente.
+- **Sistema de tabs unificado**: tabs browser-style en barra superior (#77).
+- **SCA en CI**: `bun audit` en cada PR, vulnerabilidades como warnings.
+- **Herramientas de análisis**: `scripts/find-dead-css.mjs` y
+  `scripts/find-dead-code.mjs`.
+- **Branded types**: `TabId` / `SessionPath` como tipos nominales (unión, no
+  string crudo). Constructores `toTabId()`/`toSessionPath()` ya existentes.
+
+### Changed
+
+- **Migración completa a SolidJS**: WelcomePage, ChatPage, SessionsPage,
+  SettingsPage, ModelPicker — 100% SolidJS. Eliminados ~4.8K LOC vanilla.
+  Tests migrados a `@solidjs/testing-library`.
+- **Mobile app migrada a SolidJS**: todas las páginas reescritas (connect,
+  sessions, chat, explorer, projects). ~2.3K LOC eliminados.
+- **Session UI refactor**: separación de CSS en archivos por página,
+  limpieza de código (#83).
+- **CSS cleanup**: ~53 selectores huérfanos post-migración eliminados (#82).
+  +10 adicionales post-WelcomePage.
+
+### Fixed
+
+- **edit.rs panic**: `generate_patch` clamped a `hunk_start_old..old_i.min(old_lines.len())`
+  cuando se cerraba un hunk al final del archivo.
+- **Layout WelcomePage**: recents se superponían con el header. `pages.css`
+  no se importaba en `index.css`. Justificación reemplazada por flujo natural
+  + scroll.
+- **Mobile typecheck**: `session.id` envuelto en `toTabId()` en `openExisting()`.
+- **CSS layout roto**: restaurados `.update-banner`, `.output-board`,
+  `.chat-messages-container`, `.explorer-panel` y otros selectores clave
+  eliminados accidentalmente.
+- **quinn-proto (CVE)**: `cargo update` a 0.11.16.
+
+### Security
+
+- **SCA en CI**: `bun audit --json` en cada push, alertas visibles como
+  warnings de GitHub Actions.
