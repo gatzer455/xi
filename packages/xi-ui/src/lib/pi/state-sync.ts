@@ -24,7 +24,7 @@
  *  footer/indicador.
  */
 
-import { appState, type PiModel, type ThinkingLevel, type Session, type SessionPath, type TabId, toSessionPath } from '../state.ts';
+import { appState, type PiModel, type ThinkingLevel, type Session, type SessionPath, type TabId, toSessionPath, toTabId } from '../state.ts';
 import { addEntry } from '../debug-panel.ts';
 import { getStore } from '../chat/stores.ts';
 import { setKnownExtensionCommands } from './slash-commands.ts';
@@ -187,9 +187,9 @@ function applyGetState(data: Record<string, unknown> | undefined): void {
   if (data.thinkingLevel) appState.thinkingLevel.value = data.thinkingLevel as ThinkingLevel;
   if (data.sessionFile) {
     const session: Session = {
-      id: (data.sessionId as string) ?? '',
+      id: toTabId((data.sessionId as string) ?? ''),
       name: data.sessionName as string | undefined,
-      file: data.sessionFile as string,
+      file: toSessionPath(data.sessionFile as string),
       messageCount: (data.messageCount as number) ?? 0,
     };
     appState.session.value = session;

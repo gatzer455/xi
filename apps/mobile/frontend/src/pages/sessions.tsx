@@ -7,7 +7,7 @@
  */
 import { createSignal, For, Show, onMount } from 'solid-js';
 import { navigate } from 'xi-ui/lib/nav.ts';
-import { appState, setActiveTab, type Session } from 'xi-ui/lib/state.ts';
+import { appState, setActiveTab, toTabId, toSessionPath, type Session } from 'xi-ui/lib/state.ts';
 import {
   listSessions,
   openSession,
@@ -42,8 +42,9 @@ export function SessionsPage() {
 
   async function createNewTab() {
     const tabId = crypto.randomUUID();
-    const newTab: Session = { id: tabId, messageCount: 0 };
-    setActiveTab(tabId);
+    const id = toTabId(tabId);
+    const newTab: Session = { id, messageCount: 0 };
+    setActiveTab(id);
     appState.openTabs.value = [...appState.openTabs.value, newTab];
     navigate('chat');
     try {
@@ -62,13 +63,14 @@ export function SessionsPage() {
       navigate('chat');
       return;
     }
+    const id = toTabId(session.id);
     const newTab: Session = {
-      id: session.id,
+      id,
       name: session.name,
-      file: session.path,
+      file: toSessionPath(session.path),
       messageCount: session.messageCount,
     };
-    setActiveTab(session.id);
+    setActiveTab(id);
     appState.openTabs.value = [...appState.openTabs.value, newTab];
     try {
       await openSession(session.path);

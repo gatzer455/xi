@@ -79,6 +79,8 @@ vi.mock('xi-ui/lib/state.ts', () => ({
   setActiveTab(tabId: string | null) {
     mockState.activeTabId.value = tabId;
   },
+  toTabId: (x: string) => x as any,
+  toSessionPath: (x: string) => x as any,
 }));
 
 vi.mock('xi-ui/lib/debug-panel.ts', () => ({

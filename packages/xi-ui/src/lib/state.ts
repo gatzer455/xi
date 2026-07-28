@@ -44,9 +44,9 @@ export interface PiModel {
 }
 
 export interface Session {
-  id: TabId | string;
+  id: TabId | SessionPath;
   name?: string;
-  file?: SessionPath | string;
+  file?: SessionPath;
   messageCount: number;
 }
 
@@ -124,7 +124,7 @@ export const appState = {
   openTabs: signal<Session[]>([]),
 
   /** Id de la tab activa. null = no hay tab activa. */
-  activeTabId: signal<TabId | SessionPath | string | null>(null),
+  activeTabId: signal<TabId | SessionPath | null>(null),
 
   /** Lista de modelos disponibles retornada por get_available_models.
    *  Se popula lazy en main.ts después de initPiConnection. */
@@ -267,7 +267,7 @@ window.addEventListener('offline', () => {
  * tab. El id del tab es el UUID generado en el cliente (en tabs
  * nuevas) o el sessionId de pi (en sesiones existentes).
  */
-export function setActiveTab(tabId: TabId | SessionPath | string | null): void {
+export function setActiveTab(tabId: TabId | SessionPath | null): void {
   if (appState.activeTabId.value === tabId) return;
   appState.activeTabId.value = tabId;
 }

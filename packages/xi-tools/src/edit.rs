@@ -252,7 +252,7 @@ fn generate_patch(path: &str, old: &str, new: &str) -> String {
                 hunk_start_old = old_i.saturating_sub(3);
                 hunk_start_new = new_i.saturating_sub(3);
                 // Print context lines before
-                for j in hunk_start_old..old_i {
+                for j in hunk_start_old..old_i.min(old_lines.len()) {
                     hunk_lines.push(format!(" {}", old_lines[j]));
                 }
             }

@@ -88,6 +88,8 @@ const mockState = vi.hoisted(() => {
 
 vi.mock('xi-ui/lib/state.ts', () => ({
   appState: mockState.createMockAppState(),
+  toTabId: (x: string) => x as any,
+  toSessionPath: (x: string) => x as any,
 }));
 
 vi.mock('xi-ui/lib/debug-panel.ts', () => ({
