@@ -27,7 +27,8 @@
   --color-warning:      var(--color-warning);
 
   /* ═══ Tipografía ═══
-     Adwaita Sans para UI, Adwaita Mono para código/terminal.
+     Fira Sans para UI, Fira Mono para código/terminal.
+     Fira Math para renderizado matemático (temml).
      --font-size-base controla el escalado global. Los --text-*
      están en 'em' (no 'rem') para que se reescalen automáticamente
      cuando --font-size-base cambia. */

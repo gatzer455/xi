@@ -18,6 +18,10 @@
 // en puntos distintos del <head>; juntar todo acá lo hace determinista).
 import './styles/index.css';
 
+// Fira Sans para UI, Fira Mono para código.
+import '@fontsource/fira-sans/index.css';
+import '@fontsource/fira-mono/index.css';
+
 import { appState } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { initPiConnection, getPiStatus, getRecents } from './lib/pi/index.ts';

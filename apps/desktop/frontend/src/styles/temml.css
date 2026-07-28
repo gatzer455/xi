@@ -1,20 +1,20 @@
 /*
- * temml.css — Estilos para temml (MathML) con Noto Sans Math.
+ * temml.css — Estilos para temml (MathML) con Fira Math.
  *
- * Noto Sans Math es sans-serif, combina con Adwaita Sans.
- * La fuente está en public/NotoSansMath-Regular.ttf.
+ * Fira Math es sans-serif, combina con Fira Sans.
+ * La fuente está en public/FiraMath-Regular.otf.
  */
 
 @font-face {
-  font-family: 'Noto Sans Math';
-  src: url('/NotoSansMath-Regular.ttf') format('truetype');
+  font-family: 'Fira Math';
+  src: url('/FiraMath-Regular.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
 }
 
 math {
-  font-family: 'Noto Sans Math', 'Adwaita Sans', sans;
+  font-family: 'Fira Math', 'Noto Sans Math', sans;
   font-style: normal;
   font-weight: normal;
   line-height: normal;
