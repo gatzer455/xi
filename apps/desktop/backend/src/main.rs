@@ -6,6 +6,7 @@ mod extensions;
 mod plugins;
 
 use commands::pi_process::{create_pending_requests, create_pi_state};
+use plugins::create_plugin_process_map;
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
 
@@ -32,6 +33,7 @@ fn main() {
             // Inicializar el estado del proceso pi y pending requests
             app.manage(create_pi_state());
             app.manage(create_pending_requests());
+            app.manage(create_plugin_process_map());
 
             // Copiar extensiones empaquetadas en background (sin bloquear startup)
             let handle = app.handle().clone();
@@ -77,6 +79,8 @@ fn main() {
             commands::files::write_file,
             commands::plugins::get_plugins,
             commands::plugins::read_plugin_entry,
+            commands::plugins::spawn_plugin_pty,
+            commands::plugins::write_plugin_stdin,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
