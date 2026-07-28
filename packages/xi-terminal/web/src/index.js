@@ -6,13 +6,13 @@
 
 import { TerminalPane } from './TerminalPane.js';
 
-let pluginWorkingDir = null;
+let getWorkingDirFn = null;
 
 export function register(api) {
   console.log('[xi-terminal] registrando pane type');
-  pluginWorkingDir = api.workingDir;
+  getWorkingDirFn = api.getWorkingDir;
   api.registerPaneType('terminal', TerminalPane, 'Terminal');
 }
 
-/** Directorio de trabajo actual, o null. Lo setea xi al cargar el plugin. */
-export function getWorkingDir() { return pluginWorkingDir; }
+/** Directorio de trabajo actual, o null. Lo consulta en cada llamada. */
+export function getWorkingDir() { return getWorkingDirFn ? getWorkingDirFn() : null; }

@@ -24,8 +24,8 @@ export interface PluginInfo {
 
 export interface PluginApi {
   registerPaneType: (type: string, comp: unknown, label?: string) => void;
-  /** Directorio de trabajo actual del proyecto abierto, o null si no hay. */
-  workingDir: string | null;
+  /** Devuelve el directorio de trabajo actual, o null si no hay proyecto abierto. */
+  getWorkingDir: () => string | null;
 }
 
 export interface PluginModule {
@@ -57,7 +57,7 @@ export async function loadPlugins(): Promise<void> {
       const mod: PluginModule = await import(/* @vite-ignore */ url);
       URL.revokeObjectURL(url);
 
-      const api: PluginApi = { registerPaneType, workingDir: appState.workingDir.value };
+      const api: PluginApi = { registerPaneType, getWorkingDir: () => appState.workingDir.value };
       await mod.register(api);
 
       addEntry('system', `plugin ${plugin.name}: registrado`);
