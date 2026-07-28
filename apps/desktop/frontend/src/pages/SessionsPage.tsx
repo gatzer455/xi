@@ -75,7 +75,7 @@ export function SessionsPage(props: SessionsPageProps) {
         try { await renameSession(piSession.file, name); piSession.name = name; } catch { /* best-effort */ }
       }
       if (piSession) {
-        const label = piSession.name ?? name;
+        const label = (piSession.name && piSession.name.trim()) ? piSession.name : name;
         setPaneType(props.tabId, props.paneId, 'chat', piSession.file, label);
       }
       void load();

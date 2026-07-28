@@ -67,6 +67,8 @@
   --transition-fast: 0.1s ease;
   --transition-base: 0.15s ease;
   --transition-smooth: 0.25s ease;
+  --transition-transform: 0.15s ease;
+  --transition-colors: 0.1s ease;
 
   /* ═══ Sombras (Base) ═══ */
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);

@@ -101,7 +101,7 @@
   font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
   margin: 0;
 }
 

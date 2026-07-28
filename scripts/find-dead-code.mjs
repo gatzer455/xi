@@ -185,7 +185,7 @@ for (const [file, data] of graph) {
 }
 
 // 2. Dead test files: testea archivos que son candidatos a muertos
-const deadFilePaths = new Set(deadFiles.map((d) => resolve(ROOT, d.file)));
+const deadFilePaths = new Set(deadFiles.map((d) => resolve(ROOT, d.file).replace(/\.(ts|tsx)$/, "")));
 const testFiles = files.filter((f) => TEST_PATTERNS.some((p) => p.test(relative(ROOT, f))));
 const deadTests = [];
 for (const tf of testFiles) {

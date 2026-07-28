@@ -6,12 +6,15 @@
 @import './base.css';
 @import './layout.css';
 
-/* 3. Components */
+/* 3. Shared components (loaded before desktop overrides para que
+   desktop gane en cascada por igual especificidad). */
+@import 'xi-ui/styles/components.css';
+@import 'xi-ui/styles/markdown.css';
+
+/* 4. Desktop component overrides */
 @import './components/Header.css';
 @import './components/InputBar.css';
 @import './components/ChatContextBar.css';
-@import 'xi-ui/styles/components.css';
-@import 'xi-ui/styles/markdown.css';
 
 /* 4. Pages */
 @import './pages/chat.css';
