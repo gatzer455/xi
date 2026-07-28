@@ -78,3 +78,8 @@ apps/mobile/node_modules/
 apps/mobile/dist/
 .claude/
 PLAN.md
+
+packages/xi-terminal/target/
+packages/xi-terminal/web/dist/
+packages/xi-terminal/web/node_modules/
+packages/xi-terminal/web/bun.lock
