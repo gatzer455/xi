@@ -43,9 +43,10 @@ async function setupTerminal(container) {
   }
 
   const styles = getComputedStyle(document.documentElement);
+  const baseFontSize = parseFloat(styles.fontSize) || 14;
   const term = new Terminal({
     cursorBlink: true,
-    fontSize: 14,
+    fontSize: baseFontSize,
     fontFamily: "'Fira Mono', 'JetBrains Mono', monospace",
     theme: {
       background: styles.getPropertyValue('--color-page-bg').trim() || '#0a0632',
