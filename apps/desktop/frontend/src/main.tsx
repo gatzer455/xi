@@ -16,13 +16,7 @@
 // vía el alias 'xi-ui' los sirve correcto en dev y build, y preserva el
 // orden del cascade (los <link> del HTML y los imports de JS se inyectan
 // en puntos distintos del <head>; juntar todo acá lo hace determinista).
-import 'xi-ui/styles/theme.css';
-import 'xi-ui/styles/tokens.css';
-import './styles/base.css';
-import './styles/layout.css';
-import 'xi-ui/styles/components.css';
-import './styles/pages.css';
-import 'xi-ui/styles/markdown.css';
+import './styles/index.css';
 
 import '@fontsource/adwaita-sans/index.css';
 import '@fontsource/adwaita-mono/400.css';

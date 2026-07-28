@@ -9,6 +9,9 @@ vi.mock('xi-ui/lib/state.ts', () => ({
     openTabs: { value: [], subscribe: vi.fn(() => vi.fn()) },
   },
   setActiveTab: vi.fn(),
+  toSessionPath: (x: string) => x,
+  toTabId: (x: string) => x,
+  toPaneId: (x: string) => x,
 }));
 
 vi.mock('xi-ui/lib/nav.ts', () => ({

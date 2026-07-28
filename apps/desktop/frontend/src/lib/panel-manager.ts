@@ -16,34 +16,43 @@
 
 import { createStore, produce } from 'solid-js/store';
 import { createSignal } from 'solid-js';
-import { appState, setActiveTab as setAppActiveTab } from 'xi-ui/lib/state.ts';
+import {
+  appState,
+  setActiveTab as setAppActiveTab,
+  type TabId,
+  type PaneId,
+  type SessionPath,
+  toTabId,
+  toPaneId,
+  toSessionPath,
+} from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 
 // ═════════════════════════════════════════════
-// Tipos
+// Tipos — Desambiguados
 // ═════════════════════════════════════════════
 
 export type PaneType = string; // 'chat' | 'explorer' | 'terminal' | ... extensible
 
 export interface Pane {
-  id: string;
+  id: PaneId;
   type: PaneType;
   label: string;
-  sessionId?: string; // solo para type === 'chat'
+  sessionId?: SessionPath; // solo para type === 'chat' (ruta del .jsonl)
 }
 
 export interface Tab {
-  id: string;
+  id: TabId;
   /** Sincronizado del panel con foco. Backward compat. */
   type: PaneType;
   /** Sincronizado del panel con foco. */
   label: string;
   /** Sincronizado del panel con foco. undefined si no es chat. */
-  sessionId?: string;
+  sessionId?: SessionPath;
   /** Paneles visibles (1-4). */
   panes: Pane[];
   /** ID del panel con foco. */
-  focus: string;
+  focus: PaneId;
 }
 
 // ═════════════════════════════════════════════
@@ -51,18 +60,18 @@ export interface Tab {
 // ═════════════════════════════════════════════
 
 const [tabs, setTabs] = createStore<Tab[]>([]);
-const [activeTabId, setActiveTabId] = createSignal<string | null>(null);
+const [activeTabId, setActiveTabId] = createSignal<TabId | null>(null);
 
 // ═════════════════════════════════════════════
 // Helpers
 // ═════════════════════════════════════════════
 
 let counter = 0;
-function uid(): string {
-  return `tab-${++counter}-${Date.now().toString(36)}`;
+function uid(): TabId {
+  return toTabId(`tab-${++counter}-${Date.now().toString(36)}`);
 }
-function paneUid(): string {
-  return `pane-${++counter}-${Date.now().toString(36)}`;
+function paneUid(): PaneId {
+  return toPaneId(`pane-${++counter}-${Date.now().toString(36)}`);
 }
 
 /** Sincroniza campos de nivel tab (type, label, sessionId) desde el panel con foco.
@@ -98,7 +107,8 @@ export function getActivePane(): Pane | null {
 // Acciones — Tabs
 // ═════════════════════════════════════════════
 
-export function openChatTab(sessionId: string, label?: string): string {
+export function openChatTab(sessionIdStr: SessionPath | string, label?: string): TabId {
+  const sessionId = toSessionPath(sessionIdStr);
   // openTabs: state-sync filtra eventos por esta lista
   if (!appState.openTabs.value.some((t) => t.id === sessionId)) {
     appState.openTabs.value = [...appState.openTabs.value, {
@@ -127,7 +137,7 @@ export function openChatTab(sessionId: string, label?: string): string {
   return id;
 }
 
-export function openExplorerTab(): string {
+export function openExplorerTab(): TabId {
   // Buscar explorer pane en todas las tabs (no solo tab.type — syncFromFocus lo rota)
   const existing = tabs.find(t => t.panes.some(p => p.type === 'explorer'));
   if (existing) {
@@ -147,7 +157,7 @@ export function openExplorerTab(): string {
 }
 
 /** Abre una tab nueva con un panel SessionsPicker. */
-export function openSessionTab(): string {
+export function openSessionTab(): TabId {
   const id = uid();
   const paneId = paneUid();
   const pane: Pane = { id: paneId, type: 'sessions', label: 'Historial' };
@@ -159,7 +169,8 @@ export function openSessionTab(): string {
   return id;
 }
 
-export function activateTab(tabId: string): void {
+export function activateTab(tabIdStr: TabId | string): void {
+  const tabId = toTabId(tabIdStr);
   setActiveTabId(tabId);
   const tab = tabs.find(t => t.id === tabId);
   if (!tab) return;
@@ -174,7 +185,8 @@ export function activateTab(tabId: string): void {
   }
 }
 
-export function closeTab(tabId: string): void {
+export function closeTab(tabIdStr: TabId | string): void {
+  const tabId = toTabId(tabIdStr);
   const idx = tabs.findIndex(t => t.id === tabId);
   if (idx === -1) return;
   const wasActive = activeTabId() === tabId;
@@ -187,7 +199,7 @@ export function closeTab(tabId: string): void {
   const tabSessions = tab?.panes.filter(p => p.sessionId).map(p => p.sessionId!) ?? [];
   if (tabSessions.length > 0) {
     appState.openTabs.value = appState.openTabs.value.filter(
-      (t) => !tabSessions.includes(t.id)
+      (t) => !tabSessions.includes(t.id as SessionPath)
     );
   }
 
@@ -229,7 +241,8 @@ export function prevTab(): void {
 // ═════════════════════════════════════════════
 
 /** Agrega un panel a la tab según progresión determinística. Máx 4. */
-export function addPane(tabId: string, paneType?: PaneType): void {
+export function addPane(tabIdStr: TabId | string, paneType?: PaneType): void {
+  const tabId = toTabId(tabIdStr);
   setTabs(produce((draft) => {
     const tab = draft.find(t => t.id === tabId);
     if (!tab || tab.panes.length >= 4) return;
@@ -245,7 +258,10 @@ export function addPane(tabId: string, paneType?: PaneType): void {
 }
 
 /** Cambia el tipo de un panel existente (sessions → chat, sessions → explorer, etc.). */
-export function setPaneType(tabId: string, paneId: string, type: PaneType, sessionId?: string): void {
+export function setPaneType(tabIdStr: TabId | string, paneIdStr: PaneId | string, type: PaneType, sessionIdStr?: SessionPath | string, label?: string): void {
+  const tabId = toTabId(tabIdStr);
+  const paneId = toPaneId(paneIdStr);
+  const sessionId = sessionIdStr ? toSessionPath(sessionIdStr) : undefined;
   setTabs(produce((draft) => {
     const tab = draft.find(t => t.id === tabId);
     if (!tab) return;
@@ -254,13 +270,13 @@ export function setPaneType(tabId: string, paneId: string, type: PaneType, sessi
     pane.type = type;
     if (type === 'chat' && sessionId) {
       pane.sessionId = sessionId;
-      pane.label = sessionId.split('/').pop() || 'Chat';
+      pane.label = label ?? (sessionId.split('/').pop() || 'Chat');
     } else if (type === 'explorer') {
       pane.sessionId = undefined;
-      pane.label = 'Explorador';
+      pane.label = label ?? 'Explorador';
     } else if (type === 'sessions') {
       pane.sessionId = undefined;
-      pane.label = 'Historial';
+      pane.label = label ?? 'Historial';
     }
     // Sync tab-level fields SOLO si este pane tiene foco
     syncFromFocus(tab);
@@ -289,7 +305,8 @@ export function setPaneType(tabId: string, paneId: string, type: PaneType, sessi
 }
 
 /** Elimina el ultimo panel de la tab. Min 1. */
-export function removeLastPane(tabId: string): void {
+export function removeLastPane(tabIdStr: TabId | string): void {
+  const tabId = toTabId(tabIdStr);
   const tab = tabs.find(t => t.id === tabId);
   const lastPane = tab?.panes[tab.panes.length - 1];
   const removedSessionId = lastPane?.sessionId;
@@ -320,7 +337,9 @@ export function removeLastPane(tabId: string): void {
 }
 
 /** Activa un panel específico dentro de una tab. */
-export function setFocus(tabId: string, paneId: string): void {
+export function setFocus(tabIdStr: TabId | string, paneIdStr: PaneId | string): void {
+  const tabId = toTabId(tabIdStr);
+  const paneId = toPaneId(paneIdStr);
   setTabs(produce((draft) => {
     const tab = draft.find(t => t.id === tabId);
     if (!tab || !tab.panes.find(p => p.id === paneId)) return;
@@ -367,7 +386,8 @@ export function tabHasMultiplePanes(): boolean {
 // Sincronización con appState
 // ═════════════════════════════════════════════
 
-export function syncChatTab(sessionId: string, label: string): string {
+export function syncChatTab(sessionIdStr: SessionPath | string, label: string): TabId {
+  const sessionId = toSessionPath(sessionIdStr);
   // Buscar en todos los panes (no solo tab.sessionId, que es focus-derived)
   const existing = tabs.find(t => t.panes.some(p => p.type === 'chat' && p.sessionId === sessionId));
   if (existing) {

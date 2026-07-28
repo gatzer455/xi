@@ -8,10 +8,10 @@
  * El botón de explorer y "Nueva sesión" viven en SessionsPage, no acá.
  */
 import { createSignal, For, onMount, onCleanup } from 'solid-js';
-import { appState } from 'xi-ui/lib/state.ts';
+import { appState, type TabId } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { icon } from 'xi-ui/lib/icons.ts';
-import { dropStore } from 'xi-ui/lib/chat/stores.ts';
+import { getStore, dropStore } from 'xi-ui/lib/chat/stores.ts';
 import { pickAndOpenProject } from '../lib/workdir.ts';
 import {
   getTabs,
@@ -27,6 +27,7 @@ import {
   nextTab,
   prevTab,
 } from '../lib/panel-manager.ts';
+import { ModelPicker } from './ModelPicker.tsx';
 import { abortPi } from '../lib/pi/index.ts';
 
 // ─── Icon helper ─────────────────────────────────────────────
@@ -36,12 +37,12 @@ function IconEl(props: { name: string; size?: number }) {
   onMount(() => {
     if (ref) ref.append(icon(props.name, { size: props.size ?? 16 }));
   });
-  return <span ref={ref} style={{ display: 'inline-flex', 'vertical-align': 'middle' }} />;
+  return <span ref={ref} class="top-bar-icon-el" />;
 }
 
 // ─── Tab helpers ─────────────────────────────────────────────
 
-function closeTabWithCleanup(tabId: string): void {
+function closeTabWithCleanup(tabId: TabId | string): void {
   const tab = getTabs().find(t => t.id === tabId);
   if (!tab) {
     closeTab(tabId);
@@ -146,7 +147,8 @@ export function Header() {
     onCleanup(appState.openTabs.subscribe((openTabs) => {
       for (const s of openTabs) {
         if (!getTabs().find(t => t.sessionId === s.id)) {
-          syncChatTab(s.id, s.name ?? s.id.slice(0, 8));
+          const title = (s.name && !s.name.endsWith('.jsonl')) ? s.name : (s.id.split('/').pop()?.replace('.jsonl', '').slice(0, 16) ?? 'Conversación');
+          syncChatTab(s.id, title);
         }
       }
     }));
@@ -171,7 +173,7 @@ export function Header() {
   return (
     <div class="top-bar">
       <img class="top-bar-logo" src="/xi-icon.svg" alt="xi" width={28} height={28}
-           style={{ cursor: 'pointer' }} title="Inicio"
+           title="Inicio"
            onClick={() => navigate('welcome')} />
       <ProjectCard />
 
@@ -198,14 +200,14 @@ export function Header() {
           )}
         </For>
         {/* Botón "+" al lado de la última tab — abre historial de sesiones */}
-        <button class="top-bar-plus-btn"
+        <button class="top-bar-icon-btn"
                 onClick={() => openSessionTab()}
                 title="Nueva conversación / Historial (Ctrl+Shift+T)"
                 aria-label="Historial de conversaciones">+</button>
       </div>
 
       {/* Settings a la derecha */}
-      <button class="top-bar-settings-btn"
+      <button class="top-bar-icon-btn top-bar-settings-btn"
               onClick={() => navigate('settings')}
               title="Configuración (Ctrl+,)"
               aria-label="Configuración">

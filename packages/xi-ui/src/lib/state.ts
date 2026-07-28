@@ -11,8 +11,29 @@ import { signal, type Signal } from './signal.ts';
 import type { Recent } from './pi/types.ts';
 
 // ═══════════════════════════════════════════════════════
-// Tipos — se refinarán cuando implementemos pi-rpc
+// Tipos — Fuertemente Tipados (Desambiguación de IDs)
 // ═══════════════════════════════════════════════════════
+
+/** Ruta completa del archivo .jsonl de la sesión en disco (ej. /home/user/.../session.jsonl) */
+export type SessionPath = string & { readonly __brand: 'SessionPath' };
+
+/** Identificador único de una pestaña de UI (ej. tab-1-1721689200000) */
+export type TabId = string & { readonly __brand: 'TabId' };
+
+/** Identificador único de un panel dentro de una pestaña (ej. pane-1-1721689200000) */
+export type PaneId = string & { readonly __brand: 'PaneId' };
+
+export function toSessionPath(path: string): SessionPath {
+  return path as SessionPath;
+}
+
+export function toTabId(id: string): TabId {
+  return id as TabId;
+}
+
+export function toPaneId(id: string): PaneId {
+  return id as PaneId;
+}
 
 export interface PiModel {
   id: string;
@@ -23,9 +44,9 @@ export interface PiModel {
 }
 
 export interface Session {
-  id: string;
+  id: TabId | string;
   name?: string;
-  file?: string;
+  file?: SessionPath | string;
   messageCount: number;
 }
 
@@ -103,7 +124,7 @@ export const appState = {
   openTabs: signal<Session[]>([]),
 
   /** Id de la tab activa. null = no hay tab activa. */
-  activeTabId: signal<string | null>(null),
+  activeTabId: signal<TabId | SessionPath | string | null>(null),
 
   /** Lista de modelos disponibles retornada por get_available_models.
    *  Se popula lazy en main.ts después de initPiConnection. */
@@ -246,7 +267,7 @@ window.addEventListener('offline', () => {
  * tab. El id del tab es el UUID generado en el cliente (en tabs
  * nuevas) o el sessionId de pi (en sesiones existentes).
  */
-export function setActiveTab(tabId: string | null): void {
+export function setActiveTab(tabId: TabId | SessionPath | string | null): void {
   if (appState.activeTabId.value === tabId) return;
   appState.activeTabId.value = tabId;
 }

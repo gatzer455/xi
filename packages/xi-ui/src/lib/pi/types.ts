@@ -10,15 +10,17 @@
  * el contrato se valida en el `serde_json::from_str` de Rust.
  */
 
+import type { SessionPath } from '../state.ts';
+
 export interface SessionInfo {
-  path: string;
+  path: SessionPath | string;
   id: string;
   /** Working directory donde la sesión fue creada. */
   cwd: string;
   /** Nombre custom del último entry `session_info`, si existe. */
   name?: string;
   /** Path al JSONL del parent (si esta sesión fue forked). */
-  parentSessionPath?: string;
+  parentSessionPath?: SessionPath | string;
   /** Unix ms. */
   created: number;
   /** Unix ms. */

@@ -12,10 +12,14 @@
    Wrapper de OutputBoard.tsx que contiene el routing de páginas.
    .output-board envuelve .output-content para mantener flex.
    #output-board en base.css da el flex: 1 del app shell. */
-.output-board {
+#output-board, .output-board {
+  flex: 1;
+  min-height: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  position: relative;
 }
 
 .output-content {
@@ -23,6 +27,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* ═══ TOP BAR ═══
@@ -80,7 +85,7 @@
 
 /* ═══ TOP BAR ACTIONS ═══
    Botón "+" al lado de la última tab (Mozilla style) y settings. */
-.top-bar-plus-btn {
+.top-bar-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -97,28 +102,7 @@
   transition: color 0.15s, background 0.15s, border-color 0.15s;
   flex-shrink: 0;
 }
-.top-bar-plus-btn:hover {
-  color: var(--color-text);
-  background: var(--color-surface-2);
-  border-color: var(--color-border);
-}
-
-.top-bar-settings-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  margin-left: auto;
-  transition: color 0.15s, background 0.15s, border-color 0.15s;
-  flex-shrink: 0;
-}
-.top-bar-settings-btn:hover {
+.top-bar-icon-btn:hover {
   color: var(--color-text);
   background: var(--color-surface-2);
   border-color: var(--color-border);
@@ -199,6 +183,14 @@
    .chat-content-row contiene .chat-messages + .explorer-panel.
    Por defecto solo tiene .chat-messages. Al abrir el panel,
    .chat-area--panel-open activa el layout flex-row. */
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .chat-content-row {
   flex: 1;
   display: flex;
@@ -206,23 +198,188 @@
   min-height: 0;
 }
 
-.chat-messages-container {
+.chat-main-col {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
-  padding: var(--space-6) var(--space-8);
-  box-sizing: border-box;
 }
 
-#messages-inner {
+.chat-messages-container {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  width: 100%;
+}
+
+.messages-inner {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: var(--chat-max-width, 1100px);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-8);
   display: flex;
   flex-direction: column;
+  position: relative;
   scroll-padding-bottom: var(--space-8);
+  box-sizing: border-box;
 }
+
+.chat-messages-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.chat-input-wrapper {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: var(--chat-max-width, 1100px);
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-8);
+  box-sizing: border-box;
+}
+
+/* ─── Context Bar ────────────────────────────────────────── */
+.context-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-dim);
+  user-select: none;
+}
+
+.context-bar-spinner {
+  color: var(--color-accent);
+  font-weight: bold;
+  margin-right: var(--space-1);
+}
+
+.context-bar-label {
+  color: var(--color-text-muted);
+}
+
+.context-bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.context-bar-tokens {
+  color: var(--color-text-dim);
+}
+
+.context-bar-progress-bg {
+  display: inline-block;
+  width: 48px;
+  height: 4px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.context-bar-progress-fill {
+  display: block;
+  height: 100%;
+  transition: width 0.2s ease;
+}
+
+.context-bar-think,
+.context-bar-model {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+}
+
+.context-bar-think:hover,
+.context-bar-model:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.context-bar-sep {
+  color: var(--color-text-dim);
+  opacity: 0.5;
+}
+
+/* ─── Input Bar ─────────────────────────────────────────── */
+.input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  position: relative;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.input-bar textarea {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  resize: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  padding: var(--space-1) var(--space-2);
+  max-height: 200px;
+  outline: none;
+}
+
+.input-bar textarea::placeholder {
+  color: var(--color-text-dim);
+}
+
+.input-bar textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-send-btn {
+  flex-shrink: 0;
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-lg);
+  min-width: 40px;
+  min-height: 40px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.input-send-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 85%, white);
+}
+
+.input-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.input-btn-icon { display: none; }
+.input-send-btn--send .input-btn-icon--send { display: inline-block; }
+.input-send-btn--stop .input-btn-icon--stop { display: inline-block; }
 
 /* Panel del explorador: visible solo cuando explorerPanelOpen = true.
    Ancho fijo, scroll independiente, borde separador. */

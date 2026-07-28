@@ -24,7 +24,7 @@
  *  footer/indicador.
  */
 
-import { appState, type PiModel, type ThinkingLevel, type Session } from '../state.ts';
+import { appState, type PiModel, type ThinkingLevel, type Session, type SessionPath, type TabId, toSessionPath } from '../state.ts';
 import { addEntry } from '../debug-panel.ts';
 import { getStore } from '../chat/stores.ts';
 import { setKnownExtensionCommands } from './slash-commands.ts';
@@ -48,7 +48,15 @@ import type {
  *  cuando no hay stream activo. Si es null y llega un evento de
  *  streaming (ej. compaction-triggered continuation), se enruta al
  *  activeTabId como fallback. */
-let streamingSessionId: string | null = null;
+let streamingSessionId: SessionPath | TabId | string | null = null;
+
+/** Guard contra eventos tardíos de pi (ej. message_update que llega
+ *  DESPUÉS de agent_end — típicamente con usage/stats finales).
+ *  Se activa en agent_end/endStream, se desactiva en agent_start
+ *  y beginStreamForSession. Mientras está activo, los eventos de
+ *  contenido (message_*, tool_execution_*) se descartan para
+ *  no re-activar isStreaming en el store. */
+let streamSettled = false;
 
 // ── Throttle message_update (evita saturar el store con 100+ eventos/s) ──
 
@@ -60,6 +68,12 @@ let throttleFrameId: number | null = null;
 function flushThrottledUpdate(): void {
   throttleFrameId = null;
   if (!pendingThrottledUpdate) return;
+  // Si el stream ya se cerró (agent_end procesado), descartar el
+  // update pendiente para no re-activar isStreaming en el store.
+  if (streamSettled) {
+    pendingThrottledUpdate = null;
+    return;
+  }
   const { event, targetId } = pendingThrottledUpdate;
   pendingThrottledUpdate = null;
 
@@ -85,8 +99,9 @@ let lastProcessedTime = 0;
 /** Reclama el routing del próximo stream para `sessionId`. Llamar ANTES
  *  de `sendPrompt` para ganar la carrera contra un cambio de tab que el
  *  usuario pueda hacer antes de que llegue `agent_start`. */
-export function beginStreamForSession(sessionId: string): void {
+export function beginStreamForSession(sessionId: SessionPath | TabId | string): void {
   streamingSessionId = sessionId;
+  streamSettled = false;
   appState.isStreaming.value = true;
 }
 
@@ -102,6 +117,12 @@ export function endStream(): void {
     }
   }
   streamingSessionId = null;
+  streamSettled = true;
+  pendingThrottledUpdate = null;
+  if (throttleFrameId !== null) {
+    cancelAnimationFrame(throttleFrameId);
+    throttleFrameId = null;
+  }
   appState.isStreaming.value = false;
 }
 
@@ -213,6 +234,20 @@ function isPiModel(value: unknown): value is PiModel {
 // ─── Streaming / lifecycle events ─────────────────────────
 
 function routeStreamEvent(event: PiEvent): void {
+  // ── Guard: descartar eventos de contenido tardíos ──
+  // Pi puede enviar message_update/agent_settled DESPUÉS de agent_end
+  // (típicamente con usage/stats finales). Si los procesamos, el
+  // reducer re-activa isStreaming y queda congelado en "Trabajando...".
+  // Solo agent_start puede desbloquear el guard (nuevo stream).
+  if (event.type === 'agent_start') {
+    streamSettled = false;
+  }
+  if (streamSettled) {
+    // Permitir solo responses (vienen por handleResponse, no llegan acá)
+    // y agent_start (ya manejado arriba). Todo lo demás se descarta.
+    return;
+  }
+
   // agent_start reclama el stream si nadie lo reclamó (continuación
   // por compaction, steer, etc.). Si ya fue reclamado por
   // beginStreamForSession, respetamos ese claim.
@@ -229,19 +264,18 @@ function routeStreamEvent(event: PiEvent): void {
     // Aún así limpiar si es agent_end o terminated.
     if (event.type === 'agent_end') {
       streamingSessionId = null;
+      streamSettled = true;
       appState.isStreaming.value = false;
     }
     return;
   }
 
-  // Si el target ya no es un tab abierto, descartar el evento
-  // (puede llegar tarde después de cerrar la tab).
-  const isOpen = appState.openTabs.value.some(t => t.id === targetId);
-  if (!isOpen) {
-    if (event.type === 'agent_end') {
-      streamingSessionId = null;
-      appState.isStreaming.value = false;
-    }
+  // Si el target ya no es un tab abierto, descartar eventos intermedios,
+  // pero permitir agent_end para limpiar el estado del store.
+  const isOpen = appState.openTabs.value.some(
+    (t) => t.id === targetId || t.file === targetId
+  );
+  if (!isOpen && event.type !== 'agent_end') {
     return;
   }
 
@@ -277,6 +311,13 @@ function routeStreamEvent(event: PiEvent): void {
   // agent_end limpia el routing y el flag global.
   if (event.type === 'agent_end') {
     streamingSessionId = null;
+    streamSettled = true;
+    // Limpiar throttle pendiente para que un rAF no re-active el store.
+    pendingThrottledUpdate = null;
+    if (throttleFrameId !== null) {
+      cancelAnimationFrame(throttleFrameId);
+      throttleFrameId = null;
+    }
     appState.isStreaming.value = false;
   }
 }

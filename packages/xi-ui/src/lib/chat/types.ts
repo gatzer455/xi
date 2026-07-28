@@ -15,13 +15,15 @@
  *   en un ToolResultPart separado, fiel a pi.
  */
 
+import type { SessionPath, TabId } from '../state.ts';
+
 // ─── IDs ──────────────────────────────────────────────────
 
 /** ID de un ChatMessage. Formato: `${role}_${timestamp}` (D4). */
 export type MessageId = string;
 
-/** ID de un tab/sesión de xi. */
-export type SessionId = string;
+/** ID de un tab/sesión de xi (SessionPath o TabId). */
+export type SessionId = SessionPath | TabId | string;
 
 /** ID de un tool call, asignado por pi. Estable entre toolcall_start,
  *  tool_execution_*, y el ToolResultMessage. */

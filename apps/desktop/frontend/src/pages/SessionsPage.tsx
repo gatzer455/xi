@@ -2,7 +2,7 @@
  * SessionsPage.tsx — Gestión de sesiones (SolidJS).
  */
 import { createSignal, For, Show, onCleanup, onMount } from 'solid-js';
-import { appState, type Session } from 'xi-ui/lib/state.ts';
+import { appState, type Session, type TabId, type PaneId } from 'xi-ui/lib/state.ts';
 import { setActiveTab } from 'xi-ui/lib/state.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { getStore } from 'xi-ui/lib/chat/stores.ts';
@@ -20,8 +20,8 @@ import type { ListSessionsResult, SessionInfo, SkippedInfo } from 'xi-ui/lib/pi/
 const POLL_MS = 30_000;
 
 export interface SessionsPageProps {
-  tabId?: string;
-  paneId?: string;
+  tabId?: TabId | string;
+  paneId?: PaneId | string;
 }
 
 export function SessionsPage(props: SessionsPageProps) {
@@ -75,7 +75,8 @@ export function SessionsPage(props: SessionsPageProps) {
         try { await renameSession(piSession.file, name); piSession.name = name; } catch { /* best-effort */ }
       }
       if (piSession) {
-        setPaneType(props.tabId, props.paneId, 'chat', piSession.file);
+        const label = (piSession.name && piSession.name.trim()) ? piSession.name : name;
+        setPaneType(props.tabId, props.paneId, 'chat', piSession.file, label);
       }
       void load();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
@@ -88,7 +89,15 @@ export function SessionsPage(props: SessionsPageProps) {
     // Arrancar pi primero; si falla, el pane sigue como sessions y el error es visible
     try {
       await startPi(cwd, session.path);
-      setPaneType(props.tabId, props.paneId, 'chat', session.path);
+      let label = session.name;
+      if (!label && session.firstMessage) {
+        label = truncate(session.firstMessage, 30);
+      }
+      if (!label) {
+        const d = new Date(session.created);
+        label = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+      setPaneType(props.tabId, props.paneId, 'chat', session.path, label);
       await getPiState();
       await getPiMessages();
       await getAvailableModels();

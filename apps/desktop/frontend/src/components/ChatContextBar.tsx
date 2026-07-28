@@ -5,7 +5,7 @@
  *         spinner + "Trabajando…" solo visibles durante streaming.
  */
 import { createSignal, createMemo, createEffect, onCleanup, Show } from 'solid-js';
-import { appState, type ThinkingLevel } from 'xi-ui/lib/state.ts';
+import { appState, type ThinkingLevel, type SessionPath, type TabId } from 'xi-ui/lib/state.ts';
 import { getStore } from 'xi-ui/lib/chat/stores.ts';
 import { ModelPicker } from './ModelPicker.tsx';
 import { setThinkingLevel } from 'xi-ui/lib/pi/tauri-commands.ts';
@@ -26,7 +26,7 @@ function fmt(n: number): string {
 /** Capitaliza primera letra */
 function cap(s: string): string { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-export function ChatContextBar(props?: { sessionId?: string }) {
+export function ChatContextBar(props?: { sessionId?: SessionPath | TabId | string }) {
   // Si hay props.sessionId, usar esa sesión fija (modo panel)
   // Sino, escuchar activeTabId global (modo full-page)
   const fixedSessionId = () => props?.sessionId;

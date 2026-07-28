@@ -164,3 +164,18 @@
 @keyframes cursor-blink {
   50% { opacity: 0; }
 }
+
+/* ── LaTeX / Math ── */
+.math-inline {
+  font-family: var(--font-math, inherit);
+  color: inherit;
+}
+.math-display {
+  display: block;
+  text-align: center;
+  margin: var(--space-3) 0;
+  overflow-x: auto;
+}
+.katex {
+  font-size: 1.1em;
+}
