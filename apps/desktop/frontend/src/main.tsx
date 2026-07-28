@@ -37,6 +37,7 @@ import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 import { loadTheme, loadFontSize, applyThemeToDOM, applyFontToDOM } from './lib/settings-storage.ts';
 import { getAvailableModels, getPiUpstreamVersion } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { checkForUpdate, isUpdaterAvailable } from './lib/updater.ts';
+import { loadPlugins } from './lib/plugin-loader.ts';
 
 async function main(): Promise<void> {
   addEntry('system', 'xi starting...');
@@ -60,7 +61,11 @@ async function main(): Promise<void> {
 
   mountShell();
 
-  // ── Async: init pi sin bloquear el paint ──
+  // ── Async: plugins + pi sin bloquear el paint ──
+  loadPlugins().catch((err) => {
+    addEntry('system', `Plugin loading failed: ${err}`);
+  });
+
   initPiConnection().then(() => {
     addEntry('system', 'pi connection initialized');
     initDesktop();

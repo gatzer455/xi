@@ -3,6 +3,7 @@
 
 mod commands;
 mod extensions;
+mod plugins;
 
 use commands::pi_process::{create_pending_requests, create_pi_state};
 use tauri::Manager;
@@ -74,6 +75,8 @@ fn main() {
             commands::files::list_files,
             commands::files::read_file,
             commands::files::write_file,
+            commands::plugins::get_plugins,
+            commands::plugins::read_plugin_entry,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
