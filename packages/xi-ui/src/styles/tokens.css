@@ -31,8 +31,9 @@
      --font-size-base controla el escalado global. Los --text-*
      están en 'em' (no 'rem') para que se reescalen automáticamente
      cuando --font-size-base cambia. */
-  --font-sans: 'Adwaita Sans', 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'Adwaita Mono', 'Iosevka', 'JetBrains Mono', monospace;
+  --font-sans: 'Fira Sans', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Fira Mono', 'JetBrains Mono', monospace;
+  --font-math: 'Fira Math', serif;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-bold: 600;

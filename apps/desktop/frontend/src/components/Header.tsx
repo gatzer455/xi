@@ -172,9 +172,11 @@ export function Header() {
 
   return (
     <div class="top-bar">
-      <img class="top-bar-logo" src="/xi-icon.svg" alt="xi" width={28} height={28}
+      <svg class="top-bar-logo" viewBox="0 0 1600 1600" width={28} height={28}
            title="Inicio"
-           onClick={() => navigate('welcome')} />
+           onClick={() => navigate('welcome')}>
+        <path fill="currentColor" d="M 384,512 568.32031,788.48047 384,972.80078 V 1088 H 499.19922 L 660.48047,926.71875 768,1088 H 960 L 775.67969,811.51953 960,627.19922 V 512 H 844.80078 L 683.51953,673.28125 576,512 Z m 672.3008,0 v 96 32 h 64 32 64 v -32 -96 h -64 z m 80,160 -80,80 v 336 h 160 V 752 Z" />
+      </svg>
       <ProjectCard />
 
       {/* Tabs de sesión + botón "+" estilo Mozilla */}

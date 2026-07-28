@@ -19,8 +19,8 @@
   flex-shrink: 0;
   width: 28px;
   height: 28px;
-  object-fit: contain;
   cursor: pointer;
+  color: var(--color-accent);
 }
 
 .top-bar-icon-el {

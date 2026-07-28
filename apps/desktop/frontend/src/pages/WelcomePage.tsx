@@ -27,7 +27,9 @@ export function WelcomePage() {
       </div>
 
       <div class="welcome-header">
-        <img class="welcome-icon" src="xi-icon.svg" alt="Xi" />
+        <svg class="welcome-icon" viewBox="0 0 1600 1600" width={48} height={48}>
+          <path fill="currentColor" d="M 384,512 568.32031,788.48047 384,972.80078 V 1088 H 499.19922 L 660.48047,926.71875 768,1088 H 960 L 775.67969,811.51953 960,627.19922 V 512 H 844.80078 L 683.51953,673.28125 576,512 Z m 672.3008,0 v 96 32 h 64 32 64 v -32 -96 h -64 z m 80,160 -80,80 v 336 h 160 V 752 Z" />
+        </svg>
         <p class="welcome-subtitle">
           Xi es un asistente de inteligencia artificial. Abre un proyecto y pídele lo que necesites:
           redactar documentos, analizar archivos, responder preguntas, lo que necesites.
