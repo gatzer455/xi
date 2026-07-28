@@ -107,9 +107,9 @@ async function initDesktop(): Promise<void> {
 
 function mountShell(): void {
   // Registrar tipos de panel para el sistema de paneles
-  registerPaneType('chat', ChatPage);
-  registerPaneType('explorer', ExplorerPane);
-  registerPaneType('sessions', SessionsPane);
+  registerPaneType('chat', ChatPage, 'Chat');
+  registerPaneType('explorer', ExplorerPane, 'Explorador');
+  registerPaneType('sessions', SessionsPane, 'Sesiones');
 
   // Montar Header con SolidJS
   render(() => <Header />, document.getElementById('top-bar')!);

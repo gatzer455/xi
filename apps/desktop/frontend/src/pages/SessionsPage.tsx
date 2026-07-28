@@ -10,6 +10,7 @@ import { dropStore } from 'xi-ui/lib/chat/stores.ts';
 import { icon } from 'xi-ui/lib/icons.ts';
 import { ensurePiRunning } from '../lib/pi/lifecycle.ts';
 import { setPaneType, getTabs } from '../lib/panel-manager.ts';
+import { getAvailablePaneTypes } from '../components/PaneView.tsx';
 import type { PaneType } from '../lib/panel-manager.ts';
 import {
   listSessions, deleteSession, renameSession, startPi, stopPi,
@@ -136,9 +137,13 @@ export function SessionsPage(props: SessionsPageProps) {
       <header class="sessions-header">
         <h1>Sesiones</h1>
         <button class="sessions-new" onClick={createNew}>+ Nueva conversación</button>
-        <button class="sessions-explorer" onClick={() => {
-          if (props.tabId && props.paneId) setPaneType(props.tabId, props.paneId, 'explorer');
-        }}>📁 Archivos</button>
+        <For each={getAvailablePaneTypes()}>
+          {(paneType) => (
+            <button class="sessions-explorer" onClick={() => {
+              if (props.tabId && props.paneId) setPaneType(props.tabId, props.paneId, paneType.type);
+            }}>{paneType.label}</button>
+          )}
+        </For>
         <button class="sessions-back" onClick={() => navigate(appState.activeTabId.value ? 'chat' : 'welcome')}>
           ← Volver
         </button>

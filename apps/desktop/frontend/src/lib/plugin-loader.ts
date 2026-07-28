@@ -22,7 +22,7 @@ export interface PluginInfo {
 }
 
 export interface PluginApi {
-  registerPaneType: typeof registerPaneType;
+  registerPaneType: (type: string, comp: unknown, label?: string) => void;
 }
 
 export interface PluginModule {

@@ -4,15 +4,29 @@
  */
 import { type Component, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
-import type { Pane } from '../lib/panel-manager.ts';
+import type { Pane, PaneType } from '../lib/panel-manager.ts';
 import type { TabId, PaneId, SessionPath } from 'xi-ui/lib/state.ts';
 
 // Mapa: PaneType -> Componente SolidJS.
-// Props tipadas: tabId (para pane-sessions), paneId (ID del panel), sessionId (para chat)
 const PANE_COMPONENTS: Record<string, Component<{ tabId?: TabId | string; paneId?: PaneId | string; sessionId?: SessionPath | string }>> = {};
 
-export function registerPaneType(type: string, comp: Component<{ tabId?: TabId | string; paneId?: PaneId | string; sessionId?: SessionPath | string }>): void {
+// Labels para la UI (picker de tipos de panel).
+const PANE_LABELS: Record<string, string> = {};
+
+export function registerPaneType(
+  type: string,
+  comp: Component<{ tabId?: TabId | string; paneId?: PaneId | string; sessionId?: SessionPath | string }>,
+  label?: string,
+): void {
   PANE_COMPONENTS[type] = comp;
+  PANE_LABELS[type] = label ?? type;
+}
+
+/** Devuelve los tipos de panel registrados con su label (excluye 'chat' y 'sessions'). */
+export function getAvailablePaneTypes(): { type: PaneType; label: string }[] {
+  return Object.entries(PANE_LABELS)
+    .filter(([type]) => type !== 'chat' && type !== 'sessions')
+    .map(([type, label]) => ({ type: type as PaneType, label }));
 }
 
 function PaneFallback(_props: { tabId?: TabId | string; paneId?: PaneId | string; sessionId?: SessionPath | string }): JSX.Element {

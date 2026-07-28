@@ -8,5 +8,5 @@ import { TerminalPane } from './TerminalPane.js';
 
 export function register(api) {
   console.log('[xi-terminal] registrando pane type');
-  api.registerPaneType('terminal', TerminalPane);
+  api.registerPaneType('terminal', TerminalPane, 'Terminal');
 }
