@@ -17,6 +17,7 @@
 @import './components/ChatContextBar.css';
 
 /* 4. Pages */
+@import './pages.css';
 @import './pages/chat.css';
 @import './pages/sessions.css';
 @import './pages/settings.css';
