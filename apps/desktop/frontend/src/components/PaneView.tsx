@@ -5,24 +5,25 @@
 import { type Component, type JSX } from 'solid-js';
 import { Dynamic } from 'solid-js/web';
 import type { Pane } from '../lib/panel-manager.ts';
+import type { TabId, PaneId, SessionPath } from 'xi-ui/lib/state.ts';
 
 // Mapa: PaneType -> Componente SolidJS.
 // Props tipadas: tabId (para pane-sessions), paneId (ID del panel), sessionId (para chat)
-const PANE_COMPONENTS: Record<string, Component<{ tabId?: string; paneId?: string; sessionId?: string }>> = {};
+const PANE_COMPONENTS: Record<string, Component<{ tabId?: TabId | string; paneId?: PaneId | string; sessionId?: SessionPath | string }>> = {};
 
-export function registerPaneType(type: string, comp: Component<{ tabId?: string; paneId?: string; sessionId?: string }>): void {
+export function registerPaneType(type: string, comp: Component<{ tabId?: TabId | string; paneId?: PaneId | string; sessionId?: SessionPath | string }>): void {
   PANE_COMPONENTS[type] = comp;
 }
 
-function PaneFallback(_props: { tabId?: string; paneId?: string; sessionId?: string }): JSX.Element {
+function PaneFallback(_props: { tabId?: TabId | string; paneId?: PaneId | string; sessionId?: SessionPath | string }): JSX.Element {
   return <div class="pane-unknown">Panel no disponible</div>;
 }
 
 export function PaneView(props: {
-  tabId: string;
+  tabId: TabId | string;
   pane: Pane;
   focused: boolean;
-  onFocus: (paneId: string) => void;
+  onFocus: (paneId: PaneId | string) => void;
 }) {
   const Comp = () => PANE_COMPONENTS[props.pane.type] ?? PaneFallback;
   return (

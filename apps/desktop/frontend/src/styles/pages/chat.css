@@ -1,0 +1,71 @@
+/* ═══ chat.css — Chat area, messages container, input wrapper pinning ═══ */
+/* ── Content row: chat + panel lateral (split view) ──
+   .chat-content-row contiene .chat-messages + .explorer-panel.
+   Por defecto solo tiene .chat-messages. Al abrir el panel,
+   .chat-area--panel-open activa el layout flex-row. */
+.chat-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chat-content-row {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+}
+
+.chat-main-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chat-messages-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+  padding: 0;
+  box-sizing: border-box;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.messages-inner {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: var(--chat-max-width, 1100px);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  scroll-padding-bottom: var(--space-8);
+  box-sizing: border-box;
+}
+
+.chat-messages-inner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.chat-input-wrapper {
+  width: 100%;
+  max-width: var(--chat-max-width, 1100px);
+  margin: 0 auto;
+  padding: 0 var(--space-8) var(--space-6);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}

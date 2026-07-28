@@ -1,0 +1,20 @@
+/* 1. Tokens & Theme */
+@import 'xi-ui/styles/tokens.css';
+@import 'xi-ui/styles/theme.css';
+
+/* 2. Base Reset & Layout */
+@import './base.css';
+@import './layout.css';
+
+/* 3. Components */
+@import './components/Header.css';
+@import './components/InputBar.css';
+@import './components/ChatContextBar.css';
+@import 'xi-ui/styles/components.css';
+@import 'xi-ui/styles/markdown.css';
+
+/* 4. Pages */
+@import './pages/chat.css';
+@import './pages/sessions.css';
+@import './pages/settings.css';
+@import './pages/explorer.css';

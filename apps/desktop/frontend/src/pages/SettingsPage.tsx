@@ -243,7 +243,7 @@ function DeleteButton(props: { onDelete: () => Promise<void> }) {
   function cancel() { setConfirming(false); clearTimeout(timer); }
 
   return (
-    <div class="settings-provider-actions" style="margin-top: 8px">
+    <div class="settings-provider-actions">
       <Show when={!confirming()}
             fallback={
               <button type="button" class="settings-btn settings-btn--danger settings-btn--confirming"
@@ -434,7 +434,7 @@ function ApproveSection() {
         <For each={toolCards}>{(tool) => <ApproveToolCard tool={tool} />}</For>
       </div>
       <button type="button" class="settings-btn settings-btn--primary" onClick={save}>Guardar reglas</button>
-      <Show when={saved()}><span style="margin-left: 8px; color: var(--color-success);">✓ Guardado</span></Show>
+      <Show when={saved()}><span class="settings-saved-badge">✓ Guardado</span></Show>
     </div>
   );
 }

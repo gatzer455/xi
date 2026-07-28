@@ -12,10 +12,11 @@ import { setDialogRenderer, clearDialogRenderer } from '../lib/pi/extension-ui-h
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { ChatMessages } from 'xi-ui/components/ChatMessages.tsx';
 import { mountExplorer } from './ExplorerPage.tsx';
+import { type SessionPath, type TabId } from 'xi-ui/lib/state.ts';
 import { InputBar } from '../components/InputBar.tsx';
 import { ChatContextBar } from '../components/ChatContextBar.tsx';
 
-export function ChatPage(props?: { sessionId?: string }) {
+export function ChatPage(props?: { sessionId?: SessionPath | TabId | string }) {
   // ═══ Auth banner ═══
   const sessionId = () => props?.sessionId ?? appState.activeTabId.value ?? undefined;
 
@@ -128,10 +129,10 @@ export function ChatPage(props?: { sessionId?: string }) {
   }));
 
   // ═══ Explorer panel mount ═══
-  let explorerEl: HTMLDivElement | undefined;
+  let explorerEl: HTMLElement | undefined;
   let explorerMounted = false;
 
-  function setExplorerRef(el: HTMLDivElement) {
+  function setExplorerRef(el: HTMLElement) {
     explorerEl = el;
     if (panelOpen() && !explorerMounted) {
       mountExplorer(el, undefined);
@@ -150,23 +151,30 @@ export function ChatPage(props?: { sessionId?: string }) {
   }));
 
   return (
-    <div class="chat-area">
+    <main class="chat-area" data-component="chat-page" data-session-id={sessionId()}>
       <Show when={!props?.sessionId && !hasProvider()}>
-        <div class="chat-auth-banner">
+        <div class="chat-auth-banner" role="alert">
           <span>⚠ No hay modelo configurado. Configura tu API key en Ajustes para empezar a conversar.</span>
           <button class="chat-auth-banner-btn" onClick={() => navigate('settings')}>Ir a Ajustes</button>
         </div>
       </Show>
 
       <div class="chat-content-row">
-        <div class="chat-messages-container">
-          <div class="messages-inner" id="messages-inner">
-            <ChatMessages messages={messages} streaming={streaming} />
+        <div class="chat-main-col">
+          <section class="chat-messages-container" data-component="chat-messages-container">
+            <div class="messages-inner">
+              <ChatMessages messages={messages} streaming={streaming} />
+            </div>
+          </section>
+
+          <div class="chat-input-wrapper">
+            <ChatContextBar sessionId={sessionId()} />
+            <InputBar sessionId={sessionId()} />
           </div>
         </div>
 
         <Show when={!props?.sessionId && panelOpen()}>
-          <div class="explorer-panel" ref={setExplorerRef} />
+          <aside class="explorer-panel" ref={setExplorerRef} />
         </Show>
       </div>
 
@@ -181,10 +189,7 @@ export function ChatPage(props?: { sessionId?: string }) {
           </svg>
         </button>
       </Show>
-
-      <ChatContextBar sessionId={sessionId()} />
-      <InputBar sessionId={sessionId()} />
-    </div>
+    </main>
   );
 }
 

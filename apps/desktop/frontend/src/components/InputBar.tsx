@@ -2,7 +2,7 @@
  * InputBar.tsx — Barra de input con textarea + Send/Stop.
  */
 import { createSignal, createEffect, onCleanup, onMount } from 'solid-js';
-import { appState } from 'xi-ui/lib/state.ts';
+import { appState, type SessionPath, type TabId } from 'xi-ui/lib/state.ts';
 import { getStore } from 'xi-ui/lib/chat/stores.ts';
 import { sendPrompt, abortPi, beginStreamForSession, endStream, dispatchSlashCommand } from '../lib/pi/index.ts';
 import { navigate } from 'xi-ui/lib/nav.ts';
@@ -10,7 +10,7 @@ import { SlashMenu } from 'xi-ui/components/slash-menu.ts';
 import type { SlashMenuItem } from 'xi-ui/components/slash-menu.ts';
 import { getAllSlashCommands } from 'xi-ui/lib/pi/slash-commands.ts';
 
-export function InputBar(props?: { sessionId?: string }) {
+export function InputBar(props?: { sessionId?: SessionPath | TabId | string }) {
   let textareaRef: HTMLTextAreaElement | undefined;
   let sendBtnRef: HTMLButtonElement | undefined;
   let barRef: HTMLDivElement | undefined;

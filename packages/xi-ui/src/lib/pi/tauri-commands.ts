@@ -18,6 +18,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import type { SessionPath } from '../state.ts';
 import { addEntry } from '../debug-panel.ts';
 import type { ListSessionsResult, Recent, SessionInfo } from './types.ts';
 import type { ThinkingLevel, FileEntry } from '../state.ts';
@@ -116,7 +117,7 @@ export async function listSessions(cwd: string): Promise<ListSessionsResult> {
   return await loggedInvoke('list_sessions', () => invoke('list_sessions', { cwd }));
 }
 
-export async function deleteSession(path: string): Promise<void> {
+export async function deleteSession(path: SessionPath | string): Promise<void> {
   addEntry('out', `delete_session path=${path}`);
   if (isMobile) {
     // xi-serve no tiene delete_session aún, skip
@@ -134,13 +135,13 @@ export async function listProjects(): Promise<string[]> {
 }
 
 /** Solo mobile: abre una sesión existente (kill + respawn de pi con --session). */
-export async function openSession(path: string): Promise<void> {
+export async function openSession(path: SessionPath | string): Promise<void> {
   addEntry('out', `xi_open_session path=${path}`);
   if (!isMobile) return;
   await commandBus!.invoke('xi_open_session', { path });
 }
 
-export async function renameSession(path: string, name: string): Promise<void> {
+export async function renameSession(path: SessionPath | string, name: string): Promise<void> {
   addEntry('out', `rename_session path=${path} name=${name}`);
   if (isMobile) {
     return;

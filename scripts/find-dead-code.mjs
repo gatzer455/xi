@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * find-dead-code.mjs — Detecta archivos TS/TSX muertos (sin importers).
+ * find-dead-code.mjs — Detecta archivos TS/TSX sin importers.
  *
  * Usa ast-grep outline --items imports/exports para construir un grafo
  * de dependencias determinístico.
@@ -41,13 +41,16 @@ const ENTRY_PATTERNS = [
 ];
 
 const IGNORE_PATTERNS = [
+  /\/scripts\//,
+  /\/binaries\//,
+  /\/dist\//,
+];
+
+const TEST_PATTERNS = [
   /\/tests\//,
   /\/__tests__\//,
   /\.test\.(ts|tsx)$/,
   /\.spec\.(ts|tsx)$/,
-  /\/scripts\//,
-  /\/binaries\//,
-  /\/dist\//,
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -107,8 +110,10 @@ function resolveImportPath(fromFile, importPath) {
 // ── Graph builder ──────────────────────────────────────────────────
 
 function buildGraph(files) {
-  // Filtrar una sola vez
-  const filtered = files.filter((f) => !IGNORE_PATTERNS.some((p) => p.test(relative(ROOT, f))));
+  const filtered = files.filter((f) => {
+    const rel = relative(ROOT, f);
+    return !IGNORE_PATTERNS.some((p) => p.test(rel)) && !TEST_PATTERNS.some((p) => p.test(rel));
+  });
 
   const lookup = new Map();
   for (const file of filtered) {
@@ -122,7 +127,6 @@ function buildGraph(files) {
   for (const file of filtered) {
     graph.set(file, { exports: new Set(), importedBy: new Set() });
 
-    // Extraer exports e imports en una sola pasada
     const items = outlineJson(file, "exports");
     for (const item of items) {
       for (const entry of item.items || []) {
@@ -171,6 +175,7 @@ const jsonOutput = args.includes("--json");
 const files = findFiles(SCAN_DIRS);
 const graph = buildGraph(files);
 
+// 1. Dead source files
 const deadFiles = [];
 for (const [file, data] of graph) {
   const rel = relative(ROOT, file);
@@ -179,21 +184,53 @@ for (const [file, data] of graph) {
   }
 }
 
+// 2. Dead test files: testea archivos que son candidatos a muertos
+const deadFilePaths = new Set(deadFiles.map((d) => resolve(ROOT, d.file)));
+const testFiles = files.filter((f) => TEST_PATTERNS.some((p) => p.test(relative(ROOT, f))));
+const deadTests = [];
+for (const tf of testFiles) {
+  for (const item of outlineJson(tf, "imports")) {
+    for (const entry of item.items || []) {
+      let importPath = entry.name;
+      if (!importPath) continue;
+      importPath = importPath.replace(/^['"]|['"]$/g, "");
+      const targetAbs = resolveImportPath(tf, importPath);
+      if (targetAbs && deadFilePaths.has(resolve(targetAbs.replace(/\.(ts|tsx)$/, "")))) {
+        deadTests.push(relative(ROOT, tf));
+        break;
+      }
+    }
+  }
+}
+
 if (jsonOutput) {
-  console.log(JSON.stringify({ deadFiles: deadFiles.map((d) => d.file) }, null, 2));
+  console.log(JSON.stringify({
+    deadFiles: deadFiles.map((d) => d.file),
+    deadTests: [...new Set(deadTests)],
+  }, null, 2));
 } else {
+  const uniqueDeadTests = [...new Set(deadTests)];
   console.log("🔍 find-dead-code — grafo de dependencias\n");
   console.log(`  Archivos totales: ${graph.size} (${graph.size - deadFiles.length} vivos, ${deadFiles.length} candidatos)\n`);
 
-  if (deadFiles.length === 0) {
-    console.log("  ✅ Sin archivos muertos.\n");
+  if (deadFiles.length === 0 && uniqueDeadTests.length === 0) {
+    console.log("  ✅ Sin código muerto.\n");
     process.exit(0);
   }
 
-  for (const d of deadFiles) {
-    console.log(`   ${d.file}`);
-    if (d.exports.length > 0) {
-      console.log(`     → ${d.exports.slice(0, 6).join(", ")}${d.exports.length > 6 ? "..." : ""}`);
+  if (deadFiles.length > 0) {
+    for (const d of deadFiles) {
+      console.log(`   ${d.file}`);
+      if (d.exports.length > 0) {
+        console.log(`     → ${d.exports.slice(0, 6).join(", ")}${d.exports.length > 6 ? "..." : ""}`);
+      }
+    }
+  }
+
+  if (uniqueDeadTests.length > 0) {
+    console.log(`\n  🧪 Tests que importan archivos muertos (${uniqueDeadTests.length}):`);
+    for (const t of uniqueDeadTests) {
+      console.log(`   ${t}`);
     }
   }
 
