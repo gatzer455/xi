@@ -57,9 +57,10 @@ export function SessionsPage() {
   }
 
   async function openExisting(session: SessionInfo) {
-    const isOpen = appState.openTabs.value.some((t) => t.id === session.id);
+    const sid = toTabId(session.id);
+    const isOpen = appState.openTabs.value.some((t) => t.id === sid);
     if (isOpen) {
-      setActiveTab(session.id);
+      setActiveTab(sid);
       navigate('chat');
       return;
     }
