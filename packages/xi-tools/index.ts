@@ -217,6 +217,26 @@ async function execRead(params: { path: string; offset?: number; limit?: number 
       details: {},
     };
   }
+
+  // Check if Rust binary returned an image result as JSON
+  const trimmed = stdout.trim();
+  if (trimmed.startsWith('{"_type":"image"') || trimmed.startsWith('{"mimeType"')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed._type === "image" && parsed.mimeType && parsed.data) {
+        return {
+          content: [
+            { type: "text" as const, text: `Read image file [${parsed.mimeType}]` },
+            { type: "image" as const, data: parsed.data, mimeType: parsed.mimeType },
+          ],
+          details: {},
+        };
+      }
+    } catch {
+      // Not JSON, fall through to text output
+    }
+  }
+
   return {
     content: [{ type: "text" as const, text: stdout }],
     details: {},
@@ -299,10 +319,10 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "read",
     label: "Read",
-    description: "Read the contents of a file. Output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files.",
+    description: "Read the contents of a file. Supports text files and images (jpg, png, gif, webp, bmp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.",
     promptSnippet: "Read file contents with line numbers for reference",
     promptGuidelines: [
-      "Use read to examine file contents. Content is shown with line numbers for reference.",
+      "Use read to examine files instead of cat or sed.",
     ],
     parameters: Type.Object({
       path: Type.String({ description: "Path to the file to read (relative or absolute)" }),
