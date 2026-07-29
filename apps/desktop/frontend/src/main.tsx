@@ -35,7 +35,7 @@ import { ExplorerPane } from './pages/ExplorerPane.tsx';
 import { SessionsPane } from './pages/SessionsPane.tsx';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 import { loadTheme, loadFontSize, applyThemeToDOM, applyFontToDOM } from './lib/settings-storage.ts';
-import { getAvailableModels, getPiUpstreamVersion } from 'xi-ui/lib/pi/tauri-commands.ts';
+import { getAvailableModels, getPiUpstreamVersion, setProjectRoot } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { checkForUpdate, isUpdaterAvailable } from './lib/updater.ts';
 import { loadPlugins } from './lib/plugin-loader.ts';
 
@@ -81,6 +81,7 @@ async function initDesktop(): Promise<void> {
     addEntry('system', `pi status: ${JSON.stringify(status)}`);
     if (status.running && status.cwd) {
       appState.workingDir.value = status.cwd;
+      setProjectRoot(status.cwd).catch((err) => addEntry('system', `set_project_root failed: ${err}`));
       hasWorkingDir = true;
     }
   } catch (err) {

@@ -34,6 +34,7 @@ fn main() {
             app.manage(create_pi_state());
             app.manage(create_pending_requests());
             app.manage(create_plugin_process_map());
+            app.manage(commands::files::create_project_root_state());
 
             // Copiar extensiones empaquetadas en background (sin bloquear startup)
             let handle = app.handle().clone();
@@ -77,6 +78,7 @@ fn main() {
             commands::files::list_files,
             commands::files::read_file,
             commands::files::write_file,
+            commands::files::set_project_root,
             commands::plugins::get_plugins,
             commands::plugins::read_plugin_entry,
             commands::plugins::spawn_plugin_pty,

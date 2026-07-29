@@ -7,7 +7,31 @@ use super::pi_process::PiProcessState;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use tauri::State;
+
+/// Estado del directorio raíz del proyecto activo.
+///
+/// Se setea vía `set_project_root` desde el frontend cuando el usuario
+/// abre un proyecto (independiente de si pi está corriendo). `list_files`
+/// lo usa para confinar la navegación, de modo que el explorador funcione
+/// sin necesidad de tener una sesión de pi abierta.
+pub struct ProjectRootState(pub Mutex<Option<PathBuf>>);
+
+pub fn create_project_root_state() -> ProjectRootState {
+    ProjectRootState(Mutex::new(None))
+}
+
+/// Setea el directorio raíz del proyecto activo. Llamado desde el frontend
+/// al abrir un proyecto. No requiere que pi esté corriendo.
+#[tauri::command]
+pub fn set_project_root(path: String, state: State<'_, ProjectRootState>) -> Result<(), String> {
+    let canonical = Path::new(&path)
+        .canonicalize()
+        .map_err(|e| format!("Path inválido: {e}"))?;
+    *state.0.lock().unwrap() = Some(canonical);
+    Ok(())
+}
 
 /// Entrada de archivo para el explorador.
 #[derive(Serialize, Deserialize)]
@@ -62,8 +86,18 @@ pub fn get_cwd(state: &PiProcessState) -> Result<PathBuf, String> {
 }
 
 /// Integrado: get_cwd + confine_path.
-pub fn confine(path: &str, state: &PiProcessState) -> Result<PathBuf, String> {
-    let root = get_cwd(state)?;
+/// Usa el project root como fuente primaria (seteado por set_project_root
+/// al abrir un proyecto). Si no está seteado, cae al cwd de pi para
+/// mantener compatibilidad con código que asume pi corriendo.
+pub fn confine(path: &str, state: &PiProcessState, project_root: &ProjectRootState) -> Result<PathBuf, String> {
+    let root = {
+        let pr = project_root.0.lock().unwrap();
+        pr.clone()
+    };
+    let root = match root {
+        Some(r) => r,
+        None => get_cwd(state)?,
+    };
     confine_path(path, &root)
 }
 
@@ -145,8 +179,9 @@ pub fn list_files_inner(dir: &Path) -> Result<Vec<FileEntry>, String> {
 pub fn list_files(
     path: String,
     state: State<'_, PiProcessState>,
+    project_root: State<'_, ProjectRootState>,
 ) -> Result<Vec<FileEntry>, String> {
-    let dir = confine(&path, &state)?;
+    let dir = confine(&path, &state, &project_root)?;
     list_files_inner(&dir)
 }
 
@@ -172,8 +207,8 @@ pub fn read_file_inner(file: &Path) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn read_file(path: String, state: State<'_, PiProcessState>) -> Result<String, String> {
-    let file = confine(&path, &state)?;
+pub fn read_file(path: String, state: State<'_, PiProcessState>, project_root: State<'_, ProjectRootState>) -> Result<String, String> {
+    let file = confine(&path, &state, &project_root)?;
     read_file_inner(&file)
 }
 
@@ -192,8 +227,9 @@ pub fn write_file(
     path: String,
     content: String,
     state: State<'_, PiProcessState>,
+    project_root: State<'_, ProjectRootState>,
 ) -> Result<(), String> {
-    let file = confine(&path, &state)?;
+    let file = confine(&path, &state, &project_root)?;
     write_file_inner(&file, &content)
 }
 

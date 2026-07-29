@@ -16,7 +16,7 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { appState } from 'xi-ui/lib/state.ts';
 import { stopPi } from './pi/index.ts';
-import { addRecent } from 'xi-ui/lib/pi/tauri-commands.ts';
+import { addRecent, setProjectRoot } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { clearStores } from 'xi-ui/lib/chat/stores.ts';
 import { resetTabState } from './panel-manager.ts';
 
@@ -44,6 +44,12 @@ export async function openProject(path: string): Promise<void> {
   resetTabState();
 
   appState.workingDir.value = path;
+
+  // Setea el root en el backend para que el explorador funcione
+  // sin necesidad de tener pi corriendo.
+  setProjectRoot(path).catch((err) => {
+    console.error('Failed to set project root:', err);
+  });
 
   addRecent(path).catch((err) => {
     console.error('Failed to save recent:', err);

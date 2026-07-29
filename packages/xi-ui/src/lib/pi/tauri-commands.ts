@@ -244,6 +244,18 @@ export async function listFiles(path: string): Promise<FileEntry[]> {
   return await loggedInvoke('list_files', () => invoke('list_files', { path }));
 }
 
+/**
+ * Setea el directorio raíz del proyecto en el backend. Llamar al abrir
+ * un proyecto para que el explorador pueda listar archivos sin necesidad
+ * de tener una sesión de pi abierta.
+ */
+export async function setProjectRoot(path: string): Promise<void> {
+  if (isMobile) {
+    return commandBus!.invoke('xi_set_project_root', { path }) as Promise<void>;
+  }
+  return await loggedInvoke('set_project_root', () => invoke('set_project_root', { path }));
+}
+
 export async function readFile(path: string): Promise<string> {
   addEntry('out', `read_file path=${path}`);
   if (isMobile) {
