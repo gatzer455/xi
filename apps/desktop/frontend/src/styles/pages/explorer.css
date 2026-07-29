@@ -36,6 +36,58 @@
 .file-list { padding: var(--space-2) 0; }
 .file-list-empty { padding: var(--space-6); text-align: center; color: var(--color-text-muted); }
 
+/* ═══ FILE TREE ═══ */
+.file-tree {
+  flex: 1;
+  overflow-y: auto;
+  outline: none;
+  padding: var(--space-1) 0;
+}
+.file-tree:focus { outline: none; }
+
+.file-tree-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 5px var(--space-2);
+  cursor: pointer;
+  transition: background 0.1s;
+  min-height: 28px;
+}
+.file-tree-item:hover { background: var(--color-hover); }
+.file-tree-item--selected { background: var(--color-accent-muted); }
+
+.file-tree-chevron {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+.file-tree-chevron--spacer { visibility: hidden; }
+
+.file-tree-icon {
+  font-size: 16px;
+  width: 20px;
+  height: 20px;
+  text-align: center;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.file-tree-name {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .file-breadcrumb {
   display: flex;
   align-items: center;

@@ -6,7 +6,7 @@ import type { Page, Scope } from 'xi-ui/lib/scope.ts';
 import { appState, type FileEntry } from 'xi-ui/lib/state.ts';
 import { listFiles, readFile } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { render } from 'solid-js/web';
-import { FileList } from '../components/FileList.tsx';
+import { FileTree } from '../components/FileTree.tsx';
 import { FilePreview } from '../components/FilePreview.tsx';
 
 const STORAGE_KEY = 'xi.explorer';
@@ -49,7 +49,7 @@ export function explorerPageFactory(): Page {
   const listDiv = document.createElement('div'); listDiv.className = 'explorer-list';
   const previewDiv = document.createElement('div'); previewDiv.className = 'explorer-preview';
   root.append(listDiv, previewDiv);
-  const dl = render(() => <FileList />, listDiv);
+  const dl = render(() => <FileTree />, listDiv);
   const dp = render(() => <FilePreview />, previewDiv);
   scope.add(dl); scope.add(dp);
   return { root, dispose: () => scope.dispose() };
@@ -64,7 +64,7 @@ export function mountExplorer(container: HTMLElement, scope?: Scope): void {
   backBtn.onclick = () => { appState.selectedFile.value = null; appState.fileContent.value = null; appState.isEditing.value = false; showList(); };
 
   let disposePreview: (() => void) | null = null;
-  const disposeList = render(() => <FileList />, listDiv);
+  const disposeList = render(() => <FileTree />, listDiv);
   if (scope?.add) scope.add(disposeList);
 
   previewDiv.append(backBtn);
