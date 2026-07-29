@@ -180,8 +180,9 @@ pub fn spawn_plugin_pty(plugin_name: &str, app: &AppHandle) -> Result<(), String
     std::thread::spawn(move || {
         let reader = BufReader::new(stderr);
         for line in reader.lines() {
-            if let Ok(l) = line {
-                log::warn!("[plugin:{name}] stderr: {l}");
+            match line {
+                Ok(l) => log::warn!("[plugin:{name}] stderr: {l}"),
+                Err(_) => break,
             }
         }
     });
