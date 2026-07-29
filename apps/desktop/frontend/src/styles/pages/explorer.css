@@ -234,7 +234,7 @@
 
 .file-preview-code {
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -247,7 +247,7 @@
   min-height: 400px;
   padding: var(--space-4);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   line-height: 1.5;
   background: var(--color-bg);
   color: var(--color-text);
