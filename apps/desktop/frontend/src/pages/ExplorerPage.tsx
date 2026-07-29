@@ -1,7 +1,7 @@
 /**
  * ExplorerPage.tsx — Página de explorador de archivos (SolidJS).
-/**
- * ExplorerPage.tsx — Página de explorador de archivos (SolidJS).
+ * Comportamiento: vista única. El árbol ocupa todo el panel. Al seleccionar
+ * un archivo, el árbol se oculta y aparece la preview centrada con «← Volver».
  */
 import { createScope } from 'xi-ui/lib/scope.ts';
 import type { Page, Scope } from 'xi-ui/lib/scope.ts';
@@ -46,15 +46,8 @@ export function explorerPageFactory(): Page {
   const root = document.createElement('div');
   root.className = 'explorer-page';
   const scope = createScope();
-  const cwd = appState.workingDir.value;
-  if (cwd) void loadFiles(cwd);
-  // En full-page mode, montamos ambos paneles side by side
-  const listDiv = document.createElement('div'); listDiv.className = 'explorer-list';
-  const previewDiv = document.createElement('div'); previewDiv.className = 'explorer-preview';
-  root.append(listDiv, previewDiv);
-  const dl = render(() => <FileTree />, listDiv);
-  const dp = render(() => <FilePreview />, previewDiv);
-  scope.add(dl); scope.add(dp);
+  // Vista única: árbol full-width, preview reemplaza al seleccionar archivo.
+  mountExplorer(root, scope);
   return { root, dispose: () => scope.dispose() };
 }
 
