@@ -19,6 +19,8 @@
   --color-surface:      var(--color-card-bg);
   --color-surface-2:    var(--color-tool-pending-bg);
   --color-border:       var(--color-border-muted);
+  --color-hover:        color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  --color-accent-muted: color-mix(in srgb, var(--color-accent) 22%, var(--color-surface));
   --color-user-bubble:  var(--color-user-msg-bg);
   --color-ai-bubble:    var(--color-page-bg);
   --color-accent-hover: color-mix(in srgb, var(--color-accent) 85%, transparent);
