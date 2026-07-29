@@ -1,5 +1,7 @@
 /**
  * ExplorerPage.tsx — Página de explorador de archivos (SolidJS).
+/**
+ * ExplorerPage.tsx — Página de explorador de archivos (SolidJS).
  */
 import { createScope } from 'xi-ui/lib/scope.ts';
 import type { Page, Scope } from 'xi-ui/lib/scope.ts';
@@ -8,6 +10,7 @@ import { listFiles, readFile } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { render } from 'solid-js/web';
 import { FileTree } from '../components/FileTree.tsx';
 import { FilePreview } from '../components/FilePreview.tsx';
+import '../styles/pages/explorer.css';
 
 const STORAGE_KEY = 'xi.explorer';
 interface State { lastFile: string | null }

@@ -19,6 +19,12 @@
   flex-direction: column;
 }
 
+.explorer-preview-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
 /* Barra de navegación: "← Volver" */
 .explorer-preview-back {
   background: none;
@@ -166,11 +172,9 @@
 .file-item-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-item-size { font-size: 11px; color: var(--color-text-muted); }
 
-.file-preview { flex: 1; display: flex; flex-direction: column; align-items: center; }
+.file-preview { width: 100%; max-width: 900px; display: flex; flex-direction: column; }
 .file-preview-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--color-text-muted); width: 100%; }
 .file-preview-empty-text { font-size: 14px; }
-.file-preview > * { width: 100%; max-width: 900px; padding-left: var(--space-4); padding-right: var(--space-4); box-sizing: border-box; }
-.file-preview-header { padding-left: var(--space-4); padding-right: var(--space-4); }
 
 .file-preview-header {
   display: flex;

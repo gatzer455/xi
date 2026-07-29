@@ -5,6 +5,7 @@
 import { onMount, onCleanup } from 'solid-js';
 import { render } from 'solid-js/web';
 import { explorerPageFactory } from './ExplorerPage.tsx';
+import '../styles/pages/explorer.css';
 
 export function ExplorerPane() {
   let ref: HTMLDivElement | undefined;
