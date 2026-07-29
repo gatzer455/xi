@@ -10,7 +10,9 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
+import { type Component } from 'solid-js';
 import { appState } from 'xi-ui/lib/state.ts';
+import type { TabId, PaneId, SessionPath } from 'xi-ui/lib/state.ts';
 import { registerPaneType } from '../components/PaneView.tsx';
 import { addEntry } from 'xi-ui/lib/debug-panel.ts';
 
@@ -23,7 +25,7 @@ export interface PluginInfo {
 }
 
 export interface PluginApi {
-  registerPaneType: (type: string, comp: any, label?: string) => void;
+  registerPaneType: (type: string, comp: Component<{ tabId?: TabId | string; paneId?: PaneId | string; sessionId?: SessionPath | string }>, label?: string) => void;
   /** Devuelve el directorio de trabajo actual, o null si no hay proyecto abierto. */
   getWorkingDir: () => string | null;
 }
