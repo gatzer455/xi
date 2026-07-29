@@ -8,10 +8,11 @@
  *   ← para colapsar.
  * - Click en archivo → selectFile(), click en carpeta → toggle.
  */
-import { createSignal, For, Show, onCleanup } from 'solid-js';
+import { createSignal, For, Show, onCleanup, onMount } from 'solid-js';
 import { appState, type FileEntry } from 'xi-ui/lib/state.ts';
 import { listFiles, readFile } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { getFileIconName, icon } from 'xi-ui/lib/icons.ts';
+import { loadFiles } from '../pages/ExplorerPage.tsx';
 
 // ── Lógica de selección de archivo ──
 const STORAGE_KEY = 'xi.explorer';
@@ -61,6 +62,13 @@ export function FileTree() {
     setChildrenCache(new Map());
     setExpandedDirs(new Set<string>());
   }));
+
+  // Auto-cargar si no hay archivos y hay cwd (evita dependencia del caller)
+  onMount(() => {
+    if (appState.files.value.length === 0 && cwd) {
+      void loadFiles(cwd);
+    }
+  });
 
   // Reconstruir entries planos desde el cache cada vez que cambien
   function rebuild() {
@@ -162,7 +170,11 @@ export function FileTree() {
   return (
     <div class="file-tree" tabIndex={0} onKeyDown={onKeyDown}>
       <Show when={entries().length === 0}>
-        <div class="file-list-empty">Directorio vacío</div>
+        <div class="file-list-empty">
+          <Show when={cwd} fallback="Abre un proyecto para explorar archivos">
+            Directorio vacío
+          </Show>
+        </div>
       </Show>
       <For each={entries()}>
         {(item, idx) => {
