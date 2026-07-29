@@ -8,9 +8,9 @@
  * - Click → toggle expandir/colapsar carpeta.
  * - Teclado:
  *   ↑↓     mover selección
- *   →      depth 0 colapsada → expandir; depth ≥ 1 → cd a carpeta
- *   ←      depth ≥ 1 → colapsar padre; depth 0 colapsada → subir
- *   Enter  carpeta → cd; archivo → abrir preview
+ *   →      carpeta → cd; archivo → abrir preview
+ *   ←      cerrar preview (si abierta) o subir al directorio padre
+ *   Enter  carpeta → toggle expandir/colapsar; archivo → abrir preview
  * - Sigue a `appState.workingDir`: si cambia, resetea el árbol.
  */
 import { createSignal, For, Show, onCleanup, onMount } from 'solid-js';
@@ -215,20 +215,6 @@ export function FileTree() {
     }
   }
 
-  /** Encontrar la carpeta expandida ancestro más cercano (para ←). */
-  function findParentExpandedFolder(items: FlatItem[], idx: number): string | null {
-    const child = items[idx];
-    if (!child || child.depth < 1) return null;
-    const exp = expandedDirs();
-    for (let i = idx - 1; i >= 0; i--) {
-      const candidate = items[i];
-      if (candidate.depth < child.depth && candidate.entry.is_dir && exp.has(candidate.entry.name)) {
-        return candidate.entry.name;
-      }
-    }
-    return null;
-  }
-
   function onKeyDown(e: KeyboardEvent) {
     const items = buildFlatList();
     if (items.length === 0) return;
@@ -248,34 +234,29 @@ export function FileTree() {
     } else if (e.key === 'ArrowRight' || e.key === 'l') {
       e.preventDefault();
       const item = items[idx];
-      if (item.isUp) return;
-      if (item.depth >= 1 && item.entry.is_dir) {
-        // cd into child folder
+      if (item.isUp) { goUp(); return; }
+      if (item.entry.is_dir) {
         goTo(item.absPath);
-      } else if (item.depth === 0 && item.entry.is_dir && !expandedDirs().has(item.entry.name)) {
-        // expand collapsed root folder
-        void toggleDir(item.entry.name);
+      } else {
+        void selectFile(item.absPath, item.entry);
       }
-      // depth 0 expanded → no-op; files → no-op
     } else if (e.key === 'ArrowLeft' || e.key === 'h') {
       e.preventDefault();
-      const item = items[idx];
-      if (item.isUp) return;
-      if (item.depth >= 1) {
-        // collapse parent expanded folder
-        const parent = findParentExpandedFolder(items, idx);
-        if (parent) toggleDir(parent);
-      } else if (!expandedDirs().has(item.entry.name)) {
-        // depth 0, collapsed → go up
-        goUp();
+      // Si hay preview abierta, cerrarla
+      if (appState.selectedFile.value) {
+        appState.selectedFile.value = null;
+        appState.fileContent.value = null;
+        appState.isEditing.value = false;
+        return;
       }
-      // depth 0, expanded → no-op
+      // Subir al directorio padre
+      if (canGoUp()) goUp();
     } else if (e.key === 'Enter') {
       e.preventDefault();
       const item = items[idx];
       if (item.isUp) { goUp(); return; }
       if (item.entry.is_dir) {
-        goTo(item.absPath);
+        toggleDir(item.entry.name);
       } else {
         void selectFile(item.absPath, item.entry);
       }
