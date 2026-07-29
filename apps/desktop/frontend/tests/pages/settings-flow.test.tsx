@@ -147,6 +147,8 @@ vi.mock("../../src/lib/settings-storage.ts", () => ({
   applyFontToDOM: vi.fn(),
   saveTheme: vi.fn(),
   saveFontSize: vi.fn(),
+  loadExplorerRootLimit: vi.fn(() => ''),
+  saveExplorerRootLimit: vi.fn(),
 }));
 
 vi.mock("../../src/lib/updater.ts", () => ({

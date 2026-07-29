@@ -23,6 +23,7 @@ import type { ThemeMode, FontSize } from 'xi-ui/lib/state.ts';
 
 const KEY_THEME = 'xi.theme';
 const KEY_FONT = 'xi.fontSize';
+const KEY_EXPLORER_LIMIT = 'xi.explorerRootLimit';
 
 // Sets de validación. ReadonlySet es más liviano que Array.includes
 // para valores pequeños y hace explícito que no se mutan.
@@ -87,6 +88,24 @@ export function saveFontSize(size: FontSize): void {
  *  vía --font-size-base. */
 export function applyFontToDOM(size: FontSize): void {
   document.documentElement.setAttribute('data-font-size', size);
+}
+
+// ═══════════════════════════════════════════════════════
+// Explorer root limit
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Lee el límite superior del árbol de archivos. Default: '' (sin límite,
+ * puede llegar a `/`). Si el usuario pone `/home/user`, el árbol no puede
+ * subir más allá de ese path.
+ */
+export function loadExplorerRootLimit(): string {
+  return localStorage.getItem(KEY_EXPLORER_LIMIT) ?? '';
+}
+
+/** Persiste el límite superior del explorador. */
+export function saveExplorerRootLimit(limit: string): void {
+  localStorage.setItem(KEY_EXPLORER_LIMIT, limit);
 }
 
 // ═══════════════════════════════════════════════════════

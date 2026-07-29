@@ -14,10 +14,10 @@ import {
 } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { ensurePiRunning } from '../lib/pi/index.ts';
 import { loadAuthStatus } from '../lib/auth-status.ts';
-import { applyThemeToDOM, applyFontToDOM, saveTheme, saveFontSize } from '../lib/settings-storage.ts';
+import { applyThemeToDOM, applyFontToDOM, saveTheme, saveFontSize, loadExplorerRootLimit, saveExplorerRootLimit } from '../lib/settings-storage.ts';
 import { checkForUpdate, installAndRelaunch, isUpdaterAvailable } from '../lib/updater.ts';
 
-type SettingsTab = 'provider' | 'appearance' | 'plugins' | 'extensions' | 'about';
+type SettingsTab = 'provider' | 'appearance' | 'explorer' | 'plugins' | 'extensions' | 'about';
 
 const PROVIDERS = [
   { id: 'opencode-go', label: 'OpenCode Go' },
@@ -150,7 +150,7 @@ export function SettingsPage() {
 
       <div class="settings-tabs">
         <div class="settings-tab-bar">
-          <For each={[{ id: 'provider' as const, label: 'Proveedor' }, { id: 'appearance' as const, label: 'Apariencia' }, { id: 'plugins' as const, label: 'Plugins' }, { id: 'extensions' as const, label: 'Extensiones' }, { id: 'about' as const, label: 'Acerca de' }]}>
+          <For each={[{ id: 'provider' as const, label: 'Proveedor' }, { id: 'appearance' as const, label: 'Apariencia' }, { id: 'explorer' as const, label: 'Explorador' }, { id: 'plugins' as const, label: 'Plugins' }, { id: 'extensions' as const, label: 'Extensiones' }, { id: 'about' as const, label: 'Acerca de' }]}>
             {(t) => <button type="button" classList={{ 'settings-tab-btn': true, 'settings-tab-btn--active': tab() === t.id }} onClick={() => setTab(t.id)}>{t.label}</button>}
           </For>
         </div>
@@ -158,6 +158,7 @@ export function SettingsPage() {
         <div class="settings-tab-content">
           <div style={{ display: tab() === 'provider' ? '' : 'none' }}><ProviderSection /></div>
           <div style={{ display: tab() === 'appearance' ? '' : 'none' }}><AppearanceSection /></div>
+          <div style={{ display: tab() === 'explorer' ? '' : 'none' }}><ExplorerSection /></div>
           <div style={{ display: tab() === 'plugins' ? '' : 'none' }}><PluginsSection /></div>
           <div style={{ display: tab() === 'extensions' ? '' : 'none' }}><ExtensionsSection /></div>
           <div style={{ display: tab() === 'about' ? '' : 'none' }}><UpdateSection /><SessionSection /><AboutSection /></div>
@@ -280,6 +281,30 @@ function AppearanceSection() {
         <Segmented options={[{ value: 'small' as const, label: 'Pequeña' }, { value: 'medium' as const, label: 'Mediana' }, { value: 'large' as const, label: 'Grande' }]}
                    current={fontSize()} onChange={(s) => { appState.fontSize.value = s; applyFontToDOM(s); saveFontSize(s); }} />
       </div>
+    </Section>
+  );
+}
+
+/* ─── Explorer ─── */
+
+function ExplorerSection() {
+  const [limit, setLimit] = createSignal(loadExplorerRootLimit());
+
+  return (
+    <Section title="Explorador" desc="Navegación del árbol de archivos.">
+      <div class="settings-sublabel">Límite superior del árbol</div>
+      <div class="settings-hint">Path máximo al que puede subir el árbol. Vacío = sin límite (puede llegar a /). Ejemplos: /home/usuario, /tmp</div>
+      <input
+        type="text"
+        class="settings-input"
+        value={limit()}
+        placeholder="(sin límite)"
+        onInput={(e) => {
+          const v = e.currentTarget.value;
+          setLimit(v);
+          saveExplorerRootLimit(v);
+        }}
+      />
     </Section>
   );
 }
