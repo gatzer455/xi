@@ -9,6 +9,10 @@ import {
   renderSelectDialog, renderConfirmDialog, renderInputDialog, renderEditorDialog,
 } from 'xi-ui/components/extension-ui-dialog.ts';
 import { setDialogRenderer, clearDialogRenderer } from '../lib/pi/extension-ui-handler.ts';
+
+// ponytail: ExtensionUIRequest es un discriminated union complejo (7 variantes),
+// title/message no existen en todas. Mientras el handler no haga narrowing
+// exhaustivo, any evita falsos positivos de tsc.
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { ChatMessages } from 'xi-ui/components/ChatMessages.tsx';
 import { mountExplorer } from './ExplorerPage.tsx';

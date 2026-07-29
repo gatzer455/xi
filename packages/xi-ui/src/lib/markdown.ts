@@ -16,6 +16,11 @@
  */
 
 import MarkdownIt from 'markdown-it';
+// ponytail: @types/markdown-it v14 + tsgo no permiten extraer
+// Token/Renderer/Options como type aliases. El namespace MarkdownIt
+// no está disponible como miembro del import default con tsgo.
+// Mantenemos any hasta que @types/markdown-it exporte miembros nombrados.
+type Token = any;
 import markdownItMath from 'markdown-it-math/temml';
 
 const md: MarkdownIt = new MarkdownIt({
@@ -35,7 +40,7 @@ const md: MarkdownIt = new MarkdownIt({
 // el token actual y debe devolver el HTML para ese token.
 // ─────────────────────────────────────────────────────────────────
 
-type Token = any;
+type RenderRule = (tokens: Token[], idx: number, options: any, env: unknown, self: any) => string;
 
 /**
  * Crea un renderer que agrega una clase CSS fija al tag de apertura.
@@ -44,7 +49,7 @@ type Token = any;
  * nesting=1 → tag de apertura (<div>), nesting=-1 → cierre (</div>).
  * Solo agregamos la clase al abrir; cerrar no necesita atributos.
  */
-function addClass(cls: string): (t: Token[], i: number, o: any, e: any, s: any) => string {
+function addClass(cls: string): RenderRule {
   return (tokens, idx, _options, _env, self) => {
     const token = tokens[idx];
     if (token.nesting === 1) {

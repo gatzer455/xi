@@ -1,7 +1,7 @@
 /**
  * SettingsPage.tsx — Configuración (SolidJS).
  */
-import { createSignal, createMemo, For, Show, onCleanup, onMount } from 'solid-js';
+import { createSignal, createMemo, For, Show, onCleanup, onMount, type JSX } from 'solid-js';
 import { invoke } from '@tauri-apps/api/core';
 import type { PluginInfo } from '../lib/plugin-loader.ts';
 import { appState, type ThemeMode, type FontSize, type ThinkingLevel } from 'xi-ui/lib/state.ts';
@@ -57,7 +57,7 @@ function Segmented<T extends string>(props: { options: readonly { value: T; labe
   );
 }
 
-function Section(props: { title: string; desc: string; children: any }) {
+function Section(props: { title: string; desc: string; children: JSX.Element }) {
   return (
     <section class="settings-section">
       <h2 class="settings-section-title">{props.title}</h2>
@@ -117,8 +117,9 @@ function EyeInput(props: { placeholder: string; onSave: (key: string) => Promise
       </div>
       <Show when={status().kind !== 'idle'}>{(st) => {
         const s = status();
+        if (s.kind === 'idle') return null;
         return <div classList={{ 'settings-provider-feedback': true, 'settings-provider-feedback--ok': s.kind === 'ok', 'settings-provider-feedback--err': s.kind === 'error' }}>
-          {s.kind === 'ok' ? '✓ ' + s.msg : '✗ ' + (s as any).msg}
+          {s.kind === 'ok' ? '✓ ' + s.msg : '✗ ' + s.msg}
         </div>;
       }}</Show>
     </div>

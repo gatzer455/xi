@@ -73,8 +73,8 @@ export function ChatContextBar(props?: { sessionId?: SessionPath | TabId | strin
     let total = 0;
     for (let i = msgs.length - 1; i >= 0; i--) {
       const m = msgs[i];
-      if (m.role === 'assistant' && (m as any).metadata?.usage?.total) {
-        total = (m as any).metadata.usage.total;
+      if (m.role === 'assistant' && m.metadata?.usage?.total) {
+        total = m.metadata.usage.total;
         break;
       }
     }

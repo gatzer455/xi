@@ -112,7 +112,7 @@ export function isUpdaterAvailable(): boolean {
  *  Usa import.meta.env.DEV de Vite — en prod builds se inlinea a false. */
 function isDevMode(): boolean {
   try {
-    return (import.meta as any).env?.DEV === true;
+    return import.meta.env.DEV;
   } catch {
     return false;
   }
