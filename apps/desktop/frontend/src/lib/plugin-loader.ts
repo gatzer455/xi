@@ -23,7 +23,7 @@ export interface PluginInfo {
 }
 
 export interface PluginApi {
-  registerPaneType: (type: string, comp: unknown, label?: string) => void;
+  registerPaneType: (type: string, comp: any, label?: string) => void;
   /** Devuelve el directorio de trabajo actual, o null si no hay proyecto abierto. */
   getWorkingDir: () => string | null;
 }
