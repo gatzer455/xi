@@ -16,12 +16,20 @@
  */
 
 import MarkdownIt from 'markdown-it';
-// ponytail: @types/markdown-it v14 + tsgo no permiten extraer
-// Token/Renderer/Options como type aliases. El namespace MarkdownIt
-// no está disponible como miembro del import default con tsgo.
-// Mantenemos any hasta que @types/markdown-it exporte miembros nombrados.
-type Token = any;
 import markdownItMath from 'markdown-it-math/temml';
+
+// Tipos mínimos de markdown-it (solo los campos que usamos).
+// @types/markdown-it v14 + tsgo no permiten extraer Token/Renderer
+// como miembros nombrados del import default.
+interface Token {
+  nesting: number;
+  attrPush(attr: [string, string]): void;
+  attrJoin(name: string, value: string): void;
+}
+interface Renderer {
+  renderToken(tokens: Token[], idx: number, options: unknown): string;
+}
+type RenderRule = (tokens: Token[], idx: number, options: unknown, env: unknown, self: Renderer) => string;
 
 const md: MarkdownIt = new MarkdownIt({
   html: false,
@@ -39,8 +47,6 @@ const md: MarkdownIt = new MarkdownIt({
 // markdown-it renderiza tokens en secuencia; cada regla recibe
 // el token actual y debe devolver el HTML para ese token.
 // ─────────────────────────────────────────────────────────────────
-
-type RenderRule = (tokens: Token[], idx: number, options: any, env: unknown, self: any) => string;
 
 /**
  * Crea un renderer que agrega una clase CSS fija al tag de apertura.

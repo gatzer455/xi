@@ -9,10 +9,27 @@ import {
   renderSelectDialog, renderConfirmDialog, renderInputDialog, renderEditorDialog,
 } from 'xi-ui/components/extension-ui-dialog.ts';
 import { setDialogRenderer, clearDialogRenderer } from '../lib/pi/extension-ui-handler.ts';
+import type { ExtensionUIRequest } from 'xi-ui/lib/pi/types.ts';
 
-// ponytail: ExtensionUIRequest es un discriminated union complejo (7 variantes),
-// title/message no existen en todas. Mientras el handler no haga narrowing
-// exhaustivo, any evita falsos positivos de tsc.
+/** Describe un request de extension UI para logging/ask-responses.
+ *  Cada variante del discriminated union tiene su propia lógica de
+ *  extracción, así no dependemos de 'title'/'message' universales. */
+function describeRequest(req: ExtensionUIRequest): string {
+  switch (req.method) {
+    case 'select':
+      return req.title;
+    case 'confirm':
+      return req.title || req.message;
+    case 'input':
+      return req.title;
+    case 'editor':
+      return req.title;
+    case 'notify':
+      return req.message;
+    default:
+      return '';
+  }
+}
 import { navigate } from 'xi-ui/lib/nav.ts';
 import { ChatMessages } from 'xi-ui/components/ChatMessages.tsx';
 import { mountExplorer } from './ExplorerPage.tsx';
@@ -69,16 +86,16 @@ export function ChatPage(props?: { sessionId?: SessionPath | TabId | string }) {
   // Extension dialog (solo en tab principal)
   if (!props?.sessionId) {
     onMount(() => {
-      setDialogRenderer((_method, request: any) => {
+      setDialogRenderer((_method, request: ExtensionUIRequest) => {
         return new Promise((resolve, reject) => {
           const wrappedResolve = (value: Record<string, unknown>) => {
             const answer = formatDialogResponse(request.method, value);
-            if (answer) askResponses.push({ question: request.title ?? request.message ?? '', answer });
+            if (answer) askResponses.push({ question: describeRequest(request), answer });
             appState.activeExtensionDialog.value = null;
             resolve(value);
           };
           const wrappedReject = () => {
-            askResponses.push({ question: request.title ?? request.message ?? '', answer: '(cancelled)' });
+            askResponses.push({ question: describeRequest(request), answer: '(cancelled)' });
             appState.activeExtensionDialog.value = null;
             reject();
           };
