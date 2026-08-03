@@ -7,18 +7,18 @@
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-3);
-  background: var(--color-surface);
+  background: var(--color-bg);
   border-bottom: 1px solid var(--color-border);
-  height: 48px;
-  font-family: var(--font-mono);
+  height: 44px;
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
   flex-shrink: 0;
 }
 
 .top-bar-logo {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   cursor: pointer;
   color: var(--color-accent);
 }
@@ -29,7 +29,7 @@
 }
 
 .top-bar-project {
-  background: var(--color-surface-2);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-1) var(--space-3);
@@ -58,14 +58,82 @@
 }
 .top-bar-tabs::-webkit-scrollbar { height: 3px; }
 
+.top-bar-tab {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.top-bar-tab:hover {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.top-bar-tab--active {
+  color: var(--color-text);
+  background: var(--color-accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.top-bar-tab-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  color: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.top-bar-tab-icon {
+  display: inline-flex;
+  color: var(--color-accent);
+}
+
+.top-bar-tab-text {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-bar-tab-close {
+  width: 22px;
+  height: 22px;
+  margin-right: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  font-size: var(--text-base);
+  line-height: 1;
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.top-bar-tab:hover .top-bar-tab-close,
+.top-bar-tab--active .top-bar-tab-close,
+.top-bar-tab-close:focus-visible {
+  opacity: 1;
+}
+
+.top-bar-tab-close:hover {
+  color: var(--color-text);
+  background: var(--color-hover);
+}
+
 /* ═══ TOP BAR ACTIONS ═══
    Botón "+" al lado de la última tab (Mozilla style) y settings. */
 .top-bar-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-md);
   background: transparent;
   border: 1px solid transparent;

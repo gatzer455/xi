@@ -7,9 +7,9 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-3);
+  padding: var(--space-2);
   position: relative;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-sm);
 }
 
 .input-bar textarea {
@@ -21,7 +21,7 @@
   border: none;
   background: transparent;
   color: var(--color-text);
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-3);
   max-height: 200px;
   outline: none;
 }
@@ -41,10 +41,10 @@
   color: var(--color-accent-fg);
   border: none;
   border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-lg);
-  min-width: 40px;
-  min-height: 40px;
+  padding: var(--space-2);
+  font-size: var(--text-base);
+  min-width: 36px;
+  min-height: 36px;
   cursor: pointer;
   display: flex;
   align-items: center;

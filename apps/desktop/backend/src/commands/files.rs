@@ -89,7 +89,11 @@ pub fn get_cwd(state: &PiProcessState) -> Result<PathBuf, String> {
 /// Usa el project root como fuente primaria (seteado por set_project_root
 /// al abrir un proyecto). Si no está seteado, cae al cwd de pi para
 /// mantener compatibilidad con código que asume pi corriendo.
-pub fn confine(path: &str, state: &PiProcessState, project_root: &ProjectRootState) -> Result<PathBuf, String> {
+pub fn confine(
+    path: &str,
+    state: &PiProcessState,
+    project_root: &ProjectRootState,
+) -> Result<PathBuf, String> {
     let root = {
         let pr = project_root.0.lock().unwrap();
         pr.clone()
@@ -207,7 +211,11 @@ pub fn read_file_inner(file: &Path) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn read_file(path: String, state: State<'_, PiProcessState>, project_root: State<'_, ProjectRootState>) -> Result<String, String> {
+pub fn read_file(
+    path: String,
+    state: State<'_, PiProcessState>,
+    project_root: State<'_, ProjectRootState>,
+) -> Result<String, String> {
     let file = confine(&path, &state, &project_root)?;
     read_file_inner(&file)
 }

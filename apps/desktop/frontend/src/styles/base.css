@@ -12,6 +12,16 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: var(--font-size-base); }
 
+::selection {
+  background: var(--color-accent-muted);
+  color: var(--color-text);
+}
+
+* {
+  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: thin;
+}
+
 /* ─── Font size: scale ───
    Cambia --font-size-base. Los text-* están en 'em' así que
    se reescalan automáticamente. */
@@ -22,7 +32,7 @@ html { font-size: var(--font-size-base); }
 body {
   font-family: var(--font-sans);
   font-size: var(--text-base);
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--color-text);
   background: var(--color-bg);
   min-height: 100dvh;
@@ -31,7 +41,18 @@ body {
 }
 
 a { color: inherit; text-decoration: none; }
-button { font-family: inherit; cursor: pointer; border: none; background: none; }
+button {
+  font-family: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
 textarea { font-family: inherit; }
 code, pre { font-family: var(--font-mono); }
 
