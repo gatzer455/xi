@@ -55,7 +55,8 @@ async function setupTerminal(container) {
 
   const styles = getComputedStyle(document.documentElement);
   const css = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
-  const baseFontSize = Math.max(parseFloat(styles.fontSize) || 14, 14);
+  // Alinea el terminal con text-sm de la UI (14px en el tamaño normal).
+  const baseFontSize = Math.max((parseFloat(styles.fontSize) || 16) * 0.875, 13);
   const term = new Terminal({
     cursorBlink: true,
     fontSize: baseFontSize,
