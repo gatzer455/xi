@@ -17,15 +17,15 @@
 }
 
 .settings-section {
-  margin-bottom: var(--space-4);
-  padding: var(--space-5);
+  margin-bottom: var(--space-6);
+  padding: var(--space-6);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 
 .settings-provider-actions {
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .settings-saved-badge {
@@ -36,7 +36,7 @@
 .settings-section-title {
   font-size: var(--text-base);
   font-weight: 600;
-  margin-bottom: var(--space-1);
+  margin-bottom: var(--space-2);
   color: var(--color-text);
   letter-spacing: -0.01em;
 }
@@ -77,20 +77,20 @@
   line-height: 1.5;
 }
 
-.settings-control { display: flex; flex-direction: column; gap: var(--space-2); }
-.settings-appearance-controls { display: flex; flex-direction: column; gap: var(--space-4); }
+.settings-control { display: flex; flex-direction: column; gap: var(--space-4); }
+.settings-appearance-controls { display: flex; flex-direction: column; gap: var(--space-6); }
 
 .settings-sublabel {
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--color-text);
-  margin-top: var(--space-2);
+  margin-top: 0;
 }
 
 .settings-hint {
   font-size: 12px;
   color: var(--color-text-muted);
-  margin-bottom: var(--space-2);
+  margin-bottom: 0;
 }
 
 .settings-input {
@@ -158,14 +158,14 @@
 .settings-update-actions { display: flex; gap: var(--space-2); margin-left: auto; }
 
 /* Settings: sección Proveedor */
-.settings-provider-control { display: flex; flex-direction: column; gap: var(--space-3); align-items: flex-start; }
+.settings-provider-control { display: flex; flex-direction: column; gap: var(--space-4); align-items: flex-start; }
 .settings-provider-status { font-size: var(--text-sm); color: var(--color-text-muted); font-family: var(--font-mono); }
 .settings-provider-keyhint { display: none; font-size: var(--text-sm); color: var(--color-text-muted); font-style: italic; }
 
 .settings-segmented-btn--configured { color: var(--color-success, var(--color-accent)); }
 .settings-segmented-btn--configured.settings-segmented-btn--active { color: var(--color-accent-fg); }
 
-.settings-provider-keyrow { display: flex; gap: var(--space-2); width: 100%; max-width: 480px; }
+.settings-provider-keyrow { display: flex; gap: var(--space-3); width: 100%; max-width: 480px; }
 
 .settings-provider-keyinput {
   flex: 1;
@@ -192,7 +192,7 @@
 }
 .settings-provider-toggle:hover { background: var(--color-user-msg-bg); }
 
-.settings-provider-actions { display: flex; gap: var(--space-2); }
+.settings-provider-actions { display: flex; gap: var(--space-3); }
 
 .settings-btn {
   font-family: var(--font-sans);
@@ -271,10 +271,17 @@
    Settings: Extension blocks
    ═══════════════════════════════════════════════════════ */
 
+.settings-extensions-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
 .settings-extension-block {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: var(--space-4);
+  padding: var(--space-6);
+  background: var(--color-surface);
 }
 
 .settings-subsection-title {
@@ -307,34 +314,35 @@
 .settings-approve-tools {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 
 .settings-approve-tool {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-card-bg);
 }
 
 .settings-approve-tool-title {
   font-size: var(--text-base);
   font-weight: 600;
-  margin: 0 0 var(--space-1) 0;
+  margin: 0 0 var(--space-2) 0;
   color: var(--color-text);
 }
 
 .settings-approve-tool-desc {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
-  margin: 0 0 var(--space-2) 0;
+  margin: 0 0 var(--space-3) 0;
 }
 
 .settings-approve-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
-  margin-bottom: var(--space-2);
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
   min-height: 28px;
 }
 
@@ -367,8 +375,8 @@
 
 .settings-approve-addrow {
   display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-2);
+  gap: var(--space-3);
+  margin-bottom: 0;
 }
 
 .settings-approve-input {
