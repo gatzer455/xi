@@ -60,7 +60,11 @@ export function mountExplorer(container: HTMLElement, scope?: Scope): void {
   const disposeList = render(() => <FileTree />, listDiv);
   if (scope?.add) scope.add(disposeList);
 
-  function showList() { view = 'list'; container.replaceChildren(listDiv); }
+  function showList() {
+    view = 'list';
+    container.replaceChildren(listDiv);
+    listDiv.querySelector<HTMLElement>('.file-tree')?.focus();
+  }
   function showPreview() {
     view = 'preview';
     disposePreview?.();
