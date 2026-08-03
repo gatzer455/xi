@@ -1,7 +1,7 @@
 /**
  * ExplorerPage.tsx — Página de explorador de archivos (SolidJS).
- * Comportamiento: vista única. El árbol ocupa todo el panel. Al seleccionar
- * un archivo, el árbol se oculta y aparece la preview centrada con «← Volver».
+ * Comportamiento: vista única. El navegador ocupa todo el panel. Al seleccionar
+ * un archivo, la lista se oculta y aparece el visor/editor estilo PND.
  */
 import { createScope } from 'xi-ui/lib/scope.ts';
 import type { Page, Scope } from 'xi-ui/lib/scope.ts';
@@ -46,7 +46,7 @@ export function explorerPageFactory(): Page {
   const root = document.createElement('div');
   root.className = 'explorer-page';
   const scope = createScope();
-  // Vista única: árbol full-width, preview reemplaza al seleccionar archivo.
+  // Vista única: navegador full-width, visor reemplaza al seleccionar archivo.
   mountExplorer(root, scope);
   return { root, dispose: () => scope.dispose() };
 }
@@ -55,15 +55,10 @@ export function mountExplorer(container: HTMLElement, scope?: Scope): void {
   let view: 'list' | 'preview' = 'list';
   const listDiv = document.createElement('div'); listDiv.className = 'explorer-list';
   const previewDiv = document.createElement('div'); previewDiv.className = 'explorer-preview';
-  const backBtn = document.createElement('button'); backBtn.className = 'explorer-preview-back';
-  backBtn.textContent = '← Volver';
-  backBtn.onclick = () => { appState.selectedFile.value = null; appState.fileContent.value = null; appState.isEditing.value = false; showList(); };
 
   let disposePreview: (() => void) | null = null;
   const disposeList = render(() => <FileTree />, listDiv);
   if (scope?.add) scope.add(disposeList);
-
-  previewDiv.append(backBtn);
 
   function showList() { view = 'list'; container.replaceChildren(listDiv); }
   function showPreview() {
