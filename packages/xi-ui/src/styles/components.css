@@ -9,6 +9,17 @@
 /* ═══ MESSAGE WRAPPER ═══
    El wrapper de cada mensaje (user/assistant/toolResult/compaction).
    No tiene background propio — solo define layout y max-width. */
+.message {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  font-size: var(--text-base);
+  line-height: var(--line-height-relaxed);
+}
+.message--user { justify-content: flex-end; }
+.message--assistant { justify-content: flex-start; }
+.message--compaction { justify-content: center; margin: var(--space-3) 0; }
+
 /* ═══ MESSAGE CONTENT (user/assistant) ═══
    El bloque real de contenido. User tiene bubble gris a la derecha,
    assistant es texto libre con max-width cómodo para lectura. */
@@ -25,7 +36,8 @@
   background: var(--color-user-msg-bg);
   color: var(--color-text);
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 18%, var(--color-border));
+  border-radius: var(--radius-lg);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -74,7 +86,6 @@
    Bloque colapsable para razonamiento. Aparece ARRIBA del texto del
    assistant, integrado al mismo message-content. Mismo padding que
    tool calls y tool results. */
-details[open] > 
 /* Dots animados para el label "Pensando" durante streaming.
    Ciclo . → .. → ... sin JS, solo con animation + content. */
 .thinking-dots-anim::after {
@@ -109,7 +120,7 @@ details[open] >
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 0;
+  padding: 3px 0;
 }
 
 .tool-chip-label {
@@ -138,6 +149,11 @@ details[open] >
 
 .tool-chip--expanded > .tool-chip-body {
   display: block;
+}
+
+.tool-chip-group {
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--color-accent-soft);
 }
 
 /* El thinking chip body necesita un contenedor grid interno para que

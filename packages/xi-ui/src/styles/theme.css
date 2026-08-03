@@ -1,15 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════
    THEME — xi Dark Navy / Lavender
-   Default: dark navy. Auto-switch a light lavender si el OS está en light.
-   Toggle manual via data-theme en settings.
+
+   Las superficies, los bordes y los controles siguen el lenguaje de
+   shadcn. La paleta fría y lavanda de xi permanece intacta.
    ═══════════════════════════════════════════════════════════════ */
 
 /* ───────────────────────────────────────────────────────────────
    DARK MODE (default)
-   Paleta fría: navy profundo #0a0632, acento lavanda #c5aaec.
    ─────────────────────────────────────────────────────────────── */
 :root {
-  /* ── Base ── */
+  color-scheme: dark;
+
   --color-text: #d5d7de;
   --color-text-muted: #8e90a0;
   --color-text-dim: #5a5c6a;
@@ -18,23 +19,22 @@
   --color-accent-soft: #1e1850;
   --color-accent-fg: #0a0632;
   --color-warning: #e8c04a;
+  --color-warning-bg: #332c17;
+  --color-warning-border: #806b28;
+  --color-warning-text: #f3d875;
 
-  /* ── Surfaces ── */
   --color-page-bg: #0a0632;
   --color-card-bg: #12103e;
   --color-user-msg-bg: #1a1850;
   --color-info-bg: #1e1850;
 
-  /* ── Tool backgrounds (por estado) ── */
   --color-tool-pending-bg: #1a1850;
   --color-tool-success-bg: #003520;
   --color-tool-error-bg: #350015;
 
-  /* ── Tool text ── */
   --color-tool-title: #d5d7de;
   --color-tool-output: #8e90a0;
 
-  /* ── Markdown ── */
   --color-md-heading: #c5aaec;
   --color-md-link: #7eb8e0;
   --color-md-link-url: #5a5c6a;
@@ -48,31 +48,45 @@
   --color-md-hr: #2a2850;
   --color-md-list-bullet: #80c090;
 
-  /* ── Diff (para edit tool, v2) ── */
   --color-diff-added: #80c090;
   --color-diff-removed: #d4756a;
   --color-diff-context: #5a5c6a;
 
-  /* ── Context bar ── */
   --color-context-bar-bg: var(--color-page-bg);
   --color-context-bar-text: var(--color-text-muted);
   --color-context-bar-spinner: var(--color-accent);
-
-  /* ── Borders ── */
   --color-border-muted: #2a2850;
 
-  /* ── Shadows ── */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+  /* Contraste propio del terminal. */
+  --color-terminal-bg: #0a0632;
+  --color-terminal-fg: #d5d7de;
+  --color-terminal-cursor: #c5aaec;
+  --color-terminal-selection: #3a3870;
+  --color-terminal-black: #05031d;
+  --color-terminal-red: #ff8b80;
+  --color-terminal-green: #80c090;
+  --color-terminal-yellow: #e8c04a;
+  --color-terminal-blue: #7eb8e0;
+  --color-terminal-magenta: #c5aaec;
+  --color-terminal-cyan: #80d8d8;
+  --color-terminal-white: #d5d7de;
+  --color-terminal-bright-black: #8e90a0;
+  --color-terminal-bright-red: #f3a098;
+  --color-terminal-bright-green: #a9e0b5;
+  --color-terminal-bright-yellow: #f5d777;
+  --color-terminal-bright-blue: #a9d5ee;
+  --color-terminal-bright-magenta: #e0caff;
+  --color-terminal-bright-cyan: #a8eeee;
+  --color-terminal-bright-white: #ffffff;
 }
 
 /* ───────────────────────────────────────────────────────────────
-   AUTO-SWITCH: si el sistema está en light, usar light lavender
+   LIGHT MODE — sistema
    ─────────────────────────────────────────────────────────────── */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
-    /* ── Base ── */
+    color-scheme: light;
+
     --color-text: #050708;
     --color-text-muted: #4a4c5a;
     --color-text-dim: #7a7c8a;
@@ -81,23 +95,22 @@
     --color-accent-soft: #e8e0ff;
     --color-accent-fg: #ffffff;
     --color-warning: #d4a017;
+    --color-warning-bg: #fff3cd;
+    --color-warning-border: #ffc107;
+    --color-warning-text: #856404;
 
-    /* ── Surfaces ── */
     --color-page-bg: #bbc4fe;
     --color-card-bg: #ced5ff;
     --color-user-msg-bg: #d8ddff;
     --color-info-bg: #e0ddff;
 
-    /* ── Tool backgrounds ── */
     --color-tool-pending-bg: #d8ddff;
     --color-tool-success-bg: #d8ffdd;
     --color-tool-error-bg: #ffd8dd;
 
-    /* ── Tool text ── */
     --color-tool-title: #050708;
     --color-tool-output: #4a4c5a;
 
-    /* ── Markdown ── */
     --color-md-heading: #6716dd;
     --color-md-link: #1668dd;
     --color-md-link-url: #7a7c8a;
@@ -111,26 +124,40 @@
     --color-md-hr: #a8ace0;
     --color-md-list-bullet: #166820;
 
-    /* ── Diff ── */
     --color-diff-added: #166820;
     --color-diff-removed: #c45c4a;
     --color-diff-context: #7a7c8a;
-
-    /* ── Borders ── */
     --color-border-muted: #a8ace0;
 
-    /* ── Shadows ── */
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.10);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.14);
-    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.18);
+    --color-terminal-bg: #e8e0ff;
+    --color-terminal-fg: #050708;
+    --color-terminal-cursor: #6716dd;
+    --color-terminal-selection: #a8ace0;
+    --color-terminal-black: #050708;
+    --color-terminal-red: #c45c4a;
+    --color-terminal-green: #166820;
+    --color-terminal-yellow: #856404;
+    --color-terminal-blue: #1668dd;
+    --color-terminal-magenta: #6716dd;
+    --color-terminal-cyan: #087b82;
+    --color-terminal-white: #ffffff;
+    --color-terminal-bright-black: #4a4c5a;
+    --color-terminal-bright-red: #a94438;
+    --color-terminal-bright-green: #0d4f18;
+    --color-terminal-bright-yellow: #6b5100;
+    --color-terminal-bright-blue: #0d4fa8;
+    --color-terminal-bright-magenta: #4f0ea8;
+    --color-terminal-bright-cyan: #075c61;
+    --color-terminal-bright-white: #ffffff;
   }
 }
 
 /* ───────────────────────────────────────────────────────────────
-   OVERRIDE EXPLÍCITO: data-theme='dark' o 'light' (settings)
+   LIGHT MODE — selección manual
    ─────────────────────────────────────────────────────────────── */
 :root[data-theme='light'] {
-  /* ── Base ── */
+  color-scheme: light;
+
   --color-text: #050708;
   --color-text-muted: #4a4c5a;
   --color-text-dim: #7a7c8a;
@@ -139,23 +166,22 @@
   --color-accent-soft: #e8e0ff;
   --color-accent-fg: #ffffff;
   --color-warning: #d4a017;
+  --color-warning-bg: #fff3cd;
+  --color-warning-border: #ffc107;
+  --color-warning-text: #856404;
 
-  /* ── Surfaces ── */
   --color-page-bg: #bbc4fe;
   --color-card-bg: #ced5ff;
   --color-user-msg-bg: #d8ddff;
   --color-info-bg: #e0ddff;
 
-  /* ── Tool backgrounds ── */
   --color-tool-pending-bg: #d8ddff;
   --color-tool-success-bg: #d8ffdd;
   --color-tool-error-bg: #ffd8dd;
 
-  /* ── Tool text ── */
   --color-tool-title: #050708;
   --color-tool-output: #4a4c5a;
 
-  /* ── Markdown ── */
   --color-md-heading: #6716dd;
   --color-md-link: #1668dd;
   --color-md-link-url: #7a7c8a;
@@ -169,70 +195,33 @@
   --color-md-hr: #a8ace0;
   --color-md-list-bullet: #166820;
 
-  /* ── Diff ── */
   --color-diff-added: #166820;
   --color-diff-removed: #c45c4a;
   --color-diff-context: #7a7c8a;
-
-  /* ── Borders ── */
   --color-border-muted: #a8ace0;
 
-  /* ── Shadows ── */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.10);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.14);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.18);
+  --color-terminal-bg: #e8e0ff;
+  --color-terminal-fg: #050708;
+  --color-terminal-cursor: #6716dd;
+  --color-terminal-selection: #a8ace0;
+  --color-terminal-black: #050708;
+  --color-terminal-red: #c45c4a;
+  --color-terminal-green: #166820;
+  --color-terminal-yellow: #856404;
+  --color-terminal-blue: #1668dd;
+  --color-terminal-magenta: #6716dd;
+  --color-terminal-cyan: #087b82;
+  --color-terminal-white: #ffffff;
+  --color-terminal-bright-black: #4a4c5a;
+  --color-terminal-bright-red: #a94438;
+  --color-terminal-bright-green: #0d4f18;
+  --color-terminal-bright-yellow: #6b5100;
+  --color-terminal-bright-blue: #0d4fa8;
+  --color-terminal-bright-magenta: #4f0ea8;
+  --color-terminal-bright-cyan: #075c61;
+  --color-terminal-bright-white: #ffffff;
 }
 
 :root[data-theme='dark'] {
-  /* ── Base ── */
-  --color-text: #d5d7de;
-  --color-text-muted: #8e90a0;
-  --color-text-dim: #5a5c6a;
-  --color-text-light: #3a3c4a;
-  --color-accent: #c5aaec;
-  --color-accent-soft: #1e1850;
-  --color-accent-fg: #0a0632;
-  --color-warning: #e8c04a;
-
-  /* ── Surfaces ── */
-  --color-page-bg: #0a0632;
-  --color-card-bg: #12103e;
-  --color-user-msg-bg: #1a1850;
-  --color-info-bg: #1e1850;
-
-  /* ── Tool backgrounds ── */
-  --color-tool-pending-bg: #1a1850;
-  --color-tool-success-bg: #003520;
-  --color-tool-error-bg: #350015;
-
-  /* ── Tool text ── */
-  --color-tool-title: #d5d7de;
-  --color-tool-output: #8e90a0;
-
-  /* ── Markdown ── */
-  --color-md-heading: #c5aaec;
-  --color-md-link: #7eb8e0;
-  --color-md-link-url: #5a5c6a;
-  --color-md-code: #c5aaec;
-  --color-md-code-bg: #100e40;
-  --color-md-code-block: #80c090;
-  --color-md-code-block-border: #2a2850;
-  --color-md-table-border: #3a3870;
-  --color-md-quote: #8e90a0;
-  --color-md-quote-border: #2a2850;
-  --color-md-hr: #2a2850;
-  --color-md-list-bullet: #80c090;
-
-  /* ── Diff ── */
-  --color-diff-added: #80c090;
-  --color-diff-removed: #d4756a;
-  --color-diff-context: #5a5c6a;
-
-  /* ── Borders ── */
-  --color-border-muted: #2a2850;
-
-  /* ── Shadows ── */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
 }

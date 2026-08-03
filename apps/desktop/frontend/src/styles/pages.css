@@ -20,7 +20,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-8) var(--space-6);
+  padding: var(--space-12) var(--space-6) var(--space-8);
   gap: var(--space-6);
   background: var(--color-bg);
 }
@@ -53,7 +53,7 @@
   max-width: 600px;
 }
 
-.welcome-icon { width: 48px; height: 48px; margin-bottom: var(--space-2); color: var(--color-accent); }
+.welcome-icon { width: 48px; height: 48px; margin-bottom: var(--space-2); color: var(--color-accent); filter: drop-shadow(0 4px 12px color-mix(in srgb, var(--color-accent) 20%, transparent)); }
 .welcome-subtitle { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0; line-height: 1.5; }
 
 .welcome-cta {
@@ -62,10 +62,11 @@
   text-align: center;
   background: var(--color-accent);
   color: var(--color-accent-fg);
-  border: none;
+  border: 1px solid var(--color-accent);
   border-radius: var(--radius-md);
   font-size: var(--text-base);
   font-weight: 500;
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -87,10 +88,11 @@
   border-radius: var(--radius-md);
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.1s, background 0.1s;
+  transition: border-color 0.1s, background 0.1s, box-shadow 0.1s;
   font-family: inherit;
+  box-shadow: var(--shadow-sm);
 }
-.recent-card:hover { border-color: var(--color-accent); background: var(--color-surface-2); }
+.recent-card:hover { border-color: var(--color-accent); background: var(--color-surface-2); box-shadow: 0 0 0 2px var(--color-accent-muted); }
 .recent-name { font-size: var(--text-base); font-weight: 500; color: var(--color-text); }
 .recent-path { font-size: var(--text-sm); color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recent-time { font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-1); }

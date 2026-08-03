@@ -11,10 +11,21 @@ import { FitAddon } from '@xterm/addon-fit';
 import xtermCss from '@xterm/xterm/css/xterm.css?inline';
 import { getWorkingDir } from './index.js';
 
-const TERM_CSS = `
-  .terminal-pane { width: 100%; height: 100%; overflow: hidden; }
-  .terminal-pane .xterm { height: 100%; padding: 0.5rem; }
-` + xtermCss;
+const TERM_CSS = xtermCss + `
+  .terminal-pane {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-terminal-bg, var(--color-page-bg));
+  }
+  .terminal-pane .xterm {
+    height: 100%;
+    padding: 0.75rem 1rem;
+  }
+  .terminal-pane .xterm-viewport {
+    background: var(--color-terminal-bg, var(--color-page-bg)) !important;
+  }
+`;
 
 let cssInjected = false;
 let termCount = 0;
@@ -43,15 +54,35 @@ async function setupTerminal(container) {
   }
 
   const styles = getComputedStyle(document.documentElement);
-  const baseFontSize = parseFloat(styles.fontSize) || 14;
+  const css = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
+  const baseFontSize = Math.max(parseFloat(styles.fontSize) || 14, 14);
   const term = new Terminal({
     cursorBlink: true,
     fontSize: baseFontSize,
+    lineHeight: 1.35,
     fontFamily: "'Fira Mono', 'JetBrains Mono', monospace",
     theme: {
-      background: styles.getPropertyValue('--color-page-bg').trim() || '#0a0632',
-      foreground: styles.getPropertyValue('--color-text').trim() || '#c5aaec',
-      cursor: styles.getPropertyValue('--color-accent').trim() || '#6716dd',
+      background: css('--color-terminal-bg', '#090717'),
+      foreground: css('--color-terminal-fg', '#eee9f8'),
+      cursor: css('--color-terminal-cursor', '#c5aaec'),
+      cursorAccent: css('--color-terminal-bg', '#090717'),
+      selectionBackground: css('--color-terminal-selection', '#3b315d'),
+      black: css('--color-terminal-black', '#0d0a18'),
+      red: css('--color-terminal-red', '#ff879b'),
+      green: css('--color-terminal-green', '#83e59c'),
+      yellow: css('--color-terminal-yellow', '#f4d175'),
+      blue: css('--color-terminal-blue', '#91bcff'),
+      magenta: css('--color-terminal-magenta', '#d8a8ff'),
+      cyan: css('--color-terminal-cyan', '#81dce5'),
+      white: css('--color-terminal-white', '#eee9f8'),
+      brightBlack: css('--color-terminal-bright-black', '#777188'),
+      brightRed: css('--color-terminal-bright-red', '#ffabb8'),
+      brightGreen: css('--color-terminal-bright-green', '#b0f3bd'),
+      brightYellow: css('--color-terminal-bright-yellow', '#ffe8a5'),
+      brightBlue: css('--color-terminal-bright-blue', '#b8d3ff'),
+      brightMagenta: css('--color-terminal-bright-magenta', '#ebd0ff'),
+      brightCyan: css('--color-terminal-bright-cyan', '#b3f1f5'),
+      brightWhite: css('--color-terminal-bright-white', '#ffffff'),
     },
     allowProposedApi: true,
   });
