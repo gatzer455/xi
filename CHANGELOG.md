@@ -6,6 +6,35 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/) y
 
 ---
 
+## [0.5.0] - 2026-08-03
+
+Lenguaje visual shadcn + explorador estilo PND.
+
+### Added
+
+- **Explorador estilo PND**: navegación por directorios (un directorio por vez)
+  en vez de árbol inline. Breadcrumb superior, lista con nombre · tamaño ·
+  modificación, grilla con icono + nombre, toggle lista/grilla persistido en
+  `localStorage`.
+- **Visor/editor de archivos**: vista previa y modo fuente con edición y
+  guardado, documento responsive (ancho máximo 1400px), editor a pantalla
+  completa.
+- **Atajos de teclado en el explorador**: `j/k/h/l`, flechas, `Enter` abre,
+  `Backspace` sube, `q`/`Escape` cierra el visor y devuelve el foco al
+  navegador.
+
+### Changed
+
+- **Lenguaje visual shadcn** (CSS-only, sin dependencias): tokens de radius,
+  espacio, superficie y card sobre la paleta navy/lavender de xi.
+- **Ajustes**: más aire en los controles (secciones, keyrows, extensiones).
+- **Inputs con contraste reforzado**: superficie un tono más oscura, borde
+  visible y anillo de foco (`--color-input-bg/border/ring`).
+- **Terminal**: tamaño efectivo 14px (escala con el ajuste global de fuente),
+  paleta clara rebalanceada (fondo más luminoso, ANSI oscurecido).
+
+---
+
 ## [0.1.2] - 2026-06-25
 
 Bugfixes y quality gates. Pi ahora arranca correctamente al crear sesiones
