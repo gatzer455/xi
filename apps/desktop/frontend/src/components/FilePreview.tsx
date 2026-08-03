@@ -78,7 +78,10 @@ export function FilePreview() {
   }
 
   function onKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
+    if (event.key.toLowerCase() === 'q' && mode() === 'preview' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault();
+      close();
+    } else if (event.key === 'Escape') {
       event.preventDefault();
       close();
     } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {

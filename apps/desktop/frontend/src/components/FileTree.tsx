@@ -4,7 +4,7 @@
  * Un directorio por vez: las carpetas navegan, no se expanden inline.
  * La misma colección se puede representar como lista o grilla.
  */
-import { createSignal, For, Show, onCleanup, onMount } from 'solid-js';
+import { createEffect, createSignal, For, Show, onCleanup, onMount } from 'solid-js';
 import { appState, type FileEntry } from 'xi-ui/lib/state.ts';
 import { listFiles, readFile } from 'xi-ui/lib/pi/tauri-commands.ts';
 import { getFileIconName, icon } from 'xi-ui/lib/icons.ts';
@@ -97,6 +97,12 @@ export function FileTree() {
   let loadId = 0;
   let lastClick = 0;
   let lastIndex = -1;
+  let viewButton: HTMLButtonElement | undefined;
+
+  createEffect(() => {
+    const mode = viewMode();
+    if (viewButton) renderIconInto(viewButton, mode === 'list' ? 'layout-grid' : 'list', 17);
+  });
 
   function setView(mode: ViewMode): void {
     setViewMode(mode);
@@ -250,7 +256,10 @@ export function FileTree() {
             title={viewMode() === 'list' ? 'Vista grilla' : 'Vista lista'}
             aria-label={viewMode() === 'list' ? 'Vista grilla' : 'Vista lista'}
             onClick={() => setView(viewMode() === 'list' ? 'grid' : 'list')}
-            ref={(el) => renderIconInto(el, viewMode() === 'list' ? 'layout-grid' : 'list', 17)}
+            ref={(el) => {
+              viewButton = el;
+              renderIconInto(el, viewMode() === 'list' ? 'layout-grid' : 'list', 17);
+            }}
           />
         </div>
       </div>
