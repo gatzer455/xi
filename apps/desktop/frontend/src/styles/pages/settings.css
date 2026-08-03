@@ -96,16 +96,20 @@
 .settings-input {
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-md);
+  background: var(--color-input-bg);
   color: var(--color-text);
   font-family: var(--font-mono);
   font-size: 13px;
   outline: none;
   box-sizing: border-box;
 }
-.settings-input:focus { border-color: var(--color-accent); }
+.settings-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-input-ring);
+}
+.settings-input::placeholder { color: var(--color-text-dim); }
 
 /* Segmented control */
 .settings-segmented {
@@ -172,25 +176,32 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   padding: var(--space-2) var(--space-3);
-  background: var(--color-card-bg);
+  background: var(--color-input-bg);
   color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-md);
   outline: none;
-  transition: border-color 0.1s;
+  transition: border-color 0.1s, box-shadow 0.1s;
 }
-.settings-provider-keyinput:focus { border-color: var(--color-accent); }
+.settings-provider-keyinput:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-input-ring);
+}
+.settings-provider-keyinput::placeholder { color: var(--color-text-dim); }
 
 .settings-provider-toggle {
   font-size: var(--text-base);
   padding: var(--space-1) var(--space-3);
-  background: var(--color-card-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  background: var(--color-input-bg);
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.1s, border-color 0.1s;
 }
-.settings-provider-toggle:hover { background: var(--color-user-msg-bg); }
+.settings-provider-toggle:hover {
+  background: var(--color-user-msg-bg);
+  border-color: var(--color-accent);
+}
 
 .settings-provider-actions { display: flex; gap: var(--space-3); }
 

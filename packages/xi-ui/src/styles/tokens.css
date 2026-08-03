@@ -23,6 +23,9 @@
   --color-hover:        color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
   --color-accent-muted: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
   --color-code-bg:      var(--color-md-code-bg);
+  --color-input-bg:     color-mix(in srgb, var(--color-page-bg) 72%, var(--color-card-bg));
+  --color-input-border: color-mix(in srgb, var(--color-border) 82%, var(--color-text-muted));
+  --color-input-ring:   color-mix(in srgb, var(--color-accent) 32%, transparent);
   --color-user-bubble:  var(--color-user-msg-bg);
   --color-ai-bubble:    var(--color-page-bg);
   --color-accent-hover: color-mix(in srgb, var(--color-accent) 85%, transparent);
