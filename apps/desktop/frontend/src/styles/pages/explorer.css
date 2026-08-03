@@ -357,17 +357,25 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  align-items: flex-start;
   justify-content: center;
-  padding: var(--space-6);
+  padding: var(--space-4) var(--space-6);
+}
+.file-preview-body--source {
+  padding: var(--space-2) var(--space-3);
 }
 .file-preview-content {
-  width: min(100%, 900px);
+  width: 100%;
   min-height: min-content;
   align-self: flex-start;
-  padding: var(--space-6);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+}
+.file-preview-content--preview {
+  max-width: 1400px;
+  padding: var(--space-8) var(--space-6);
+}
+.file-preview-content--source {
+  height: 100%;
+  max-width: none;
 }
 .file-preview-empty,
 .file-preview-loading,
@@ -379,13 +387,17 @@
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
-.file-preview-markdown { max-width: 900px; }
+.file-preview-markdown {
+  max-width: none;
+  font-size: var(--text-lg);
+  line-height: 1.6;
+}
 .file-preview-code {
   margin: 0;
   overflow-x: auto;
   color: var(--color-text);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -393,16 +405,17 @@
 .file-preview-textarea {
   display: block;
   width: 100%;
+  height: 100%;
   min-height: 460px;
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   outline: none;
-  resize: vertical;
-  background: var(--color-bg);
+  resize: none;
+  background: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   line-height: 1.6;
 }
 .file-preview-textarea:focus {
@@ -418,5 +431,7 @@
   .file-table-row > span:last-child { display: none; }
   .file-preview-path { display: none; }
   .file-preview-body { padding: var(--space-3); }
-  .file-preview-content { padding: var(--space-4); }
+  .file-preview-body--source { padding: var(--space-1); }
+  .file-preview-content--preview { padding: var(--space-4) var(--space-3); }
+  .file-preview-content--source { padding: 0; }
 }

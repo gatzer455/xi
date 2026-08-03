@@ -129,9 +129,9 @@ export function FilePreview() {
           </div>
         </div>
 
-        <div class="file-preview-body">
+        <div class="file-preview-body" classList={{ 'file-preview-body--source': mode() === 'source' }}>
           <Show when={mode() === 'preview'} fallback={
-            <div class="file-preview-content">
+            <div class="file-preview-content file-preview-content--source">
               <Show when={content() !== null} fallback={<div class="file-preview-loading">Cargando...</div>}>
                 <textarea
                   class="file-preview-textarea"
@@ -147,7 +147,7 @@ export function FilePreview() {
               </Show>
             </div>
           }>
-            <div class="file-preview-content">
+            <div class="file-preview-content file-preview-content--preview">
               <Show when={content() !== null} fallback={<div class="file-preview-loading">Cargando...</div>}>
                 <Show when={content() !== ''} fallback={<div class="file-preview-empty-file">Archivo vacío</div>}>
                   <article class="file-preview-markdown markdown-body" innerHTML={renderMarkdown(content() ?? '')} />
