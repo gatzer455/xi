@@ -125,10 +125,7 @@ export function registerApprove(pi: ExtensionAPI) {
 	pi.on("tool_call", async (event, ctx) => {
 		const toolName = event.toolName;
 
-		if (!ctx.hasUI) {
-			return { block: true, reason: "Approval required but no UI available" };
-		}
-
+		// ¿Hay reglas de peligro para esta tool? Si no, nunca se interpone.
 		const config = loadRules(ctx.cwd);
 
 		const rules = config.rules[toolName];
@@ -138,6 +135,11 @@ export function registerApprove(pi: ExtensionAPI) {
 		if (!inputToCheck) return undefined;
 
 		if (!matchesRule(inputToCheck, rules)) return undefined;
+
+		// Es peligroso y matchea reglas: sin UI no hay quien apruebe → bloquear.
+		if (!ctx.hasUI) {
+			return { block: true, reason: "Approval required but no UI available" };
+		}
 
 		// ¿Ya está en always-allowed para esta sesión?
 		const allowed = alwaysAllowed.get(toolName);
