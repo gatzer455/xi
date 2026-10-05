@@ -61,7 +61,6 @@ jobs:
         with:
           workspaces: |
             ./apps/desktop/backend -> target
-            ./packages/xi-tools -> target
 
       - name: Install system deps
         run: |
@@ -96,9 +95,6 @@ jobs:
       - name: Build pi-sessions
         if: steps.cache-pi.outputs.cache-hit != 'true'
         run: node ./scripts/build-pi-sessions.mjs --target linux
-
-      - name: Check xi-tools (compile check)
-        run: cargo check --manifest-path packages/xi-tools/Cargo.toml
 
       - name: Install xi-ui deps
         run: cd packages/xi-ui && bun install --frozen-lockfile
@@ -194,7 +190,6 @@ jobs:
         with:
           workspaces: |
             ./apps/desktop/backend -> target
-            ./packages/xi-tools -> target
 
       - name: Install system deps
         run: |

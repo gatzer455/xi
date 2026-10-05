@@ -2,7 +2,7 @@
 
 > **Versión auditada:** v0.3.6 (tag `39bad7b`)
 > **Fecha:** 2026-07-11
-> **Alcance:** configuración de Tauri/CSP, capabilities, IPC (archivos, auth, sesiones), spawn del sidecar pi, ejecución de shell (xi-tools), pipeline de streaming/render del frontend y capa de red de Exa.
+> **Alcance:** configuración de Tauri/CSP, capabilities, IPC (archivos, auth, sesiones), spawn del sidecar pi, ejecución de shell (tools built-in de pi), pipeline de streaming/render del frontend y capa de red de Exa.
 
 Este documento recoge las oportunidades de mejora detectadas en un escaneo de seguridad y
 rendimiento, priorizadas en cuatro niveles: **crítico**, **alto**, **medio** y **bajo**.
@@ -32,7 +32,7 @@ longitud del mensaje.
 | 4  | 🟠 Alto     | Rendimiento  | Streaming re-renderiza buffer completo + re-highlight de todo el código cada frame (≈cuadrático) |
 | 5  | 🟡 Medio    | Seguridad    | Sin sanitizador DOM (DOMPurify); se confía solo en `html:false` de markdown-it |
 | 6  | 🟡 Medio    | Seguridad    | API keys en `auth.json` en texto plano; sin keychain del SO; `chmod 600` no aplica en Windows |
-| 7  | 🟡 Medio    | Seguridad    | `brush-core`/`brush-builtins` como git dep sin `rev`/`tag` pin (supply chain) |
+| 7  | ✅ Resuelto  | Seguridad    | `brush-core` sin pin — xi-tools eliminado; la ejecución es de las tools built-in de pi |
 | 8  | 🟡 Medio    | Rendimiento  | `reconcileDom` compara `outerHTML` (serialización) de cada bloque por frame |
 | 9  | 🔵 Bajo     | Rendimiento  | Comandos de archivos síncronos bloquean el hilo principal de Tauri |
 | 10 | 🔵 Bajo     | Rendimiento  | Doble throttle redundante (state-sync 50 ms + SmoothStreamer 200 ms) |
@@ -44,8 +44,8 @@ longitud del mensaje.
 Es importante encuadrar la explotabilidad para no sobre/infra-valorar la severidad:
 
 - Los comandos `files.rs` y `get_api_key` **solo son alcanzables desde el JS del WebView**,
-  no desde pi/LLM directamente. pi hace sus operaciones de archivo a través de **xi-tools**
-  (un sidecar aparte), no de estos comandos.
+  no desde pi/LLM directamente. pi hace sus operaciones de archivo con sus **tools built-in**,
+  no con estos comandos.
 - Por lo tanto, la ruta de ataque realista para estos comandos es un **compromiso del
   WebView**: XSS a través del contenido renderizado, o una dependencia npm comprometida en
   el bundle del frontend.
@@ -185,16 +185,17 @@ defecto.
 **Remediación:** usar el keychain del SO (crate `keyring`), o al menos documentar el gap en
 Windows y aplicar una ACL restrictiva allí.
 
-### 7. Dependencia git sin pin
+### 7. Dependencia git sin pin — ✅ Resuelto
 
-**Ubicación:** `packages/xi-tools/Cargo.toml:22-23`
+**Ubicación:** `packages/xi-tools/Cargo.toml` (paquete eliminado)
 
-**Riesgo:** `brush-core` y `brush-builtins` apuntan a `github.com/reubeno/brush` **sin
-`rev`/`tag`/`branch`**. `Cargo.lock` fija el commit hoy (los builds son reproducibles desde el
-lockfile), pero un `cargo update` traería el HEAD de la rama por defecto sin revisión. Para el
-componente que ejecuta shell, es la dependencia donde más importa pinear.
+**Riesgo (histórico):** `brush-core` y `brush-builtins` apuntaban a `github.com/reubeno/brush`
+**sin `rev`/`tag`/`branch`**. `Cargo.lock` fijaba el commit, pero un `cargo update` traería el
+HEAD de la rama por defecto sin revisión.
 
-**Remediación:** fijar `rev = "<commit>"` explícito en el manifiesto.
+**Estado:** xi-tools se eliminó. La ejecución de shell ahora corre por las tools built-in de
+pi, que se mantienen upstream. El riesgo de supply chain de esa dependencia desaparece con el
+paquete.
 
 ### 8. `reconcileDom` compara `outerHTML` por bloque en cada frame
 

@@ -5,7 +5,33 @@ use tauri::AppHandle;
 use tauri::Manager;
 
 /// Extensiones que xi empaqueta y debe asegurar en ~/.pi/agent/extensions/
-const BUNDLED_EXTENSIONS: &[&str] = &["xi-tools", "xi-flow", "xi-exa"];
+///
+/// xi-tools ya no se empaqueta: pi trae sus propias tools (bash, grep, find,
+/// ls, read, write, edit) y las mantiene cross-platform. Ver LEGACY_EXTENSIONS.
+const BUNDLED_EXTENSIONS: &[&str] = &["xi-flow", "xi-exa"];
+
+/// Extensiones que xi empaquetaba antes y ya no. Se borran al arrancar para
+/// que una instalación vieja no siga pisando las tools built-in de pi.
+const LEGACY_EXTENSIONS: &[&str] = &["xi-tools"];
+
+/// Borra una extensión legacy si existe (symlink o directorio).
+fn remove_legacy_extensions(target_dir: &Path) {
+    for name in LEGACY_EXTENSIONS {
+        let dst = target_dir.join(name);
+        let Ok(meta) = fs::symlink_metadata(&dst) else {
+            continue;
+        };
+        let result = if meta.file_type().is_symlink() {
+            fs::remove_file(&dst)
+        } else {
+            fs::remove_dir_all(&dst)
+        };
+        match result {
+            Ok(()) => log::info!("[extensions] Extensión legacy {name} eliminada"),
+            Err(e) => log::warn!("[extensions] No se pudo eliminar {name}: {e}"),
+        }
+    }
+}
 
 /// Copia las extensiones empaquetadas a ~/.pi/agent/extensions/
 /// si no existen ya. Se llama en setup() al iniciar la app.
@@ -16,10 +42,12 @@ const BUNDLED_EXTENSIONS: &[&str] = &["xi-tools", "xi-flow", "xi-exa"];
 ///
 /// Cada extensión se chequea individualmente: si una falla al
 /// copiarse, las demás siguen (no queremos que un error de
-/// permisos en xi-exa impida instalar xi-tools).
+/// permisos en xi-exa impida instalar xi-flow).
 pub fn ensure_extensions(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let home = app.path().home_dir()?;
     let target_dir = home.join(".pi").join("agent").join("extensions");
+
+    remove_legacy_extensions(&target_dir);
 
     // Sentinel: chequeamos cada extensión individualmente.
     // Si alguna no existe, la instalamos. Las que ya están se saltean.

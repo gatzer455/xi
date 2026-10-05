@@ -50,8 +50,8 @@ tamaño de fuente.
 **Explorador de archivos** — navegá y editá archivos del proyecto.
 Árbol de directorios con vista previa de texto.
 
-**Extensiones** — xi-tools (shell + archivos sin depender del sistema),
-xi-exa (búsqueda web), xi-flow (aprobación interactiva de comandos).
+**Extensiones** — xi-exa (búsqueda web) y xi-flow (aprobación interactiva de
+comandos). Shell y archivos corren por las tools built-in de pi.
 
 **Actualizaciones automáticas** — firmadas con minisign, vía GitHub Releases.
 
@@ -123,7 +123,6 @@ remoto — la interfaz `PiEventBus` abstrae el transporte.
 | Proyecto | Qué hace |
 |----------|---------|
 | [pi](https://github.com/earendil-works/pi-coding-agent) | Motor de IA, agente de código |
-| [xi-tools](packages/xi-tools/) | Shell + archivos cross-platform |
 | [xi-exa](packages/xi-exa/) | Búsqueda web vía Exa API |
 | [xi-flow](packages/xi-flow/) | Flujo interactivo (approve, ask) |
 | [xi-serve](packages/xi-serve/) | Daemon WS para acceso remoto |

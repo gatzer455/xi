@@ -1,5 +1,8 @@
-//! extensions.rs — Asegura las extensiones empaquetadas (xi-tools, xi-flow,
-//! xi-exa) en `~/.pi/agent/extensions/`.
+//! extensions.rs — Asegura las extensiones empaquetadas (xi-flow, xi-exa) en
+//! `~/.pi/agent/extensions/`.
+//!
+//! xi-tools ya no se empaqueta: pi trae sus propias tools y las mantiene
+//! cross-platform. Las instalaciones viejas de xi-tools se borran al arrancar.
 //!
 //! Puerto de `apps/desktop/backend/src/extensions.rs`. La diferencia: xi-serve
 //! no es una app Tauri, así que no hay `resource_dir` — el bundle de
@@ -10,15 +13,40 @@ use std::fs;
 use std::path::Path;
 use tracing::{info, warn};
 
-const BUNDLED_EXTENSIONS: &[&str] = &["xi-tools", "xi-flow", "xi-exa"];
+const BUNDLED_EXTENSIONS: &[&str] = &["xi-flow", "xi-exa"];
+
+/// Extensiones que xi empaquetaba antes y ya no. Se borran al arrancar para
+/// que una instalación vieja no siga pisando las tools built-in de pi.
+const LEGACY_EXTENSIONS: &[&str] = &["xi-tools"];
 
 /// Extensión de la que depende la capa de supervisión (approve/ask). Sin
 /// ella, un agente remoto queda desatendido — ver docs/mobile/05.
 const SAFETY_NET_EXTENSION: &str = "xi-flow";
 
+/// Borra una extensión legacy si existe (symlink o directorio).
+fn remove_legacy_extensions(target_dir: &Path) {
+    for name in LEGACY_EXTENSIONS {
+        let dst = target_dir.join(name);
+        let Ok(meta) = fs::symlink_metadata(&dst) else {
+            continue;
+        };
+        let result = if meta.file_type().is_symlink() {
+            fs::remove_file(&dst)
+        } else {
+            fs::remove_dir_all(&dst)
+        };
+        match result {
+            Ok(()) => info!("[extensions] Extensión legacy {name} eliminada"),
+            Err(e) => warn!("[extensions] No se pudo eliminar {name}: {e}"),
+        }
+    }
+}
+
 pub fn ensure_extensions() -> Result<(), String> {
     let home = dirs::home_dir().ok_or("no se pudo resolver el home dir")?;
     let target_dir = home.join(".pi").join("agent").join("extensions");
+
+    remove_legacy_extensions(&target_dir);
 
     let missing: Vec<&&str> = BUNDLED_EXTENSIONS
         .iter()

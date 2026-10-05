@@ -22,14 +22,12 @@ const SCAN_DIRS = [
   "packages/xi-ui/src",
   "packages/xi-exa",
   "packages/xi-flow",
-  "packages/xi-tools",
 ];
 
 const ALIASES = {
   "xi-ui": "packages/xi-ui/src",
   "xi-exa": "packages/xi-exa",
   "xi-flow": "packages/xi-flow",
-  "xi-tools": "packages/xi-tools",
 };
 
 const ENTRY_PATTERNS = [

@@ -69,7 +69,6 @@ e2e/test-results/
 # Extension bundling
 resources/extensions/*
 !resources/extensions/.gitkeep
-packages/xi-tools/target/
 packages/xi-serve/target/
 apps/mobile/target/
 apps/mobile/src-tauri/gen/

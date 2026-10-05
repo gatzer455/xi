@@ -41,7 +41,7 @@ xi-serve está escrito en **Rust** (tokio + tokio-tungstenite) — decidido e im
 | **Auth** | Token estático generado al primer arranque; validado en el handshake WS. Ver [05](05-conectividad-seguridad.md). | no existe (IPC local) |
 | **Session manager** | Un proceso pi por vez; kill + respawn con `--session <path>` al cambiar de sesión (mismo modelo que desktop). pi sigue vivo entre conexiones del cliente. | `pi_process.rs` |
 | **Whitelist de proyectos** | Lista de working dirs permitidos en el config. Todo cwd de sesión se valida contra ella. | no existe |
-| **Extension manager** | `ensure_extensions()` al arrancar: instala/actualiza xi-tools, xi-exa y xi-flow en `~/.pi/agent/extensions/`. Crítico en un homeserver sin xi desktop: sin xi-flow no hay approve, y sin approve no hay supervisión remota. | `extensions.rs` |
+| **Extension manager** | `ensure_extensions()` al arrancar: instala/actualiza xi-exa y xi-flow en `~/.pi/agent/extensions/` (y borra la instalación legacy de xi-tools). Crítico en un homeserver sin xi desktop: sin xi-flow no hay approve, y sin approve no hay supervisión remota. | `extensions.rs` |
 | **RPC bridge** | Passthrough de comandos pi (texto plano → stdin) + comandos propios `xi_*` (JSON con `id` → respuesta con `id`). | `pi_rpc.rs` |
 | **Extension UI pendiente** | Si pi emite `extension_ui_request` sin cliente conectado: guardar, re-entregar al conectar, timeout configurable → denegar. | intercepción en `pi_process.rs` |
 | **Archivos read-only** | Listar/leer archivos dentro de proyectos whitelisteados (explorador móvil). | `files.rs` |

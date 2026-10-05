@@ -1,12 +1,9 @@
 /**
- * bundle-extensions.mjs — Compila xi-tools (Rust) y copia extensiones a resources/.
+ * bundle-extensions.mjs — Copia las extensiones (xi-flow, xi-exa) a resources/.
  *
- * Reemplaza a bundle-extensions.sh para funcionar en Windows sin bash.
- *
- * Uso: node scripts/bundle-extensions.mjs [--target <rust-triple>]
+ * Uso: node scripts/bundle-extensions.mjs
  */
-import { execaSync } from "execa";
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from "fs";
+import { copyFileSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -15,61 +12,12 @@ const PROJECT_DIR = resolve(__dirname, "..");
 const PKG_DIR = resolve(PROJECT_DIR, "packages");
 const RESOURCES_DIR = resolve(PROJECT_DIR, "resources", "extensions");
 
-// ── Parse target ───────────────────────────────────────────────────
-const targetIdx = process.argv.indexOf("--target");
-const TARGET_TRIPLE = targetIdx !== -1 ? process.argv[targetIdx + 1] : null;
-
 console.log("━━━ Bundleando extensiones ━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
 // ── Limpiar ────────────────────────────────────────────────────────
 rmSync(RESOURCES_DIR, { recursive: true, force: true });
 mkdirSync(RESOURCES_DIR, { recursive: true });
-
-// ── xi-tools: compilar binario Rust ────────────────────────────────
-console.log("");
-console.log("  ⚙️  Compilando xi-tools (Rust)...");
-
-const cargoArgs = ["build", "--release"];
-if (TARGET_TRIPLE) cargoArgs.push("--target", TARGET_TRIPLE);
-
-execaSync("cargo", cargoArgs, {
-  cwd: resolve(PKG_DIR, "xi-tools"),
-  stdio: "inherit",
-});
-
-console.log("  ✅ xi-tools compilado");
-
-// Copiar a resources/
-const xiToolsDir = resolve(RESOURCES_DIR, "xi-tools", "bin");
-mkdirSync(xiToolsDir, { recursive: true });
-
-const releaseDir = TARGET_TRIPLE
-  ? resolve(PKG_DIR, "xi-tools", "target", TARGET_TRIPLE, "release")
-  : resolve(PKG_DIR, "xi-tools", "target", "release");
-
-const srcBin = resolve(releaseDir, "xi-tools");
-const dstBin = resolve(xiToolsDir, "xi-tools");
-const srcBinExe = srcBin + ".exe";
-const dstBinExe = dstBin + ".exe";
-
-// Copiar binario (Unix .exe-less o Windows .exe)
-if (existsSync(srcBin)) {
-  copyFileSync(srcBin, dstBin);
-} else if (existsSync(srcBinExe)) {
-  copyFileSync(srcBinExe, dstBinExe);
-} else {
-  console.error("❌ xi-tools binary not found after build");
-  console.error(`   buscó en: ${srcBin} o ${srcBinExe}`);
-  process.exit(1);
-}
-
-// Copiar wrapper TS
-copyFileSync(
-  resolve(PKG_DIR, "xi-tools", "index.ts"),
-  resolve(RESOURCES_DIR, "xi-tools", "index.ts"),
-);
-
-console.log("  📦 xi-tools listo");
+writeFileSync(resolve(RESOURCES_DIR, ".gitkeep"), "");
 
 // ── xi-flow ───────────────────────────────────────────────────
 console.log("  📋 Copiando xi-flow...");
@@ -80,6 +28,7 @@ copyFileSync(resolve(PKG_DIR, "xi-flow", "approve.ts"), resolve(flowtoolsDir, "a
 copyFileSync(resolve(PKG_DIR, "xi-flow", "ask.ts"), resolve(flowtoolsDir, "ask.ts"));
 copyFileSync(resolve(PKG_DIR, "xi-flow", "ask-logic.ts"), resolve(flowtoolsDir, "ask-logic.ts"));
 copyFileSync(resolve(PKG_DIR, "xi-flow", "nested-context.ts"), resolve(flowtoolsDir, "nested-context.ts"));
+copyFileSync(resolve(PKG_DIR, "xi-flow", "mentions.ts"), resolve(flowtoolsDir, "mentions.ts"));
 
 // ── xi-exa ─────────────────────────────────────────────────────────
 console.log("  📋 Copiando xi-exa...");
@@ -92,7 +41,7 @@ console.log("");
 console.log("━━━ Extensiones bundleadas ─━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
 let total = 0;
-for (const ext of ["xi-tools", "xi-flow", "xi-exa"]) {
+for (const ext of ["xi-flow", "xi-exa"]) {
   const dir = resolve(RESOURCES_DIR, ext);
   const entries = readdirSync(dir, { withFileTypes: true }).filter(e => e.isFile());
   for (const e of entries) {

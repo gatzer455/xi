@@ -48,7 +48,7 @@ Estar en el tailnet ≠ ser de confianza (un laptop prestado, un nodo compartido
 ## Capa 4 — Supervisión: approvals y visibilidad
 
 - **xi-flow sigue mandando.** Las approve-rules del servidor (`~/.pi/agent/approve-rules.json`) aplican igual con clientes remotos. Garantizado porque xi-serve ejecuta `ensure_extensions()` al arrancar ([02](02-arquitectura.md)) — en un homeserver headless nadie más instala xi-flow.
-- **La ejecución de shell ya viene contenida**: xi-tools (brush-core + processkit) es la misma ruta de ejecución que en desktop. Recomendación para uso remoto: perfil de approve-rules más estricto — el costo de un tap extra en el celular es bajo; el de un `rm` desatendido no.
+- **La ejecución de shell corre por las tools built-in de pi** (mantenidas upstream, con `killProcessTree` cross-platform). Recomendación para uso remoto: perfil de approve-rules más estricto — el costo de un tap extra en el celular es bajo; el de un `rm` desatendido no.
 - **Timeout de approve = denegar** (nunca aprobar por silencio). Requests pendientes sin cliente conectado se encolan y re-entregan al conectar ([03](03-protocolo.md)).
 - **Diferido:** log de auditoría estructurado (qué comando, qué dispositivo, cada approve con su resolución) y notificaciones ntfy — llegan cuando el piloto valide el flujo básico.
 
