@@ -9,7 +9,6 @@
     "@tauri-apps/plugin-log": "^2.8.0",
     "markdown-it": "^14.2.0",
     "markdown-it-math": "^6.0.0",
-    "remark-math": "^6.0.0",
     "solid-js": "^1.9.14",
     "solid-markdown": "^2.1.1",
     "temml": "^0.13.3"

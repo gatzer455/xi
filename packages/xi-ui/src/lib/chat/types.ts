@@ -34,6 +34,7 @@ export type ToolCallId = string;
 /** Unión discriminada de las partes de un mensaje. */
 export type Part =
   | TextPart
+  | SkillPart
   | ThinkingPart
   | ToolCallPart
   | ToolResultPart
@@ -43,6 +44,13 @@ export type Part =
 export interface TextPart {
   type: 'text';
   text: string;
+}
+
+/** Skill invocado antes del mensaje del usuario. */
+export interface SkillPart {
+  type: 'skill';
+  name: string;
+  content: string;
 }
 
 /** Bloque de thinking/rasoning del assistant. */
@@ -105,7 +113,7 @@ export interface CompactionPart {
 // ─── Messages ─────────────────────────────────────────────
 
 /** Rol de un ChatMessage. Alineado con los roles de pi. */
-export type MessageRole = 'user' | 'assistant' | 'toolResult' | 'compaction';
+export type MessageRole = 'user' | 'skill' | 'assistant' | 'toolResult' | 'compaction';
 
 /** Mensaje en xi.
  *

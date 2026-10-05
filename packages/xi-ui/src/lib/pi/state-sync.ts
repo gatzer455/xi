@@ -58,11 +58,52 @@ let streamingSessionId: SessionPath | TabId | string | null = null;
  *  no re-activar isStreaming en el store. */
 let streamSettled = false;
 
+// ── Ensamblado de mensajes en streaming (pi ≥ 0.84) ──
+
+/** Buffer del mensaje en curso. Desde pi 0.84, `message_update` emite
+ *  SOLO deltas (`assistantMessageEvent`) sin el campo acumulativo
+ *  `message` — hay que ensamblar el partial entre `message_start`
+ *  (inicializa el buffer) y `message_end` (autoritativo, reemplaza).
+ *  Con pi < 0.84 (message presente), el buffer se reemplaza entero. */
+let partialMsg: Record<string, unknown> | null = null;
+
+/** Aplica un delta de streaming al mensaje en curso. Los bloques del
+ *  content (texto, thinking, toolcall) se indexan por `contentIndex`. */
+function applyMessageDelta(event: PiMessageUpdateEvent): void {
+  const ev = event.assistantMessageEvent;
+  if (!ev || !partialMsg) return;
+  const blocks = (Array.isArray(partialMsg.content) ? partialMsg.content : []) as Array<Record<string, unknown>>;
+  const i = ev.contentIndex ?? 0;
+  while (blocks.length <= i) blocks.push({} as Record<string, unknown>);
+  const block = blocks[i];
+  switch (ev.type) {
+    case 'text_start':     blocks[i] = { type: 'text', text: '' } as Record<string, unknown>; break;
+    case 'text_delta':     block.text = (typeof block.text === 'string' ? block.text : '') + (ev.delta ?? ''); break;
+    case 'text_end':       block.text = ev.content ?? (typeof block.text === 'string' ? block.text : ''); break;
+    case 'thinking_start': blocks[i] = { type: 'thinking', thinking: '' } as Record<string, unknown>; break;
+    case 'thinking_delta': block.thinking = (typeof block.thinking === 'string' ? block.thinking : '') + (ev.delta ?? ''); break;
+    case 'thinking_end':   block.thinking = ev.content ?? (typeof block.thinking === 'string' ? block.thinking : ''); break;
+    case 'toolcall_start': blocks[i] = { type: 'toolCall', arguments: '' } as Record<string, unknown>; break;
+    case 'toolcall_delta': block.arguments = tryParseArgs((typeof block.arguments === 'string' ? block.arguments : '') + (ev.delta ?? '')); break;
+    case 'toolcall_end':   blocks[i] = (ev.toolCall ?? block) as Record<string, unknown>; break;
+    default: break; // tipos futuros de delta: ignorar
+  }
+  partialMsg.content = blocks;
+}
+
+/** Los arguments de un toolcall llegan como string JSON crudo.
+ *  Los parseamos cuando el JSON está completo para que mapAgentMessage
+ *  los vea como objeto (paridad con pi < 0.84). */
+function tryParseArgs(raw: unknown): unknown {
+  if (typeof raw !== 'string') return raw;
+  try { return JSON.parse(raw); } catch { return raw; }
+}
+
 // ── Throttle message_update (evita saturar el store con 100+ eventos/s) ──
 
 /** Último message_update pendiente de procesar. Se actualiza en cada
  *  evento entrante y se procesa una vez por rAF. */
-let pendingThrottledUpdate: { event: PiMessageUpdateEvent; targetId: string } | null = null;
+let pendingThrottledUpdate: { targetId: string } | null = null;
 let throttleFrameId: number | null = null;
 
 function flushThrottledUpdate(): void {
@@ -74,20 +115,18 @@ function flushThrottledUpdate(): void {
     pendingThrottledUpdate = null;
     return;
   }
-  const { event, targetId } = pendingThrottledUpdate;
+  const { targetId } = pendingThrottledUpdate;
   pendingThrottledUpdate = null;
 
+  if (!partialMsg) return;
+
   // Loggear solo el evento que realmente se procesa (nivel debug para no inundar)
-  const size = JSON.stringify(event).length;
+  const size = JSON.stringify(partialMsg).length;
   addEntry('in', `↩ message_update size=${size}B`, 'debug');
 
-  const chatEvents = mapMessageEvent(
-    event as PiMessageUpdateEvent,
-    'message_update',
-  );
-  if (chatEvents.length === 0) return;
-  const store = getStore(targetId);
-  for (const ce of chatEvents) store.dispatch(ce);
+  const msg = mapAgentMessage(partialMsg);
+  if (!msg) return;
+  getStore(targetId).dispatch({ type: 'message_update', message: msg });
 }
 
 /** Intervalo mínimo entre procesamientos de message_update (ms).
@@ -118,6 +157,7 @@ export function endStream(): void {
   }
   streamingSessionId = null;
   streamSettled = true;
+  partialMsg = null;
   pendingThrottledUpdate = null;
   if (throttleFrameId !== null) {
     cancelAnimationFrame(throttleFrameId);
@@ -279,10 +319,15 @@ function routeStreamEvent(event: PiEvent): void {
     return;
   }
 
-  // message_update: throttle a ~20/s (50ms). Los eventos intermedios
-  // se descartan; solo importa el último estado de cada intervalo.
+  // message_update: aplicar al buffer (delta en pi ≥ 0.84, message
+  // completo en pi < 0.84) y throttlear el dispatch a ~20/s (50ms).
+  // Los eventos intermedios se descartan; solo importa el estado
+  // del buffer en cada intervalo.
   if (event.type === 'message_update') {
-    pendingThrottledUpdate = { event: event as PiMessageUpdateEvent, targetId };
+    const ev = event as PiMessageUpdateEvent;
+    if (ev.message) partialMsg = ev.message as Record<string, unknown>;
+    else applyMessageDelta(ev);
+    pendingThrottledUpdate = { targetId };
     const now = performance.now();
     const elapsed = now - lastProcessedTime;
     if (elapsed >= THROTTLE_MS) {
@@ -308,10 +353,11 @@ function routeStreamEvent(event: PiEvent): void {
     for (const ce of chatEvents) store.dispatch(ce);
   }
 
-  // agent_end limpia el routing y el flag global.
+  // agent_end limpia el routing, el buffer de streaming y el flag global.
   if (event.type === 'agent_end') {
     streamingSessionId = null;
     streamSettled = true;
+    partialMsg = null;
     // Limpiar throttle pendiente para que un rAF no re-active el store.
     pendingThrottledUpdate = null;
     if (throttleFrameId !== null) {
@@ -330,9 +376,19 @@ function mapStreamEvent(event: PiEvent): ChatEvent[] {
     case 'turn_end':
       // Marcadores de turno; el reducer no los necesita.
       return [];
-    case 'message_start':        return mapMessageEvent(event as PiMessageStartEvent, 'message_start');
-    case 'message_update':       return mapMessageEvent(event as PiMessageUpdateEvent, 'message_update');
-    case 'message_end':          return mapMessageEvent(event as PiMessageEndEvent, 'message_end');
+    case 'message_start': {
+      // Inicializa el buffer del mensaje en curso. Desde pi 0.84 el
+      // message_start trae el AgentMessage inicial (content vacío o
+      // primer bloque) y los message_update solo traen deltas.
+      const e = event as PiMessageStartEvent;
+      partialMsg = (e.message as Record<string, unknown> | undefined) ?? null;
+      return mapRawMessage(partialMsg, 'message_start');
+    }
+    case 'message_end': {
+      // Autoritativo: reemplaza el buffer con el message final.
+      const e = event as PiMessageEndEvent;
+      return mapRawMessage(e.message, 'message_end');
+    }
     case 'tool_execution_start': {
       const e = event as PiToolExecutionEvent;
       return [{ type: 'tool_execution_start', toolCallId: e.toolCallId }];
@@ -358,18 +414,13 @@ function mapStreamEvent(event: PiEvent): ChatEvent[] {
   }
 }
 
-/** Mapea un message_start/update/end a su ChatEvent. El `message`
- *  viene con el AgentMessage completo (parcial o final). Lo pasamos
- *  por mapAgentMessage y, si es válido, emitimos el ChatEvent. */
-function mapMessageEvent(
-  event: PiMessageStartEvent | PiMessageUpdateEvent | PiMessageEndEvent,
-  kind: 'message_start' | 'message_update' | 'message_end',
-): ChatEvent[] {
-  const msg = mapAgentMessage((event as { message?: unknown }).message);
+/** Mapea un AgentMessage raw (inicio o fin de mensaje) a su ChatEvent.
+ *  El `message` viene con el AgentMessage completo (parcial o final).
+ *  Lo pasamos por mapAgentMessage y, si es válido, emitimos el ChatEvent. */
+function mapRawMessage(raw: unknown, kind: 'message_start' | 'message_end'): ChatEvent[] {
+  const msg = mapAgentMessage(raw);
   if (!msg) return [];
-  if (kind === 'message_start') return [{ type: 'message_start', message: msg }];
-  if (kind === 'message_update') return [{ type: 'message_update', message: msg }];
-  return [{ type: 'message_end', message: msg }];
+  return [{ type: kind, message: msg }];
 }
 
 // ─── Helpers ──────────────────────────────────────────────

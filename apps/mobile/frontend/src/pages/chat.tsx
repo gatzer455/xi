@@ -1,8 +1,7 @@
 /**
  * chat.tsx — Vista de mensajes del chat (mobile).
  *
- * Reemplaza el pipeline vanilla (chat-messages.ts + chat-bubble.ts +
- * smooth-streamer.ts) con ChatMessages.tsx (SolidJS) de xi-ui.
+ * Usa ChatMessages.tsx (SolidJS) de xi-ui.
  * Extension UI dialogs se renderizan como bottom sheet fijo, no inline.
  */
 import { createSignal, createEffect, onCleanup, Show } from 'solid-js';

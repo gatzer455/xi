@@ -47,7 +47,8 @@ export interface AssistantMessageEvent {
   contentIndex?: number;
   delta?: string;
   content?: string;
-  partial?: unknown;
+  /** toolcall_end trae el ToolCall completo (id, name, arguments). */
+  toolCall?: unknown;
 }
 
 export interface PiResponseEvent {

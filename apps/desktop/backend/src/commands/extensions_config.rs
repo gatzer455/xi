@@ -82,11 +82,23 @@ pub async fn get_exa_api_key() -> Result<Option<String>, String> {
     Ok(config.api_key)
 }
 
-/// Guarda (o actualiza) la API key de Exa.
+/// Guarda (o actualiza) la API key de Exa, preservando otros campos (ej. `tools`).
 #[tauri::command]
 pub async fn set_exa_api_key(api_key: String) -> Result<(), String> {
     let path = exa_config_path();
-    write_exa_config(&path, &api_key).await
+    let mut json = read_exa_config_raw(&path).await?;
+    json["apiKey"] = serde_json::Value::String(api_key);
+    super::atomic::write_json(&path, &json, Some(0o600), None).await
+}
+
+async fn read_exa_config_raw(path: &Path) -> Result<serde_json::Value, String> {
+    if !path.exists() {
+        return Ok(serde_json::json!({}));
+    }
+    let content = tokio::fs::read_to_string(path)
+        .await
+        .map_err(|e| format!("No se puede leer la config de Exa: {e}"))?;
+    serde_json::from_str(&content).map_err(|_| "Config de Exa corrupta.".to_string())
 }
 
 /// Elimina la API key de Exa.
@@ -99,11 +111,6 @@ pub async fn delete_exa_api_key() -> Result<(), String> {
             .map_err(|e| format!("No se puede eliminar la config de Exa: {e}"))?;
     }
     Ok(())
-}
-
-async fn write_exa_config(path: &Path, api_key: &str) -> Result<(), String> {
-    let json = serde_json::json!({ "apiKey": api_key });
-    super::atomic::write_json(path, &json, Some(0o600), None).await
 }
 
 /// Valida una API key de Exa contra la API real (mismo patrón que test_api_key).

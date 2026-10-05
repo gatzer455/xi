@@ -18,7 +18,8 @@
  *   BashExecutionMessage:     { role: 'bashExecution', command, output, exitCode, cancelled, truncated, timestamp }
  *   CompactionSummaryMessage: { role: 'compactionSummary', summary, tokensBefore, timestamp }
  *   BranchSummaryMessage:     { role: 'branchSummary', summary, fromId, timestamp }   → ignorado
- *   CustomMessage:            { role: 'custom', ... }                                  → ignorado
+ *   CustomMessage skill:      { role: 'custom', customType: 'skill', content, timestamp }
+ *   Otros CustomMessage:      { role: 'custom', ... }                                  → ignorados
  */
 
 /** Contador local para IDs estables cuando pi no provee timestamp. */
@@ -64,13 +65,13 @@ export function mapAgentMessage(raw: unknown): ChatMessage | null {
 
   switch (role) {
     case 'user':              return mapUserMessage(msg, timestamp);
+    case 'custom':            return mapCustomMessage(msg, timestamp);
     case 'assistant':         return mapAssistantMessage(msg, timestamp);
     case 'toolResult':        return mapToolResultMessage(msg, timestamp);
     case 'bashExecution':     return mapBashExecutionMessage(msg, timestamp);
     case 'compactionSummary': return mapCompactionMessage(msg, timestamp);
     // Roles que xi ignora por ahora.
     case 'branchSummary':
-    case 'custom':
     case 'notification':
       return null;
     default:
@@ -89,6 +90,25 @@ function mapUserMessage(msg: RawMsg, timestamp: number): ChatMessage {
     parts: [{ type: 'text', text: stringifyContent(msg.content) }],
     timestamp,
   };
+}
+
+function mapCustomMessage(msg: RawMsg, timestamp: number): ChatMessage | null {
+  if (msg.customType !== 'skill') return null;
+  const parsed = parseSkillBlock(stringifyContent(msg.content));
+  if (!parsed) return null;
+  return {
+    id: messageId('skill', timestamp),
+    role: 'skill',
+    parts: [{ type: 'skill', name: parsed.name, content: parsed.content }],
+    timestamp,
+  };
+}
+
+function parseSkillBlock(text: string): { name: string; content: string } | null {
+  const match = text.match(
+    /^<skill name="([^"]+)" location="[^"]+">\n[\s\S]*?\n\n([\s\S]*)\n<\/skill>$/,
+  );
+  return match ? { name: match[1], content: match[2] } : null;
 }
 
 function mapAssistantMessage(msg: RawMsg, timestamp: number): ChatMessage {
@@ -372,6 +392,7 @@ export function groupToolCalls(parts: ToolCallPart[]): ToolGroupSummary[] {
 export function partRole(part: Part): MessageRole {
   switch (part.type) {
     case 'text':         return 'user';       // text puede aparecer en user o assistant
+    case 'skill':        return 'skill';
     case 'thinking':     return 'assistant';
     case 'toolCall':     return 'assistant';
     case 'toolResult':   return 'toolResult';

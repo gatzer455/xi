@@ -500,8 +500,24 @@ describe('mapAgentMessage — roles ignorados', () => {
     expect(mapAgentMessage({ role: 'branchSummary', summary: 'x', fromId: 'y', timestamp: 1 })).toBeNull();
   });
 
-  it('custom → null', () => {
+  it('custom desconocido → null', () => {
     expect(mapAgentMessage({ role: 'custom', customType: 'foo', content: 'x', display: true, timestamp: 1 })).toBeNull();
+  });
+
+  it('custom skill → mensaje separado con nombre y contenido', () => {
+    const message = mapAgentMessage({
+      role: 'custom',
+      customType: 'skill',
+      content: '<skill name="llaneza" location="/s/SKILL.md">\nReferences are relative to /s.\n\nEscribir claro.\n</skill>',
+      display: true,
+      timestamp: 2,
+    });
+    expect(message).toEqual({
+      id: 'skill_2',
+      role: 'skill',
+      parts: [{ type: 'skill', name: 'llaneza', content: 'Escribir claro.' }],
+      timestamp: 2,
+    });
   });
 
   it('notification → null', () => {

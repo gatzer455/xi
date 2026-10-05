@@ -1,7 +1,6 @@
 /**
  * ChatMessages.tsx — Lista de mensajes renderizada con SolidJS + SolidMarkdown.
  *
- * Reemplaza el pipeline vanilla: SmoothStreamer + reconcileDom + markdown.ts.
  * SolidMarkdown con renderingStrategy="reconcile" hace DOM diffing del AST
  * de markdown — solo re-renderiza los nodos que cambiaron.
  *
@@ -70,6 +69,9 @@ function MessageBubble(props: { message: () => ChatMessage }) {
       <Show when={props.message().role === 'assistant'}>
         <AssistantContent message={props.message} />
       </Show>
+      <Show when={props.message().role === 'skill'}>
+        <SkillContent message={props.message} />
+      </Show>
       <Show when={props.message().role === 'user'}>
         <UserContent message={props.message} />
       </Show>
@@ -110,6 +112,27 @@ function AssistantContent(props: { message: () => ChatMessage }) {
         />
       </div>
     </div>
+  );
+}
+
+// ─── Skill: bloque separado del mensaje del usuario ───────
+
+function SkillContent(props: { message: () => ChatMessage }) {
+  const part = () => props.message().parts.find(
+    (p): p is Part & { type: 'skill' } => p.type === 'skill',
+  );
+
+  return (
+    <details class="skill-invocation">
+      <summary class="skill-invocation-label">[skill] {part()?.name ?? 'unknown'}</summary>
+      <Show when={part()}>
+        {(skill) => (
+          <div class="skill-invocation-content">
+            <SolidMarkdown children={skill().content} class="md-root" />
+          </div>
+        )}
+      </Show>
+    </details>
   );
 }
 

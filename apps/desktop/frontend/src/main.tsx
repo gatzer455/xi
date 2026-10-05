@@ -52,12 +52,8 @@ async function main(): Promise<void> {
   appState.fontSize.value = initialFont;
   addEntry('system', `theme=${initialTheme} fontSize=${initialFont}`);
 
-  // Cargar CSS crítico después del render inicial
-  // (katex/temml no se necesitan hasta que hay mensajes con math)
-  Promise.all([
-    import('katex/dist/katex.min.css'),
-    import('./styles/temml.css'),
-  ]).catch(() => {});
+  // Cargar CSS de math (temml) después del render inicial
+  import('./styles/temml.css').catch(() => {});
 
   mountShell();
 

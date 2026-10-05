@@ -241,6 +241,55 @@ pub fn write_file(
     write_file_inner(&file, &content)
 }
 
+// ── rename_file ────────────────────────────────────────────────
+
+/// Lógica interna, sin confinamiento (para tests).
+pub fn rename_file_inner(file: &Path, new_name: &str) -> Result<(), String> {
+    if new_name.is_empty() || new_name == "." || new_name == ".." || new_name.contains('/') {
+        return Err("Nombre inválido".to_string());
+    }
+    let dest = file
+        .parent()
+        .ok_or_else(|| "Sin directorio padre".to_string())?
+        .join(new_name);
+    if dest.exists() {
+        return Err("Ya existe un archivo o carpeta con ese nombre".to_string());
+    }
+    fs::rename(file, &dest).map_err(|e| format!("Error renombrando: {e}"))
+}
+
+#[tauri::command]
+pub fn rename_file(
+    path: String,
+    new_name: String,
+    state: State<'_, PiProcessState>,
+    project_root: State<'_, ProjectRootState>,
+) -> Result<(), String> {
+    let file = confine(&path, &state, &project_root)?;
+    rename_file_inner(&file, &new_name)
+}
+
+// ── delete_file ────────────────────────────────────────────────
+
+/// Lógica interna, sin confinamiento (para tests).
+pub fn delete_file_inner(path: &Path) -> Result<(), String> {
+    if path.is_dir() {
+        fs::remove_dir_all(path).map_err(|e| format!("Error eliminando carpeta: {e}"))
+    } else {
+        fs::remove_file(path).map_err(|e| format!("Error eliminando archivo: {e}"))
+    }
+}
+
+#[tauri::command]
+pub fn delete_file(
+    path: String,
+    state: State<'_, PiProcessState>,
+    project_root: State<'_, ProjectRootState>,
+) -> Result<(), String> {
+    let file = confine(&path, &state, &project_root)?;
+    delete_file_inner(&file)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -348,6 +397,45 @@ mod tests {
         let path = dir.path().join("a/b/c/archivo.txt");
         write_file_inner(&path, "contenido").unwrap();
         assert_eq!(fs::read_to_string(&path).unwrap(), "contenido");
+    }
+
+    #[test]
+    fn rename_file_inner_renombra() {
+        let dir = setup_test_dir();
+        let path = dir.path().join("test.txt");
+        rename_file_inner(&path, "nuevo.txt").unwrap();
+        assert!(dir.path().join("nuevo.txt").exists());
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn rename_file_inner_rechaza_nombres_invalidos() {
+        let dir = setup_test_dir();
+        let path = dir.path().join("test.txt");
+        assert!(rename_file_inner(&path, "").is_err());
+        assert!(rename_file_inner(&path, "a/b").is_err());
+        assert!(rename_file_inner(&path, "..").is_err());
+    }
+
+    #[test]
+    fn rename_file_inner_rechaza_colision() {
+        let dir = setup_test_dir();
+        let path = dir.path().join("test.txt");
+        assert!(rename_file_inner(&path, "test.md").is_err());
+    }
+
+    #[test]
+    fn delete_file_inner_elimina_archivo() {
+        let dir = setup_test_dir();
+        delete_file_inner(&dir.path().join("test.txt")).unwrap();
+        assert!(!dir.path().join("test.txt").exists());
+    }
+
+    #[test]
+    fn delete_file_inner_elimina_directorio() {
+        let dir = setup_test_dir();
+        delete_file_inner(&dir.path().join("subdir")).unwrap();
+        assert!(!dir.path().join("subdir").exists());
     }
 
     #[test]

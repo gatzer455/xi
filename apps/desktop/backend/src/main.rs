@@ -78,6 +78,8 @@ fn main() {
             commands::files::list_files,
             commands::files::read_file,
             commands::files::write_file,
+            commands::files::rename_file,
+            commands::files::delete_file,
             commands::files::set_project_root,
             commands::plugins::get_plugins,
             commands::plugins::read_plugin_entry,

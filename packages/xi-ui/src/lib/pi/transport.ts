@@ -6,7 +6,7 @@
  *   - TauriEventBus: IPC local (desktop actual)
  *   - WsEventBus:     WebSocket hacia xi-serve (mobile, futuro)
  *
- * El resto del pipeline (state-sync, smooth-streamer, chat) es
+ * El resto del pipeline (state-sync, chat) es
  * agnóstico del transporte — solo necesita un PiEventBus.
  */
 // ponytail: add ExtensionUiRequest + ExtensionUiHandler when mobile approve exists

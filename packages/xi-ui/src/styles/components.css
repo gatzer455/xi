@@ -6,20 +6,6 @@
    Orden de carga: después de layout.css.
    Dependencias: tokens.css, base.css, layout.css. */
 
-/* ═══ MESSAGE WRAPPER ═══
-   El wrapper de cada mensaje (user/assistant/toolResult/compaction).
-   No tiene background propio — solo define layout y max-width. */
-.message {
-  display: flex;
-  width: 100%;
-  max-width: 100%;
-  font-size: var(--text-base);
-  line-height: var(--line-height-relaxed);
-}
-.message--user { justify-content: flex-end; }
-.message--assistant { justify-content: flex-start; }
-.message--compaction { justify-content: center; margin: var(--space-3) 0; }
-
 /* ═══ MESSAGE CONTENT (user/assistant) ═══
    El bloque real de contenido. User tiene bubble gris a la derecha,
    assistant es texto libre con max-width cómodo para lectura. */
@@ -29,6 +15,26 @@
 }
 .message-content--user { max-width: 600px; }
 .message-content--assistant { max-width: 760px; }
+
+/* ═══ SKILL INVOCATION ═══
+   El contenido del skill participa del contexto, pero se muestra fuera
+   del bubble del usuario, como en la interfaz nativa de pi. */
+.skill-invocation {
+  max-width: 760px;
+  color: var(--color-text-secondary, var(--color-text-muted));
+}
+.skill-invocation-label {
+  color: var(--color-accent);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.skill-invocation-label::-webkit-details-marker { display: none; }
+.skill-invocation-content {
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--color-accent-soft);
+}
 
 /* ═══ MESSAGE TEXT (user) ═══
    Bubble gris para mensajes del user. Texto plano, no markdown. */

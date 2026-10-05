@@ -270,6 +270,18 @@ export async function writeFile(path: string, content: string): Promise<void> {
   await loggedInvoke('write_file', () => invoke('write_file', { path, content }));
 }
 
+export async function renameFile(path: string, newName: string): Promise<void> {
+  addEntry('out', `rename_file path=${path} new=${newName}`);
+  if (isMobile) return;
+  await loggedInvoke('rename_file', () => invoke('rename_file', { path, newName }));
+}
+
+export async function deleteFile(path: string): Promise<void> {
+  addEntry('out', `delete_file path=${path}`);
+  if (isMobile) return;
+  await loggedInvoke('delete_file', () => invoke('delete_file', { path }));
+}
+
 export interface ExaConfigStatus {
   hasKey: boolean;
   last4: string | null;

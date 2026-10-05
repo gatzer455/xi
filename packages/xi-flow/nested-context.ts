@@ -153,10 +153,22 @@ function flushCache(ctx?: { ui: { notify: (msg: string, level: string) => void }
  * - Comando /flush-context-files para flushear manualmente
  */
 export function registerNestedContext(pi: ExtensionAPI) {
-	// Limpiar estado al iniciar sesión
-	pi.on("session_start", () => {
+	pi.on("session_start", (event, ctx) => {
 		loadedDirs.clear();
 		loadedFiles.clear();
+		// resume/fork/reload: la historia de la sesión ya contiene los contextos
+		// inyectados. Sembrar el cache desde la transcripción para no re-inyectarlos.
+		if (event.reason === "resume" || event.reason === "fork" || event.reason === "reload") {
+			for (const entry of ctx.sessionManager.getEntries()) {
+				if (entry.type === "custom_message" && entry.customType === "xi-flow-context") {
+					const paths = (entry.details as { sourcePaths?: string[] })?.sourcePaths ?? [];
+					for (const p of paths) {
+						loadedFiles.add(p);
+						loadedDirs.add(dirname(p));
+					}
+				}
+			}
+		}
 	});
 
 	// Auto-flush en compact: los mensajes de contexto inyectados se pierden,
